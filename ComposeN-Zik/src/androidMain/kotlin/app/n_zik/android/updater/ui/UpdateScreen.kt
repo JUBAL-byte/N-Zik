@@ -65,8 +65,6 @@ import dev.rebelonion.translator.Translator
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp

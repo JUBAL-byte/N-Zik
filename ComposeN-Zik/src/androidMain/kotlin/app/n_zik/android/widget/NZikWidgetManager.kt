@@ -18,6 +18,7 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.request.crossfade
 import coil3.toBitmap
+import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.MainActivity
 import app.n_zik.android.R
 import kotlinx.coroutines.Dispatchers
@@ -37,13 +38,7 @@ import android.util.TypedValue
 
 object NZikWidgetManager {
 
-    private var imageLoader: ImageLoader? = null
-
-    private fun getImageLoader(context: Context): ImageLoader {
-        return imageLoader ?: ImageLoader.Builder(context)
-            .crossfade(false)
-            .build().also { imageLoader = it }
-    }
+    private fun getImageLoader(context: Context): ImageLoader = ImageCacheFactory.LOADER
 
     // Cache for album art to avoid reloading
     private var cachedArtworkUri: String? = null

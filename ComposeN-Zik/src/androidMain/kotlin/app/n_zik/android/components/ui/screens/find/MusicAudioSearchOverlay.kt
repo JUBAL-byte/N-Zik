@@ -45,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -68,7 +67,7 @@ import app.n_zik.android.recognition.ShazamRepository
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.forcePlay
-import coil3.compose.AsyncImage
+import app.n_zik.android.core.coil.ImageCacheFactory
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.searchPage
 import it.fast4x.innertube.utils.from
@@ -426,10 +425,9 @@ private fun RecognizedTrackCard(
                 .size(80.dp)
                 .clip(RoundedCornerShape(14.dp))
         ) {
-            AsyncImage(
-                model = track.coverUrl ?: track.backgroundUrl,
+            ImageCacheFactory.Thumbnail(
+                thumbnailUrl = track.coverUrl ?: track.backgroundUrl,
                 contentDescription = track.title,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.matchParentSize()
             )
         }

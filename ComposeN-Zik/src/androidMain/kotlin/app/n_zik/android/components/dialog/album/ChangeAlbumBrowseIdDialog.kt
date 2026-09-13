@@ -34,7 +34,7 @@ import app.n_zik.android.components.dialog.common.InteractiveDialog
 import app.n_zik.android.core.database.Database
 import app.n_zik.android.typography
 import app.n_zik.android.uiRoundnessShape
-import coil3.compose.AsyncImage
+import app.n_zik.android.core.coil.ImageCacheFactory
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.searchPage
 import kotlinx.coroutines.Dispatchers
@@ -152,9 +152,8 @@ class ChangeAlbumBrowseIdDialog private constructor(
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AsyncImage(
-                                model = item.thumbnail?.url,
-                                contentDescription = null,
+                            ImageCacheFactory.Thumbnail(
+                                thumbnailUrl = item.thumbnail?.url,
                                 modifier = Modifier.size(40.dp).clip(uiRoundnessShape())
                             )
                             Spacer(modifier = Modifier.width(10.dp))

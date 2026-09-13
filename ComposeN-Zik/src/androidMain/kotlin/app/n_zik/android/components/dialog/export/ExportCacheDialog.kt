@@ -41,10 +41,7 @@ import timber.log.Timber
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
 import java.io.File
-import coil3.SingletonImageLoader
-import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.toBitmap
+import app.n_zik.android.core.coil.ImageCacheFactory
 import android.graphics.Bitmap
 import java.io.ByteArrayOutputStream
 import it.fast4x.innertube.requests.songInfo
@@ -164,12 +161,8 @@ class ExportCacheDialog(
                     var artworkData: ByteArray? = null
                     if (!song.thumbnailUrl.isNullOrEmpty()) {
                         try {
-                            val request = ImageRequest.Builder(appContext())
-                                .data(song.thumbnailUrl)
-                                .build()
-                            val result = SingletonImageLoader.get(appContext()).execute(request)
-                            if (result is SuccessResult) {
-                                val bitmap = result.image.toBitmap()
+                            val bitmap = ImageCacheFactory.loadBitmap(song.thumbnailUrl)
+                            if (bitmap != null) {
                                 val stream = ByteArrayOutputStream()
                                 bitmap.compress(Bitmap.CompressFormat.JPEG, 90, stream)
                                 artworkData = stream.toByteArray()

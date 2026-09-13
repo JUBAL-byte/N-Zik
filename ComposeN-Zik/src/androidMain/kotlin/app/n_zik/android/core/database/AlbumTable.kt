@@ -116,6 +116,60 @@ interface AlbumTable {
     fun findBySongIdDirect( songId: String ): Album?
 
     /**
+     * @param mbId of a MusicBrainz release group
+     * @return [Album] that has [Album.mbId] matches [mbId]
+     */
+    @Query("SELECT DISTINCT * FROM Album WHERE mbId = :mbId LIMIT 1")
+    fun getByMbId( mbId: String ): Album?
+
+    /**
+     * @param albumId of a YouTube album
+     * @return [Album] that has [Album.youtubeAlbumId] matches [albumId]
+     */
+    @Query("SELECT DISTINCT * FROM Album WHERE youtubeAlbumId = :albumId LIMIT 1")
+    fun getByYoutubeAlbumId( albumId: String ): Album?
+
+    /**
+     * @return bookmarked or in-library albums that still have no MusicBrainz metadata
+     */
+    @Query("""
+        SELECT DISTINCT *
+        FROM Album
+        WHERE mbId IS NULL
+        AND title IS NOT NULL
+        AND authorsText IS NOT NULL
+        AND (
+            bookmarkedAt IS NOT NULL
+            OR id IN (
+                SELECT DISTINCT A2.id
+                FROM Album A2
+                JOIN SongAlbumMap sam2 ON sam2.albumId = A2.id
+                JOIN Song S2 ON S2.id = sam2.songId
+                WHERE S2.totalPlayTimeMs >= 1 OR S2.likedAt IS NOT NULL OR S2.id LIKE 'local:%'
+            )
+        )
+        ORDER BY
+            CASE WHEN bookmarkedAt IS NULL THEN 1 ELSE 0 END ASC,
+            bookmarkedAt DESC
+        LIMIT :limit
+    """)
+    fun albumsWithoutMbData( limit: Int ): List<Album>
+
+    /**
+     * @return all other albums of the given artist name (excluding the given album)
+     */
+    @Query("""
+        SELECT DISTINCT *
+        FROM Album
+        WHERE authorsText = :artistName COLLATE NOCASE
+        AND id != :albumId
+        AND title IS NOT NULL
+        ORDER BY originalYear ASC NULLS LAST, title COLLATE NOCASE
+        LIMIT :limit
+    """)
+    fun getOtherAlbumsByArtistName( artistName: String, albumId: String, limit: Int ): List<Album>
+
+    /**
      * Attempt to write [Album] into database.
      *
      * ### Standalone use

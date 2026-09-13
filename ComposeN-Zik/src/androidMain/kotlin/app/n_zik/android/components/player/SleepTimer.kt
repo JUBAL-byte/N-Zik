@@ -16,9 +16,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -34,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -179,7 +177,7 @@ class SleepTimer private constructor(
 
             val arrowColor = colorPalette().text
             Icon(
-                imageVector = Icons.Filled.KeyboardArrowUp,
+                painter = painterResource(R.drawable.chevron_up),
                 contentDescription = stringResource(R.string.cd_arrow_up),
                 tint = arrowColor
             )
@@ -217,7 +215,7 @@ class SleepTimer private constructor(
             Spacer(modifier = Modifier.height(spacing))
 
             Icon(
-                imageVector = Icons.Filled.ArrowDropDown,
+                painter = painterResource(R.drawable.chevron_down),
                 contentDescription = stringResource(R.string.cd_arrow_down),
                 tint = arrowColor
             )

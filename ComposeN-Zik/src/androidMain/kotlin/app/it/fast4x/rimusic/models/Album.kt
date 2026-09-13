@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import app.it.fast4x.rimusic.cleanPrefix
+import app.n_zik.android.musicbrainz.models.ExternalLink
 
 @Immutable
 @Entity
@@ -19,7 +20,18 @@ data class Album(
     val isYoutubeAlbum: Boolean = false,
     val position: Int = -1,
     val lastFetch: Long? = null,
-    val dislikedAt: Long? = null
+    val dislikedAt: Long? = null,
+    val genres: List<String>? = null,
+    val originalYear: Int? = null,
+    val albumType: String? = null,
+    val tags: List<String>? = null,
+    val rating: Float? = null,
+    val ratingVotes: Int? = null,
+    val wikipediaUrl: String? = null,
+    val wikipediaInfo: String? = null,
+    val links: List<ExternalLink>? = null,
+    val mbId: String? = null,
+    val youtubeAlbumId: String? = null
 ) {
     fun toggleBookmark(): Album {
         return copy(
@@ -33,6 +45,17 @@ data class Album(
     fun cleanTitle() = cleanPrefix( this.title ?: "" )
 
     fun cleanAuthorsText() = cleanPrefix( this.authorsText ?: "" )
+
+    val info: String
+        get() = buildList {
+            originalYear?.let { add(it.toString()) }
+            albumType?.let { add(it) }
+        }.joinToString("    ")
+
+    val keywords: List<String>
+        get() = (genres.orEmpty() + tags.orEmpty())
+            .distinctBy { it.lowercase() }
+            .take(8)
 }
 
 

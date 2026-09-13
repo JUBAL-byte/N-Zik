@@ -19,8 +19,8 @@ import app.n_zik.android.R
 import coil3.ImageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
-import coil3.request.crossfade
 import coil3.toBitmap
+import app.n_zik.android.core.coil.ImageCacheFactory
 import app.it.fast4x.rimusic.ui.styling.colorPaletteOf
 import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import app.it.fast4x.rimusic.enums.ColorPaletteName
@@ -168,13 +168,7 @@ object PlaylistWidgetManager {
         picks
     }
 
-    private var imageLoader: ImageLoader? = null
-
-    private fun getImageLoader(context: Context): ImageLoader {
-        return imageLoader ?: ImageLoader.Builder(context)
-            .crossfade(false)
-            .build().also { imageLoader = it }
-    }
+    private fun getImageLoader(context: Context): ImageLoader = ImageCacheFactory.LOADER
 
 
     

@@ -10,6 +10,7 @@ import androidx.room.Update
 import androidx.room.Upsert
 import app.it.fast4x.rimusic.enums.ArtistSortBy
 import app.it.fast4x.rimusic.enums.SortOrder
+import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Artist
 import app.it.fast4x.rimusic.models.Song
 import kotlinx.coroutines.flow.Flow
@@ -115,6 +116,71 @@ interface ArtistTable {
 
     @Query("SELECT DISTINCT * FROM Artist WHERE name = :name COLLATE NOCASE LIMIT 1")
     fun findByNameDirect( name: String ): Artist?
+
+    /**
+     * @param mbId of a MusicBrainz artist
+     * @return [Artist] that has [Artist.mbId] matches [mbId]
+     */
+    @Query("SELECT DISTINCT * FROM Artist WHERE mbId = :mbId LIMIT 1")
+    fun getByMbId( mbId: String ): Artist?
+
+    /**
+     * @param channelId of a YouTube channel
+     * @return [Artist] that has [Artist.youtubeChannelId] matches [channelId]
+     */
+    @Query("SELECT DISTINCT * FROM Artist WHERE youtubeChannelId = :channelId LIMIT 1")
+    fun getByYoutubeChannelId( channelId: String ): Artist?
+
+    /**
+     * @return followed or in-library artists that still have no MusicBrainz metadata
+     */
+    @Query("""
+        SELECT DISTINCT *
+        FROM Artist
+        WHERE mbId IS NULL
+        AND name IS NOT NULL
+        AND (
+            bookmarkedAt IS NOT NULL
+            OR id IN (
+                SELECT DISTINCT A2.id
+                FROM Artist A2
+                JOIN SongArtistMap sam2 ON sam2.artistId = A2.id
+                JOIN Song S2 ON S2.id = sam2.songId
+                WHERE S2.totalPlayTimeMs >= 1 OR S2.likedAt IS NOT NULL OR S2.id LIKE 'local:%'
+            )
+        )
+        ORDER BY
+            CASE WHEN bookmarkedAt IS NULL THEN 1 ELSE 0 END ASC,
+            bookmarkedAt DESC
+        LIMIT :limit
+    """)
+    fun artistsWithoutMbData( limit: Int ): List<Artist>
+
+    /**
+     * @return all albums of the given artist
+     */
+    @Query("""
+        SELECT DISTINCT A.*
+        FROM Album A
+        JOIN SongAlbumMap sam ON sam.albumId = A.id
+        JOIN SongArtistMap saa ON saa.songId = sam.songId
+        WHERE saa.artistId = :artistId
+        ORDER BY A.ROWID
+    """)
+    fun getAlbumsByArtist( artistId: String ): List<Album>
+
+    /**
+     * @return most listened songs of the given artist
+     */
+    @Query("""
+        SELECT DISTINCT S.*
+        FROM SongArtistMap sam
+        JOIN Song S ON S.id = sam.songId
+        WHERE sam.artistId = :artistId
+        ORDER BY S.totalPlayTimeMs DESC
+        LIMIT :limit
+    """)
+    fun getTopSongsByArtist( artistId: String, limit: Int ): List<Song>
 
     /**
      * @return whether [Artist] with id [artistId] is followed by user,

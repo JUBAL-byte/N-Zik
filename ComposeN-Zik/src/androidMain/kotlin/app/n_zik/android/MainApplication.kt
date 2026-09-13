@@ -59,6 +59,10 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.utils.InnertubeLogger
 import it.fast4x.innertube.models.ArtistConjunctions
 import it.fast4x.invidious.utils.InvidiousLogger
+import app.n_zik.android.extensions.musicbrainz.workers.MbBackfillWorker
+import app.n_zik.android.musicbrainz.MBLogger
+import app.n_zik.android.musicbrainz.MBNetwork
+import app.n_zik.android.musicbrainz.MusicBrainz
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -95,6 +99,17 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
                 InvidiousLogger.Level.INFO -> Timber.tag(tag).i(throwable, "%s", message)
                 InvidiousLogger.Level.WARN -> Timber.tag(tag).w(throwable, "%s", message)
                 InvidiousLogger.Level.ERROR -> Timber.tag(tag).e(throwable, "%s", message)
+            }
+        }
+
+        // Route MBLogger (JVM module) to Timber (Android debug log)
+        MusicBrainz.appVersion = BuildConfig.VERSION_NAME
+        MBLogger.addListener { tag, level, message, throwable ->
+            when (level) {
+                MBLogger.Level.DEBUG -> Timber.tag(tag).d(throwable, "%s", message)
+                MBLogger.Level.INFO -> Timber.tag(tag).i(throwable, "%s", message)
+                MBLogger.Level.WARN -> Timber.tag(tag).w(throwable, "%s", message)
+                MBLogger.Level.ERROR -> Timber.tag(tag).e(throwable, "%s", message)
             }
         }
 
@@ -142,6 +157,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
                 cacheDir = externalCacheDir ?: cacheDir
             )
             Innertube.proxy = proxy
+            MBNetwork.proxy = proxy
             
             val savedCookie = encryptedPreferences.getString(ytCookieKey, "")
             if (!savedCookie.isNullOrBlank()) {
@@ -200,6 +216,9 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         }
 
         createNotificationChannels()
+
+        // Enrich artist/album MusicBrainz metadata in background (first run after 1h)
+        MbBackfillWorker.schedule(this)
 
         /**** LOG *********/
         val logEnabled = preferences.getBoolean(logDebugEnabledKey, false)

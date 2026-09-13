@@ -11,16 +11,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
+import app.n_zik.android.R
 import app.n_zik.android.colorPalette
 import app.n_zik.android.typography
 
@@ -62,7 +63,7 @@ object PathUtils {
 
     /**
      * Draw an interactive address bar starting with home ([Icons.Default.Home]) icon.
-     * Between folders there's [Icons.AutoMirrored.Filled.KeyboardArrowRight].
+     * Between folders there's [R.drawable.chevron_forward].
      *
      * Each path is clickable. When clicked, open folder at that exact location.
      *
@@ -100,7 +101,7 @@ object PathUtils {
             fullPath += "/$path"
 
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                painter = painterResource(R.drawable.chevron_forward),
                 tint = colorPalette().accent,
                 contentDescription = null
             )

@@ -37,7 +37,7 @@ import app.n_zik.android.core.database.Database
 import app.n_zik.android.typography
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.artistThumbnailShape
-import coil3.compose.AsyncImage
+import app.n_zik.android.core.coil.ImageCacheFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -153,9 +153,8 @@ class ChangeArtistBrowseIdDialog private constructor(
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AsyncImage(
-                                model = item.thumbnail?.url,
-                                contentDescription = null,
+                            ImageCacheFactory.Thumbnail(
+                                thumbnailUrl = item.thumbnail?.url,
                                 modifier = Modifier.size(40.dp).clip(artistThumbnailShape())
                             )
                             Spacer(modifier = Modifier.width(10.dp))

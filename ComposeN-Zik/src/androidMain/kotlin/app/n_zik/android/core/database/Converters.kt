@@ -5,9 +5,33 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import app.n_zik.android.musicbrainz.models.ExternalLink
+import kotlinx.serialization.json.Json
 
 @TypeConverters
 object Converters {
+
+    private val externalLinksJson = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        isLenient = true
+    }
+
+    @TypeConverter
+    @JvmStatic
+    fun stringToExternalLinks(value: String): List<ExternalLink> {
+        return runCatching {
+            externalLinksJson.decodeFromString(externalLinksListSerializer, value)
+        }.getOrDefault(emptyList())
+    }
+
+    @TypeConverter
+    @JvmStatic
+    fun externalLinksToString(externalLinks: List<ExternalLink>): String {
+        return externalLinksJson.encodeToString(externalLinksListSerializer, externalLinks)
+    }
+
+    private val externalLinksListSerializer = kotlinx.serialization.builtins.ListSerializer(ExternalLink.serializer())
 
     @TypeConverter
     @JvmStatic

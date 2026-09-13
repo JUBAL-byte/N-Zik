@@ -347,6 +347,7 @@ dependencies {
     implementation(projects.oldtube)
     implementation(projects.kugou)
     implementation(projects.lrclib)
+    implementation(projects.musicbrainz)
     implementation(projects.betterlyrics)
     implementation(libs.freedroidwarn)
 
