@@ -53,6 +53,13 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
                 songAlbumMapTable.allSongsOfDirect(albumId)
             }
 
+            val topTracks = withContext(Dispatchers.IO) {
+                // Same tracks, reordered by the album's total play time per song
+                // instead of disc position; drop songs that were never listened to.
+                songAlbumMapTable.getTopSongsOfDirect(albumId)
+                    .filter { it.totalPlayTimeMs >= 1 }
+            }
+
             val artist = withContext(Dispatchers.IO) {
                 val authors = album.authorsText?.trim().orEmpty()
                 if (authors.isNotBlank()) artistTable.findByNameDirect(authors) else null
@@ -78,6 +85,7 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
                 isLoading = false,
                 album = album,
                 tracks = tracks,
+                topTracks = topTracks,
                 artist = artist,
                 otherAlbums = otherAlbums,
                 externalLinks = album.links.orEmpty(),

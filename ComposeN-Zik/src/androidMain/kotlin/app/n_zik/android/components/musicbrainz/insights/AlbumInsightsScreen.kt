@@ -121,6 +121,18 @@ fun AlbumInsightsScreen(
                 )
             }
 
+            val bio = album.wikipediaInfo?.takeIf { it.isNotBlank() } ?: album.description?.takeIf { it.isNotBlank() }
+            if (bio != null) {
+                item(key = "info") {
+                    InfoCard(title = stringResource(R.string.information), icon = R.drawable.information) {
+                        Text(
+                            text = bio,
+                            style = typography().xs
+                        )
+                    }
+                }
+            }
+
             val keywords = album.keywords
             if (keywords.isNotEmpty()) {
                 item(key = "keywords") {
@@ -148,26 +160,59 @@ fun AlbumInsightsScreen(
                 }
             }
 
-            album.wikipediaInfo?.let { info ->
-                if (info.isNotBlank()) {
-                    item(key = "info") {
-                        InfoCard(title = stringResource(R.string.information), icon = R.drawable.information) {
-                            Text(
-                                text = info,
-                                style = typography().xs
-                            )
+            if (state.tracks.isNotEmpty()) {
+                item(key = "tracks") {
+                    InfoCard(
+                        title = stringResource(R.string.mb_stat_songs),
+                        icon = R.drawable.musical_notes
+                    ) {
+                        state.tracks.forEachIndexed { index, song ->
+                            SwipeablePlaylistItem(
+                                mediaItem = song.asMediaItem,
+                                onPlayNext = {
+                                    binder?.player?.addNext(song.asMediaItem)
+                                }
+                            ) {
+                                SongItem(
+                                    song = song,
+                                    isLiked = likeStatesMap[song.id],
+                                    navController = navController,
+                                    showThumbnail = true,
+                                    backgroundColor = colorPalette().background2,
+                                    thumbnailOverlay = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(thumbnailShape())
+                                                .background(colorPalette().overlay)
+                                        ) {
+                                            BasicText(
+                                                text = "${index + 1}",
+                                                style = typography().s.semiBold.center.color(colorPalette().onOverlay),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.align(Alignment.Center)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        binder?.stopRadio()
+                                        binder?.player?.forcePlay(song.asMediaItem)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            if (state.tracks.isNotEmpty()) {
-                item(key = "tracks") {
+            if (state.topTracks.isNotEmpty()) {
+                item(key = "top_songs") {
                     InfoCard(
-                        title = stringResource(R.string.mb_insights_tracklist_count, state.tracks.size),
+                        title = stringResource(R.string.mb_insights_top_songs),
                         icon = R.drawable.musical_notes
                     ) {
-                        state.tracks.forEachIndexed { index, song ->
+                        state.topTracks.forEachIndexed { index, song ->
                             SwipeablePlaylistItem(
                                 mediaItem = song.asMediaItem,
                                 onPlayNext = {
@@ -371,9 +416,9 @@ private fun AlbumStatsRow(stats: AlbumStats) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        StatItem(stringResource(R.string.mb_stat_tracks), stats.tracksCount.toString())
+        StatItem(stringResource(R.string.mb_stat_songs), stats.tracksCount.toString())
         StatItem(stringResource(R.string.mb_stat_listens), stats.playCount.toString())
-        StatItem(stringResource(R.string.mb_stat_likes), stats.likedSongsCount.toString())
+        StatItem(stringResource(R.string.mb_stat_liked_songs), stats.likedSongsCount.toString())
         StatItem(stringResource(R.string.mb_stat_time), formatPlayTime(stats.totalPlayTimeMs))
     }
 }

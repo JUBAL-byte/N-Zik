@@ -35,6 +35,7 @@ data class AlbumDetailUiState(
     val isLoading: Boolean = true,
     val album: Album? = null,
     val tracks: List<Song> = emptyList(),
+    val topTracks: List<Song> = emptyList(),
     val artist: Artist? = null,
     val otherAlbums: List<Album> = emptyList(),
     val externalLinks: List<ExternalLink> = emptyList(),

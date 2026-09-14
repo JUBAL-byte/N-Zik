@@ -72,6 +72,20 @@ interface SongAlbumMapTable {
     fun allSongsOfDirect( albumId: String, limit: Int = Int.MAX_VALUE ): List<Song>
 
     /**
+     * All songs of the album ranked by play time (desc), i.e. the album's
+     * tracklist reordered by popularity instead of disc position.
+     */
+    @Query("""
+        SELECT DISTINCT Song.*
+        FROM SongAlbumMap
+        JOIN Song ON id = songId
+        WHERE albumId = :albumId
+        ORDER BY Song.totalPlayTimeMs DESC
+        LIMIT :limit
+    """)
+    fun getTopSongsOfDirect( albumId: String, limit: Int = Int.MAX_VALUE ): List<Song>
+
+    /**
      * @return [Album] that the song belongs to
      */
     @Query("""

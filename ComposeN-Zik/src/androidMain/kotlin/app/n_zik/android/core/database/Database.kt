@@ -74,6 +74,7 @@ import app.n_zik.android.core.database.migration.From34To35Migration
 import app.n_zik.android.core.database.migration.From35To36Migration
 import app.n_zik.android.core.database.migration.From36To37Migration
 import app.n_zik.android.core.database.migration.From37To38Migration
+import app.n_zik.android.core.database.migration.From38To39Migration
 import app.kreate.android.me.knighthat.utils.PropUtils
 import app.n_zik.android.core.backup.BackupManager
 import androidx.room.InvalidationTracker
@@ -135,15 +136,13 @@ object Database {
 
             if (browseId != null) {
                 val dbArtist = artistTable.findByIdDirect(browseId)
-                artistDataList.add(artistName to Artist(
+                val artist = dbArtist?.copy(
+                    name = PropUtils.retainIfModified(dbArtist.name, artistName)
+                ) ?: Artist(
                     id = browseId,
-                    name = PropUtils.retainIfModified(dbArtist?.name, artistName),
-                    thumbnailUrl = dbArtist?.thumbnailUrl,
-                    timestamp = dbArtist?.timestamp,
-                    bookmarkedAt = dbArtist?.bookmarkedAt,
-                    isYoutubeArtist = dbArtist?.isYoutubeArtist == true,
-                    lastFetch = dbArtist?.lastFetch
-                ))
+                    name = artistName
+                )
+                artistDataList.add(artistName to artist)
             } else {
                 val dbArtistByName = artistTable.findByNameDirect(artistName)
                 artistDataList.add(artistName to dbArtistByName)
@@ -223,19 +222,20 @@ object Database {
             // Upsert album
             songItem.album?.let {
                 val browseId = it.endpoint?.browseId ?: return@let
-                val fetchedAlbum = Album(
-                    id = browseId,
-                    title = PropUtils.retainIfModified(dbAlbum?.title, it.name),
-                    thumbnailUrl = PropUtils.retainIfModified(dbAlbum?.thumbnailUrl, song.thumbnailUrl),
-                    year = dbAlbum?.year,
-                    authorsText = PropUtils.retainIfModified(dbAlbum?.authorsText, songItem.authors.parseArtists().joinToString(", ").takeIf { it.isNotBlank() }),
-                    shareUrl = dbAlbum?.shareUrl,
-                    timestamp = dbAlbum?.timestamp,
-                    bookmarkedAt = dbAlbum?.bookmarkedAt,
-                    dislikedAt = dbAlbum?.dislikedAt,
-                    isYoutubeAlbum = dbAlbum?.isYoutubeAlbum == true,
-                    lastFetch = dbAlbum?.lastFetch
-                )
+                val fetchedAlbum = if (dbAlbum != null) {
+                    dbAlbum.copy(
+                        title = PropUtils.retainIfModified(dbAlbum.title, it.name),
+                        thumbnailUrl = PropUtils.retainIfModified(dbAlbum.thumbnailUrl, song.thumbnailUrl),
+                        authorsText = PropUtils.retainIfModified(dbAlbum.authorsText, songItem.authors.parseArtists().joinToString(", ").takeIf { it.isNotBlank() })
+                    )
+                } else {
+                    Album(
+                        id = browseId,
+                        title = it.name,
+                        thumbnailUrl = song.thumbnailUrl,
+                        authorsText = songItem.authors.parseArtists().joinToString(", ").takeIf { it.isNotBlank() }
+                    )
+                }
                 if (dbAlbum != fetchedAlbum) {
                     albumTable.upsert(fetchedAlbum)
                 }
@@ -247,18 +247,13 @@ object Database {
                                 ?.getOrNull()
                                 ?.let { albumPage ->
                                     if (!albumPage.year.isNullOrBlank()) {
-                                        val updatedAlbum = Album(
-                                            id = browseId,
+                                        val updatedAlbum = fetchedAlbum.copy(
                                             title = PropUtils.retainIfModified(fetchedAlbum.title, albumPage.title.takeIf { !it.isNullOrBlank() }) ?: fetchedAlbum.title,
                                             thumbnailUrl = PropUtils.retainIfModified(fetchedAlbum.thumbnailUrl, albumPage.thumbnail?.url.takeIf { !it.isNullOrBlank() }) ?: fetchedAlbum.thumbnailUrl,
                                             year = albumPage.year,
                                             authorsText = PropUtils.retainIfModified(fetchedAlbum.authorsText, albumPage.authors.parseArtists().joinToString(", ").takeIf { it.isNotBlank() }) ?: fetchedAlbum.authorsText,
                                             shareUrl = PropUtils.retainIfModified(fetchedAlbum.shareUrl, albumPage.url) ?: fetchedAlbum.shareUrl,
-                                            timestamp = System.currentTimeMillis(),
-                                            bookmarkedAt = fetchedAlbum.bookmarkedAt,
-                                            dislikedAt = fetchedAlbum.dislikedAt,
-                                            isYoutubeAlbum = fetchedAlbum.isYoutubeAlbum,
-                                            lastFetch = fetchedAlbum.lastFetch
+                                            timestamp = System.currentTimeMillis()
                                         )
                                         albumTable.upsert(updatedAlbum)
                                     }
@@ -328,17 +323,11 @@ object Database {
             
             val dbAlbum = albumTable.findByIdDirect(albumId)
             val mergedAlbum = if (dbAlbum != null) {
-                Album(
-                    id = albumId,
+                dbAlbum.copy(
                     title = albumTitle.takeIf { !it.isNullOrBlank() } ?: dbAlbum.title,
                     thumbnailUrl = artworkUri.takeIf { !it.isNullOrBlank() } ?: dbAlbum.thumbnailUrl,
                     year = year.takeIf { !it.isNullOrBlank() } ?: dbAlbum.year,
-                    authorsText = artist.takeIf { !it.isNullOrBlank() } ?: dbAlbum.authorsText,
-                    shareUrl = dbAlbum.shareUrl,
-                    timestamp = dbAlbum.timestamp,
-                    bookmarkedAt = dbAlbum.bookmarkedAt,
-                    dislikedAt = dbAlbum.dislikedAt,
-                    lastFetch = dbAlbum.lastFetch
+                    authorsText = artist.takeIf { !it.isNullOrBlank() } ?: dbAlbum.authorsText
                 )
             } else {
                 Album(
@@ -359,16 +348,13 @@ object Database {
                             ?.getOrNull()
                             ?.let { albumPage ->
                                 if (!albumPage.year.isNullOrBlank()) {
-                                    val updatedAlbum = Album(
-                                        id = albumId,
+                                    val updatedAlbum = mergedAlbum.copy(
                                         title = PropUtils.retainIfModified(mergedAlbum.title, albumPage.title.takeIf { !it.isNullOrBlank() }) ?: mergedAlbum.title,
                                         thumbnailUrl = PropUtils.retainIfModified(mergedAlbum.thumbnailUrl, albumPage.thumbnail?.url.takeIf { !it.isNullOrBlank() }) ?: mergedAlbum.thumbnailUrl,
                                         year = albumPage.year,
                                         authorsText = PropUtils.retainIfModified(mergedAlbum.authorsText, albumPage.authors.parseArtists().joinToString(", ").takeIf { it.isNotBlank() }) ?: mergedAlbum.authorsText,
                                         shareUrl = PropUtils.retainIfModified(mergedAlbum.shareUrl, albumPage.url) ?: mergedAlbum.shareUrl,
-                                        timestamp = System.currentTimeMillis(),
-                                        bookmarkedAt = mergedAlbum.bookmarkedAt,
-                                        dislikedAt = mergedAlbum.dislikedAt
+                                        timestamp = System.currentTimeMillis()
                                     )
                                     albumTable.upsert(updatedAlbum)
                                 }
@@ -654,7 +640,7 @@ object Database {
     views = [
         SortedSongPlaylistMap::class
     ],
-    version = 38,
+    version = 39,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -719,7 +705,8 @@ abstract class DatabaseInitializer protected constructor() : RoomDatabase() {
                     From34To35Migration(),
                     From35To36Migration,
                     From36To37Migration,
-                    From37To38Migration
+                    From37To38Migration,
+                    From38To39Migration
                 )
                 .fallbackToDestructiveMigration()
                 .build()

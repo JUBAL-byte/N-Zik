@@ -1,3 +1,20 @@
+improve(insights): album Insights gains a "Top songs" section (play-time ranked) under the tracklist
+  - `SongAlbumMapTable.kt`: new `getTopSongsOfDirect(albumId, limit)` — same songs as `allSongsOfDirect` but ordered by `Song.totalPlayTimeMs DESC` instead of disc position
+  - `models.kt`: `AlbumDetailUiState` gained `topTracks` (`tracks` unchanged, still disc-ordered and still backs `AlbumStats.tracksCount`)
+  - `AlbumInsightsViewModel.kt`: loads `topTracks` from `getTopSongsOfDirect(albumId)` (no limit — ranks the whole album) filtered to `totalPlayTimeMs >= 1` so never-listened songs are excluded
+  - `AlbumInsightsScreen.kt`: section order is now Header → Info → Keywords → Rating → Your listening → Songs (renamed from "Tracklist (%d)", count dropped — was a duplicate of the "Songs" stat already shown in "Your listening") → Top songs (new, `state.topTracks`, play-time order) → Other albums → Links
+  - Both the "Songs" and "Top songs" cards reuse the same `SwipeablePlaylistItem` + `SongItem` + rank-overlay pattern as `ArtistInsightsScreen.kt`'s top songs; `likeStatesMap` keyed off `state.tracks` (superset, covers both cards)
+  - "Top songs" card hidden via `if (state.topTracks.isNotEmpty())` when the album was never played; "Your listening" / "Songs" gating unchanged (`stats.tracksCount > 0`, i.e. the full tracklist, not just listened songs)
+  - Reused existing `mb_stat_songs` ("Songs") and `mb_insights_top_songs` ("Top songs") strings — no new string added
+
+feat(insights): album description fallback + fix main-thread DB crash on album open
+  - `Album.kt`: new nullable `description` field, used by the Insights bio card when no MusicBrainz `wikipediaInfo` is available
+  - `Database.kt`: DB 38 -> 39; `From38To39Migration.kt` (additive-only, `ALTER TABLE Album ADD COLUMN description TEXT DEFAULT NULL`) + `schemas/.../39.json`
+  - `AlbumInsightsScreen.kt`: bio card now reads `album.wikipediaInfo ?: album.description`, moved earlier in the item list (was `wikipediaInfo`-only, appearing after keywords)
+  - `AlbumScreen.kt`: fixed crash `IllegalStateException: Cannot access database on the main thread` when opening an album — the description-caching `findByIdDirect`/`updateReplace` calls ran right after, but outside, the `Database.asyncTransaction { }` block, so they executed on the `LaunchedEffect`'s main-thread coroutine; moved inside `asyncTransaction { }` to run on the transaction executor
+  - `strings.xml`: removed now-unused `mb_stat_likes`; renamed `mb_stat_tracks` -> `mb_stat_songs` (matches the earlier `mb_insights_top_tracks` -> `mb_insights_top_songs` rename)
+  - Root cause: DB write logic added outside its transaction scope instead of inside the existing `asyncTransaction` block
+
 improve(insights): artist insights rework — bio fallback, section reorder, top albums, richer stats
   - `ArtistScreen.kt`: when the artist page is viewed, the YouTube description is now stored in `artist.description` (only when non-blank and different) so the Insights page can reuse it as a bio fallback without refetching the artist page
   - `ArtistInsightsScreen.kt`: biography now reads `artist.wikipediaBio ?: artist.description` and was moved to the second position (right after the header) instead of appearing last; it was previously blank when no Wikipedia bio existed

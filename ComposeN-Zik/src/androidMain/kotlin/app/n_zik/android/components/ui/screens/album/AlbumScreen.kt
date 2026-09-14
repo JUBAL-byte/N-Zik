@@ -227,7 +227,7 @@ fun AlbumScreen(
                             id = browseId,
                             title = PropUtils.retainIfModified(album?.title, onlineAlbum.title),
                             thumbnailUrl = PropUtils.retainIfModified(album?.thumbnailUrl, onlineAlbum.thumbnail?.url),
-                            year = onlineAlbum.year,
+                            year = onlineAlbum.year ?: album?.year,
                             authorsText = PropUtils.retainIfModified(album?.authorsText, authorsText),
                             shareUrl = online.url,
                             isYoutubeAlbum = album?.isYoutubeAlbum == true,
@@ -249,6 +249,17 @@ fun AlbumScreen(
                             )
                         }
                         .also(songAlbumMapTable::upsert)
+
+                    // Store the YouTube description so the Insights page can reuse it
+                    // as a bio fallback without refetching the album page.
+                    val ytDescription = online.description?.takeIf { it.isNotBlank() }
+                    if (ytDescription != null) {
+                        albumTable.findByIdDirect(browseId)?.let { current ->
+                            if (current.description != ytDescription) {
+                                albumTable.updateReplace(current.copy(description = ytDescription))
+                            }
+                        }
+                    }
                 }
 
                 alternatives = online.otherVersions

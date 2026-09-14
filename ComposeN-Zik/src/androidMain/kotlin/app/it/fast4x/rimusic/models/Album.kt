@@ -29,6 +29,7 @@ data class Album(
     val ratingVotes: Int? = null,
     val wikipediaUrl: String? = null,
     val wikipediaInfo: String? = null,
+    val description: String? = null,
     val links: List<ExternalLink>? = null,
     val mbId: String? = null,
     val youtubeAlbumId: String? = null
