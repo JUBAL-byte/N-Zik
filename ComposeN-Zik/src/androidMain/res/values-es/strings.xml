@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Artista</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Álbumes</string>
-  <string name="mb_stat_likes">Me gusta</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Canciones</string>
   <string name="overview">Resumen</string>
   <string name="singles">Sencillos</string>
   <string name="library">Biblioteca</string>
