@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Wykonawca</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Albumy</string>
-  <string name="mb_stat_likes">Polubienia</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Utwory</string>
   <string name="overview">Przegląd</string>
   <string name="singles">Single</string>
   <string name="library">Biblioteka</string>
