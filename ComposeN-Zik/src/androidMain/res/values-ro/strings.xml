@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Artist</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Albume</string>
-  <string name="mb_stat_likes">Aprecieri</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Melodii</string>
   <string name="overview">Prezentare generală</string>
   <string name="singles">Single-uri</string>
   <string name="library">Bibliotecă</string>
