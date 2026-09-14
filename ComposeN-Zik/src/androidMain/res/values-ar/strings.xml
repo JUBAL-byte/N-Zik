@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Artist</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">ألبومات</string>
-  <string name="mb_stat_likes">إعجاب</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">الأغاني</string>
   <string name="overview">نظرة عامة</string>
   <string name="singles">فردي</string>
   <string name="library">المكتبة</string>
