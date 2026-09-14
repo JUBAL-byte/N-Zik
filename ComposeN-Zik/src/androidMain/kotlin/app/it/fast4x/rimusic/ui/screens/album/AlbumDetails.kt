@@ -14,6 +14,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +75,7 @@ import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.typography
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import app.it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import app.it.fast4x.rimusic.ui.components.themed.AutoResizeText
@@ -119,6 +123,7 @@ import kotlinx.coroutines.withContext
 import app.n_zik.android.components.SongItem
 import app.n_zik.android.LocalDownloadStatesMap
 import app.n_zik.android.components.album.AlbumModifier
+import app.n_zik.android.components.menu.album.OnlineAlbumItemMenu
 import app.n_zik.android.core.database.LikeStateManager
 import app.n_zik.android.components.dialog.tab.DeleteAllDownloadedSongsDialog
 import app.n_zik.android.components.dialog.tab.DownloadAllSongsDialog
@@ -169,6 +174,8 @@ fun AlbumDetails(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val lazyListState = rememberLazyListState()
+    val menuState = LocalMenuState.current
+    val hapticFeedback = LocalHapticFeedback.current
 
     // Settings
     val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
@@ -652,9 +659,20 @@ fun AlbumDetails(
                                     thumbnailSizeDp = thumbnailAlbumSizeDp,
                                     bookmarkState = altBookmarkStatesMap[album.key],
                                     modifier = Modifier
-                                        .clip(uiRoundnessShape()).clickable {
-                                            navController.navigate(route = "${NavRoutes.album.name}/${album.key}")
-                                        },
+                                        .clip(uiRoundnessShape()).combinedClickable(
+                                            onClick = {
+                                                navController.navigate(route = "${NavRoutes.album.name}/${album.key}")
+                                            },
+                                            onLongClick = {
+                                                menuState.display {
+                                                    OnlineAlbumItemMenu(
+                                                        navController = navController,
+                                                        album = album
+                                                    ).MenuComponent()
+                                                }
+                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            }
+                                        ),
                                     disableScrollingText = disableScrollingText
                                 )
                             },

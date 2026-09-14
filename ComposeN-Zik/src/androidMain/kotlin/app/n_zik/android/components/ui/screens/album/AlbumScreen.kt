@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -67,6 +69,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.style.TextAlign
@@ -92,6 +96,7 @@ import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.models.SongAlbumMap
+import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.navigation.header.TabToolBar
 import app.it.fast4x.rimusic.ui.components.themed.AutoResizeText
 import app.it.fast4x.rimusic.ui.components.themed.Enqueue
@@ -133,6 +138,7 @@ import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.kreate.android.me.knighthat.utils.PropUtils
+import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.LocalDownloadStatesMap
 import app.n_zik.android.LocalPlayerServiceBinder
 import app.n_zik.android.R
@@ -141,6 +147,7 @@ import app.n_zik.android.components.SongItem
 import app.n_zik.android.components.album.AlbumModifier
 import app.n_zik.android.components.dialog.tab.DeleteAllDownloadedSongsDialog
 import app.n_zik.android.components.dialog.tab.DownloadAllSongsDialog
+import app.n_zik.android.components.menu.album.OnlineAlbumItemMenu
 import app.n_zik.android.components.musicbrainz.InfoAndCommunity
 import app.n_zik.android.components.tab.ItemSelector
 import app.n_zik.android.components.tab.Locator
@@ -165,6 +172,7 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
@@ -189,6 +197,8 @@ fun AlbumScreen(
     val playerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
 
     var album by persist<Album?>("album/$browseId")
+    var mbSyncing by remember { mutableStateOf(false) }
+    var mbPausedSeconds by remember { mutableStateOf(0L) }
     LaunchedEffect(Unit) {
         Database.albumTable
             .findById(browseId)
@@ -269,12 +279,18 @@ fun AlbumScreen(
 
     LaunchedEffect(album?.id) {
         val albumEntity = album ?: return@LaunchedEffect
-        withContext(Dispatchers.IO) {
-            val albumId = browseId.removePrefix(MODIFIED_PREFIX)
-            if (albumEntity.youtubeAlbumId != albumId) {
-                Database.albumTable.updateReplace(albumEntity.copy(youtubeAlbumId = albumId))
+        mbSyncing = true
+        try {
+            withContext(Dispatchers.IO) {
+                val albumId = browseId.removePrefix(MODIFIED_PREFIX)
+                if (albumEntity.youtubeAlbumId != albumId) {
+                    Database.albumTable.updateReplace(albumEntity.copy(youtubeAlbumId = albumId))
+                }
+                MBMetadataHelper.Default.onAlbumViewed(albumEntity.id)
             }
-            MBMetadataHelper.Default.onAlbumViewed(albumEntity.id)
+        } finally {
+            mbSyncing = false
+            mbPausedSeconds = MBMetadataHelper.Default.circuitOpenRemainingSeconds()
         }
     }
 
@@ -370,6 +386,10 @@ fun AlbumScreen(
                         alternatives = alternatives,
                         description = description,
                         loadedSongsCount = loadedSongsCount,
+                        mbSyncing = mbSyncing,
+                        onMbSyncingChange = { mbSyncing = it },
+                        mbPausedSeconds = mbPausedSeconds,
+                        onMbPausedSecondsChange = { mbPausedSeconds = it },
                         onSearchClick = {
                             navController.navigate(NavRoutes.search.name)
                         },
@@ -404,6 +424,10 @@ fun AlbumDetails(
     alternatives: List<Innertube.AlbumItem>,
     description: String,
     loadedSongsCount: Int = 0,
+    mbSyncing: Boolean = false,
+    onMbSyncingChange: (Boolean) -> Unit = {},
+    mbPausedSeconds: Long = 0,
+    onMbPausedSecondsChange: (Long) -> Unit = {},
     onSearchClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
@@ -412,6 +436,9 @@ fun AlbumDetails(
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
     val lazyListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val menuState = LocalMenuState.current
+    val hapticFeedback = LocalHapticFeedback.current
 
     val parentalControlEnabled by rememberPreference(parentalControlEnabledKey, false)
     val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
@@ -697,6 +724,31 @@ fun AlbumDetails(
                         translate = translate,
                         translator = translator,
                         languageDestination = languageDestination,
+                        lastSyncAt = album?.mbLastFetch,
+                        lastSyncFailed = album?.mbLastFetch != null && album?.genres == null,
+                        pausedForSeconds = mbPausedSeconds,
+                        isSyncing = mbSyncing,
+                        onResyncClick = {
+                            album?.id?.let { id ->
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    onMbSyncingChange(true)
+                                    try {
+                                        val success = MBMetadataHelper.Default.onAlbumViewed(id, force = true)
+                                        val paused = MBMetadataHelper.Default.circuitOpenRemainingSeconds()
+                                        onMbPausedSecondsChange(paused)
+                                        when {
+                                            success -> Toaster.s(R.string.mb_resync_success)
+                                            paused > 0 -> Toaster.e(
+                                                appContext().getString(R.string.mb_resync_paused, (paused / 60).coerceAtLeast(1))
+                                            )
+                                            else -> Toaster.e(R.string.mb_resync_error)
+                                        }
+                                    } finally {
+                                        onMbSyncingChange(false)
+                                    }
+                                }
+                            }
+                        },
                         onInsightsClick = {
                             navController.navigate("$ALBUM_INSIGHTS_ROUTE/$browseId")
                         }
@@ -794,9 +846,20 @@ fun AlbumDetails(
                                             thumbnailSizeDp = thumbnailAlbumSizeDp,
                                             bookmarkState = altBookmarkStatesMap[album.key],
                                             modifier = Modifier
-                                                .clip(uiRoundnessShape()).clickable {
-                                                    navController.navigate(route = "${NavRoutes.album.name}/${album.key}")
-                                                },
+                                                .clip(uiRoundnessShape()).combinedClickable(
+                                                    onClick = {
+                                                        navController.navigate(route = "${NavRoutes.album.name}/${album.key}")
+                                                    },
+                                                    onLongClick = {
+                                                        menuState.display {
+                                                            OnlineAlbumItemMenu(
+                                                                navController = navController,
+                                                                album = album
+                                                            ).MenuComponent()
+                                                        }
+                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    }
+                                                ),
                                             disableScrollingText = disableScrollingText
                                         )
                                     },

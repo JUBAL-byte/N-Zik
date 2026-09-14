@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 39,
-    "identityHash": "29f9e2fdd9f832b928ec61d7edaed819",
+    "identityHash": "44c4fb85758cb9f081051d370e012c24",
     "entities": [
       {
         "tableName": "Song",
@@ -213,7 +213,7 @@
       },
       {
         "tableName": "Artist",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT, `thumbnailUrl` TEXT, `timestamp` INTEGER, `bookmarkedAt` INTEGER, `isYoutubeArtist` INTEGER NOT NULL, `position` INTEGER NOT NULL, `lastFetch` INTEGER, `dislikedAt` INTEGER, `genres` TEXT, `artistType` TEXT, `countryCode` TEXT, `beginYear` INTEGER, `tags` TEXT, `rating` REAL, `ratingVotes` INTEGER, `wikipediaUrl` TEXT, `wikipediaBio` TEXT, `description` TEXT, `disambiguation` TEXT, `links` TEXT, `mbId` TEXT, `youtubeChannelId` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT, `thumbnailUrl` TEXT, `timestamp` INTEGER, `bookmarkedAt` INTEGER, `isYoutubeArtist` INTEGER NOT NULL, `position` INTEGER NOT NULL, `lastFetch` INTEGER, `dislikedAt` INTEGER, `genres` TEXT, `artistType` TEXT, `countryCode` TEXT, `beginYear` INTEGER, `tags` TEXT, `rating` REAL, `ratingVotes` INTEGER, `wikipediaUrl` TEXT, `wikipediaBio` TEXT, `description` TEXT, `disambiguation` TEXT, `links` TEXT, `mbId` TEXT, `youtubeChannelId` TEXT, `mbLastFetch` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -332,6 +332,11 @@
             "fieldPath": "youtubeChannelId",
             "columnName": "youtubeChannelId",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mbLastFetch",
+            "columnName": "mbLastFetch",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -412,7 +417,7 @@
       },
       {
         "tableName": "Album",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `thumbnailUrl` TEXT, `year` TEXT, `authorsText` TEXT, `shareUrl` TEXT, `timestamp` INTEGER, `bookmarkedAt` INTEGER, `isYoutubeAlbum` INTEGER NOT NULL, `position` INTEGER NOT NULL, `lastFetch` INTEGER, `dislikedAt` INTEGER, `genres` TEXT, `originalYear` INTEGER, `albumType` TEXT, `tags` TEXT, `rating` REAL, `ratingVotes` INTEGER, `wikipediaUrl` TEXT, `wikipediaInfo` TEXT, `description` TEXT, `links` TEXT, `mbId` TEXT, `youtubeAlbumId` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT, `thumbnailUrl` TEXT, `year` TEXT, `authorsText` TEXT, `shareUrl` TEXT, `timestamp` INTEGER, `bookmarkedAt` INTEGER, `isYoutubeAlbum` INTEGER NOT NULL, `position` INTEGER NOT NULL, `lastFetch` INTEGER, `dislikedAt` INTEGER, `genres` TEXT, `originalYear` INTEGER, `albumType` TEXT, `tags` TEXT, `rating` REAL, `ratingVotes` INTEGER, `wikipediaUrl` TEXT, `wikipediaInfo` TEXT, `description` TEXT, `links` TEXT, `mbId` TEXT, `youtubeAlbumId` TEXT, `mbLastFetch` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -536,6 +541,11 @@
             "fieldPath": "youtubeAlbumId",
             "columnName": "youtubeAlbumId",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mbLastFetch",
+            "columnName": "mbLastFetch",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -922,7 +932,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '29f9e2fdd9f832b928ec61d7edaed819')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '44c4fb85758cb9f081051d370e012c24')"
     ]
   }
 }

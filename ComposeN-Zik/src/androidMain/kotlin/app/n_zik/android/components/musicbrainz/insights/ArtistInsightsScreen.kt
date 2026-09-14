@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
@@ -84,8 +86,6 @@ fun ArtistInsightsScreen(
     val menuState = LocalMenuState.current
     val hapticFeedback = LocalHapticFeedback.current
     val gridItemSize = ItemSize.init(HOME_ALBUM_ITEM_SIZE)
-    val configuration = LocalConfiguration.current
-    val albumColumns = ((configuration.screenWidthDp - 64f) / gridItemSize.size.dp.value).toInt().coerceIn(2, 8)
 
     LaunchedEffect(artistId) {
         viewModel.loadArtist(artistId)
@@ -278,70 +278,63 @@ fun ArtistInsightsScreen(
             if (state.albums.isNotEmpty()) {
                 item(key = "albums") {
                     InfoCard(title = stringResource(R.string.mb_insights_local_library), icon = R.drawable.library) {
-                        val rows = state.albums.chunked(albumColumns)
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            rows.forEachIndexed { _, rowAlbums ->
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    rowAlbums.forEach { album ->
-                                        AlbumItem(
-                                            album = album,
-                                            thumbnailSizePx = gridItemSize.size.px,
-                                            thumbnailSizeDp = gridItemSize.size.dp,
-                                            alternative = true,
-                                            showAuthors = true,
-                                            showInfo = true,
-                                            yearCentered = true,
-                                            disableScrollingText = false,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(horizontal = 4.dp)
-                                                .clip(uiRoundnessShape())
-                                                .combinedClickable(
-                                                    onClick = {
-                                                        navController.navigate("album/${album.id}")
-                                                    },
-                                                    onLongClick = {
-                                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        menuState.display {
-                                                            OnlineAlbumItemMenu(
-                                                                navController = navController,
-                                                                album = album.toInnertube()
-                                                            ).MenuComponent()
-                                                        }
-                                                    }
-                                                ),
-                                            thumbnailOverlay = {
-                                                Box(modifier = Modifier.fillMaxSize()) {
-                                                    album.rating?.let { rating ->
-                                                        Row(
-                                                            modifier = Modifier
-                                                                .align(Alignment.BottomCenter)
-                                                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                                                .background(Color.Black.copy(alpha = 0.6f))
-                                                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                                        ) {
-                                                            Icon(
-                                                                painter = painterResource(R.drawable.star_brilliant),
-                                                                contentDescription = null,
-                                                                tint = Color(0xFFFFC107),
-                                                                modifier = Modifier.size(10.dp)
-                                                            )
-                                                            BasicText(
-                                                                text = String.format("%.1f", rating),
-                                                                style = typography().xxs.semiBold
-                                                            )
-                                                        }
-                                                    }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            items(state.albums, key = { it.id }) { album ->
+                                AlbumItem(
+                                    album = album,
+                                    thumbnailSizePx = gridItemSize.size.px,
+                                    thumbnailSizeDp = gridItemSize.size.dp,
+                                    alternative = true,
+                                    showAuthors = true,
+                                    showInfo = true,
+                                    yearCentered = true,
+                                    disableScrollingText = false,
+                                    modifier = Modifier
+                                        .clip(uiRoundnessShape())
+                                        .combinedClickable(
+                                            onClick = {
+                                                navController.navigate("album/${album.id}")
+                                            },
+                                            onLongClick = {
+                                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                menuState.display {
+                                                    OnlineAlbumItemMenu(
+                                                        navController = navController,
+                                                        album = album.toInnertube()
+                                                    ).MenuComponent()
                                                 }
                                             }
-                                        )
+                                        ),
+                                    thumbnailOverlay = {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            album.rating?.let { rating ->
+                                                Row(
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomCenter)
+                                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                                        .background(Color.Black.copy(alpha = 0.6f))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.star_brilliant),
+                                                        contentDescription = null,
+                                                        tint = Color(0xFFFFC107),
+                                                        modifier = Modifier.size(10.dp)
+                                                    )
+                                                    BasicText(
+                                                        text = String.format("%.1f", rating),
+                                                        style = typography().xxs.semiBold
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
-                                    repeat(albumColumns - rowAlbums.size) {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
+                                )
                             }
                         }
                     }

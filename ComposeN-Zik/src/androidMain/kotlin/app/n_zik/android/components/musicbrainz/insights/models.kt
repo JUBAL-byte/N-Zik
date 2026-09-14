@@ -38,6 +38,7 @@ data class AlbumDetailUiState(
     val topTracks: List<Song> = emptyList(),
     val artist: Artist? = null,
     val otherAlbums: List<Album> = emptyList(),
+    val singlesAndEps: List<Album> = emptyList(),
     val externalLinks: List<ExternalLink> = emptyList(),
     val stats: AlbumStats? = null
 )

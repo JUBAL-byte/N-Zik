@@ -16,6 +16,8 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 import androidx.compose.runtime.DisposableEffect
 
+const val mbCircuitOpenUntilKey = "mbCircuitOpenUntil"
+const val mbCircuitFailuresKey = "mbCircuitFailures"
 const val showVisualizerStateKey = "showVisualizerStateKey"
 const val showLyricsStateKey = "showLyricsStateKey"
 const val saveVisualizerStateKey = "saveVisualizerStateKey"

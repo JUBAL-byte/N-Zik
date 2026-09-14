@@ -32,6 +32,29 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.net.URLEncoder
 
 /**
+ * Thrown instead of making a request while the circuit breaker is open
+ * (too many consecutive MusicBrainz failures — see [MusicBrainz.rateLimitedGet]).
+ */
+class MusicBrainzUnavailableException(message: String) : Exception(message)
+
+/**
+ * Persists the circuit breaker's cooldown deadline across app restarts (the module
+ * itself is JVM-only and cannot read SharedPreferences) — otherwise force-quitting and
+ * reopening the app during a MusicBrainz outage would silently reset the breaker and
+ * let the app start hammering it again.
+ */
+object MBCircuitBreakerPersistence {
+    var load: () -> Long = { 0L }
+    var save: (Long) -> Unit = {}
+
+    // Consecutive-failure count, persisted so a partial streak (e.g. 2 of 3) isn't
+    // reset by force-quitting the app — otherwise repeatedly restarting during an
+    // outage would keep the streak just below the threshold indefinitely.
+    var loadFailures: () -> Int = { 0 }
+    var saveFailures: (Int) -> Unit = {}
+}
+
+/**
  * MusicBrainz API client.
  *
  * MusicBrainz asks clients to respect a maximum rate of 1 request/second
@@ -45,18 +68,65 @@ class MusicBrainz {
 
         // Set by the Android app from BuildConfig.VERSION_NAME
         var appVersion: String = "dev"
+
+        // Circuit breaker: after this many consecutive failures (503s or otherwise),
+        // MusicBrainz is almost certainly down/throttling us — stop sending it any
+        // requests at all for a while instead of continuing to hammer it. Applies to
+        // every caller (auto on-view sync, the manual resync button, and the backfill
+        // worker) uniformly since they all funnel through this one client instance.
+        private const val CIRCUIT_FAILURE_THRESHOLD = 3
+        private val CIRCUIT_COOLDOWN_MS = java.util.concurrent.TimeUnit.MINUTES.toMillis(10)
     }
 
-    private val userAgent get() = "n-zik/$appVersion ( com.nevar.nzik )"
+    // MusicBrainz requires "Application/version ( contact-url )" with a real contact
+    // point (not a package id) so they can reach out instead of just blocking on abuse.
+    // https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting
+    private val userAgent get() = "N-Zik/$appVersion ( https://github.com/N-Zik-Group/N-Zik )"
 
     private val rateLimiter = Mutex()
-
-    private suspend fun <T> makeRateLimitedRequest(block: suspend () -> T): T {
-        return rateLimiter.withLock {
-            delay(1050) // 1 second + margin
-            block()
+    private var consecutiveFailures = MBCircuitBreakerPersistence.loadFailures()
+        set(value) {
+            field = value
+            MBCircuitBreakerPersistence.saveFailures(value)
         }
-    }
+    private var circuitOpenUntil = MBCircuitBreakerPersistence.load()
+        set(value) {
+            field = value
+            MBCircuitBreakerPersistence.save(value)
+        }
+
+    /** Milliseconds left before the circuit breaker allows requests again, or 0 if closed. */
+    fun circuitOpenRemainingMs(): Long = (circuitOpenUntil - System.currentTimeMillis()).coerceAtLeast(0)
+
+    // MusicBrainz enforces ~1 request/sec per source IP; the delay must gate every
+    // individual HTTP call, not a logical operation that may issue several (e.g. a
+    // search followed by a detail lookup) — otherwise those fire back-to-back and
+    // already exceed the limit before the next operation's own delay even starts.
+    //
+    // Also enforces the circuit breaker: force-resync (manual button mashing) and the
+    // background worker share this same gate, so neither can bypass a MusicBrainz
+    // outage by retrying faster than the rest of the app.
+    private suspend fun rateLimitedGet(url: String) =
+        rateLimiter.withLock {
+            val now = System.currentTimeMillis()
+            if (now < circuitOpenUntil) {
+                throw MusicBrainzUnavailableException(
+                    "MusicBrainz circuit open for another ${(circuitOpenUntil - now) / 1000}s after $consecutiveFailures consecutive failures"
+                )
+            }
+            delay(1050) // 1 second + margin
+            try {
+                val response = client.get(url) { header("User-Agent", userAgent) }
+                consecutiveFailures = 0
+                response
+            } catch (e: Exception) {
+                consecutiveFailures++
+                if (consecutiveFailures >= CIRCUIT_FAILURE_THRESHOLD) {
+                    circuitOpenUntil = System.currentTimeMillis() + CIRCUIT_COOLDOWN_MS
+                }
+                throw e
+            }
+        }
 
     private val client by lazy {
         HttpClient(OkHttp) {
@@ -94,140 +164,129 @@ class MusicBrainz {
      * Fetches artist metadata (genres, tags, rating, links) from MusicBrainz.
      */
     suspend fun fetchArtistMetadata(artistName: String): MBArtistMetadata {
-        return makeRateLimitedRequest {
-            // 1. Search the artist to get the MBID
-            val searchResponse = client.get("$BASE_URL/artist?query=$artistName&fmt=json") {
-                header("User-Agent", userAgent)
-            }
-            val searchResult = searchResponse.body<MBSearchArtistResponse>()
-            val mbid = searchResult.artists.maxByOrNull { it.score }?.id
-                ?: return@makeRateLimitedRequest MBArtistMetadata(emptyList(), null, null, null, emptyList(), null, null, null, null, null, emptyList(), null)
+        // 1. Search the artist to get the MBID
+        val encodedName = URLEncoder.encode(artistName, "UTF-8")
+        val searchResponse = rateLimitedGet("$BASE_URL/artist?query=$encodedName&fmt=json")
+        val searchResult = searchResponse.body<MBSearchArtistResponse>()
+        val mbid = searchResult.artists.maxByOrNull { it.score }?.id
+            ?: return MBArtistMetadata(emptyList(), null, null, null, emptyList(), null, null, null, null, null, emptyList(), null)
 
-            // 2. Fetch details with genres
-            val detailResponse = client.get("$BASE_URL/artist/$mbid?inc=genres+tags+ratings+url-rels&fmt=json") {
-                header("User-Agent", userAgent)
-            }
-            val detailResult = detailResponse.body<MBArtistDetailResponse>()
+        // 2. Fetch details with genres
+        val detailResponse = rateLimitedGet("$BASE_URL/artist/$mbid?inc=genres+tags+ratings+url-rels&fmt=json")
+        val detailResult = detailResponse.body<MBArtistDetailResponse>()
 
-            val genres = detailResult.genres
-                .sortedByDescending { it.count }
-                .map { it.name.lowercase() }
+        val genres = detailResult.genres
+            .sortedByDescending { it.count }
+            .map { it.name.lowercase() }
 
-            val beginYear = detailResult.lifeSpan?.begin?.take(4)?.toIntOrNull()
+        val beginYear = detailResult.lifeSpan?.begin?.take(4)?.toIntOrNull()
 
-            val topTags = detailResult.tags
-                ?.sortedByDescending { it.count }
-                ?.take(5)
-                ?.map { it.name.lowercase() }
-                ?: emptyList()
+        val topTags = detailResult.tags
+            ?.sortedByDescending { it.count }
+            ?.take(5)
+            ?.map { it.name.lowercase() }
+            ?: emptyList()
 
-            val ratingValue = detailResult.rating?.value
-            val ratingVotes = detailResult.rating?.votesCount
+        val ratingValue = detailResult.rating?.value
+        val ratingVotes = detailResult.rating?.votesCount
 
-            val links = detailResult.relations
-                ?.filter { it.url != null && (it.type == "social network" || it.type == "official homepage") }
-                ?.map { relation ->
-                    val url = relation.url!!.resource
-                    ExternalLink(
-                        type = relation.type ?: "unknown",
-                        url = url,
-                        platform = extractPlatformFromUrl(url, relation.type)
-                    )
-                } ?: emptyList()
+        val links = detailResult.relations
+            ?.filter { it.url != null && (it.type == "social network" || it.type == "official homepage") }
+            ?.map { relation ->
+                val url = relation.url!!.resource
+                ExternalLink(
+                    type = relation.type ?: "unknown",
+                    url = url,
+                    platform = extractPlatformFromUrl(url, relation.type)
+                )
+            } ?: emptyList()
 
-            val wikiUrl = detailResult.relations
-                ?.firstOrNull { it.url?.resource?.contains("wikipedia.org") == true }
-                ?.url?.resource
+        val wikiUrl = detailResult.relations
+            ?.firstOrNull { it.url?.resource?.contains("wikipedia.org") == true }
+            ?.url?.resource
 
-            MBArtistMetadata(
-                genres = genres,
-                artistType = detailResult.type,
-                countryCode = detailResult.country,
-                beginYear = beginYear,
-                topTags = topTags,
-                ratingValue = ratingValue,
-                ratingVotes = ratingVotes,
-                wikipediaUrl = wikiUrl,
-                disambiguation = detailResult.disambiguation,
-                wikipediaBio = null,
-                links = links,
-                mbId = mbid
-            )
-        }
+        return MBArtistMetadata(
+            genres = genres,
+            artistType = detailResult.type,
+            countryCode = detailResult.country,
+            beginYear = beginYear,
+            topTags = topTags,
+            ratingValue = ratingValue,
+            ratingVotes = ratingVotes,
+            wikipediaUrl = wikiUrl,
+            disambiguation = detailResult.disambiguation,
+            wikipediaBio = null,
+            links = links,
+            mbId = mbid
+        )
     }
 
     /**
      * Fetches release-group metadata (genres, tags, rating, links) for an album.
      */
     suspend fun fetchAlbumMetadata(albumTitle: String, artistName: String): MBAlbumMetadata {
-        return makeRateLimitedRequest {
-            // 1. Search the Release Group
-            val query = URLEncoder.encode("releasegroup:\"$albumTitle\" AND artist:\"$artistName\"", "UTF-8")
-            val searchResponse = client.get("$BASE_URL/release-group?query=$query&fmt=json") {
-                header("User-Agent", userAgent)
-            }
-            val searchResult = searchResponse.body<MBSearchReleaseGroupResponse>()
-            val mbid = searchResult.releaseGroups.maxByOrNull { it.score }?.id
-                ?: return@makeRateLimitedRequest MBAlbumMetadata(emptyList(), null, null, emptyList(), null, null, null, mbId = null)
+        // 1. Search the Release Group
+        val query = URLEncoder.encode("releasegroup:\"$albumTitle\" AND artist:\"$artistName\"", "UTF-8")
+        val searchResponse = rateLimitedGet("$BASE_URL/release-group?query=$query&fmt=json")
+        val searchResult = searchResponse.body<MBSearchReleaseGroupResponse>()
+        val mbid = searchResult.releaseGroups.maxByOrNull { it.score }?.id
+            ?: return MBAlbumMetadata(emptyList(), null, null, emptyList(), null, null, null, mbId = null)
 
-            // 2. Fetch details
-            val detailResponse = client.get("$BASE_URL/release-group/$mbid?inc=genres+tags+ratings+url-rels&fmt=json") {
-                header("User-Agent", userAgent)
-            }
-            val detailResult = detailResponse.body<MBReleaseGroupDetailResponse>()
+        // 2. Fetch details
+        val detailResponse = rateLimitedGet("$BASE_URL/release-group/$mbid?inc=genres+tags+ratings+url-rels&fmt=json")
+        val detailResult = detailResponse.body<MBReleaseGroupDetailResponse>()
 
-            // 3. Extract and format the data
-            val genres = detailResult.genres
-                .sortedByDescending { it.count }
-                .map { it.name.lowercase() }
+        // 3. Extract and format the data
+        val genres = detailResult.genres
+            .sortedByDescending { it.count }
+            .map { it.name.lowercase() }
 
-            // If the type is Album but also Live, prefer "Live"
-            val albumType = when {
-                detailResult.secondaryTypes.contains("Live") -> "Live"
-                detailResult.secondaryTypes.contains("Compilation") -> "Compilation"
-                detailResult.secondaryTypes.contains("Remix") -> "Remix"
-                else -> detailResult.primaryType // "Album", "Single", "EP"
-            }
-
-            // Extract the year from the YYYY date
-            val originalYear = detailResult.firstReleaseDate?.take(4)?.toIntOrNull()
-
-            val topTags = detailResult.tags
-                ?.sortedByDescending { it.count }
-                ?.take(5)
-                ?.map { it.name.lowercase() }
-                ?: emptyList()
-
-            val ratingValue = detailResult.rating?.value
-            val ratingVotes = detailResult.rating?.votesCount
-
-            val wikiUrl = detailResult.relations
-                ?.firstOrNull { it.url?.resource?.contains("wikipedia.org") == true }
-                ?.url?.resource
-
-            val links = detailResult.relations
-                ?.filter { it.url != null && (it.type == "social network" || it.type == "official homepage") }
-                ?.map { relation ->
-                    val url = relation.url!!.resource
-                    ExternalLink(
-                        type = relation.type ?: "unknown",
-                        url = url,
-                        platform = extractPlatformFromUrl(url, relation.type)
-                    )
-                } ?: emptyList()
-
-            MBAlbumMetadata(
-                genres = genres,
-                albumType = albumType,
-                originalYear = originalYear,
-                topTags = topTags,
-                ratingValue = ratingValue,
-                ratingVotes = ratingVotes,
-                wikipediaUrl = wikiUrl,
-                links = links,
-                mbId = mbid
-            )
+        // If the type is Album but also Live, prefer "Live"
+        val albumType = when {
+            detailResult.secondaryTypes.contains("Live") -> "Live"
+            detailResult.secondaryTypes.contains("Compilation") -> "Compilation"
+            detailResult.secondaryTypes.contains("Remix") -> "Remix"
+            else -> detailResult.primaryType // "Album", "Single", "EP"
         }
+
+        // Extract the year from the YYYY date
+        val originalYear = detailResult.firstReleaseDate?.take(4)?.toIntOrNull()
+
+        val topTags = detailResult.tags
+            ?.sortedByDescending { it.count }
+            ?.take(5)
+            ?.map { it.name.lowercase() }
+            ?: emptyList()
+
+        val ratingValue = detailResult.rating?.value
+        val ratingVotes = detailResult.rating?.votesCount
+
+        val wikiUrl = detailResult.relations
+            ?.firstOrNull { it.url?.resource?.contains("wikipedia.org") == true }
+            ?.url?.resource
+
+        val links = detailResult.relations
+            ?.filter { it.url != null && (it.type == "social network" || it.type == "official homepage") }
+            ?.map { relation ->
+                val url = relation.url!!.resource
+                ExternalLink(
+                    type = relation.type ?: "unknown",
+                    url = url,
+                    platform = extractPlatformFromUrl(url, relation.type)
+                )
+            } ?: emptyList()
+
+        return MBAlbumMetadata(
+            genres = genres,
+            albumType = albumType,
+            originalYear = originalYear,
+            topTags = topTags,
+            ratingValue = ratingValue,
+            ratingVotes = ratingVotes,
+            wikipediaUrl = wikiUrl,
+            links = links,
+            mbId = mbid
+        )
     }
 
     /**
@@ -288,9 +347,7 @@ class MusicBrainz {
      * Fetches artist relations (members, collaborations, ...) from MusicBrainz.
      */
     suspend fun fetchArtistRelations(artistMbId: String): List<MBArtistRelationEntry> {
-        val response = client.get("$BASE_URL/artist/$artistMbId?inc=artist-rels&fmt=json") {
-            header("User-Agent", userAgent)
-        }
+        val response = rateLimitedGet("$BASE_URL/artist/$artistMbId?inc=artist-rels&fmt=json")
         return response.body<MBArtistRelationResponse>().relations
     }
 

@@ -1,5 +1,6 @@
 package app.n_zik.android.components.musicbrainz
 
+import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +35,7 @@ import app.n_zik.android.components.ui.screens.album.Translate
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.align
+import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.n_zik.android.musicbrainz.models.ExternalLink
@@ -57,6 +62,11 @@ fun InfoAndCommunity(
     translate: Translate,
     translator: Translator,
     languageDestination: Language,
+    lastSyncAt: Long? = null,
+    lastSyncFailed: Boolean = false,
+    pausedForSeconds: Long = 0,
+    isSyncing: Boolean = false,
+    onResyncClick: () -> Unit = {},
     onInsightsClick: () -> Unit
 ) {
     var readMore by remember { mutableStateOf(true) }
@@ -92,11 +102,53 @@ fun InfoAndCommunity(
                 .padding(horizontal = 16.dp)
                 .padding(top = 24.dp, bottom = 8.dp)
         ) {
-            Text(
-                text = stringResource(R.string.title_info_and_community),
-                style = typography().m.semiBold,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.title_info_and_community),
+                    style = typography().m.semiBold
+                )
+                Text(
+                    text = when {
+                        pausedForSeconds > 0 -> stringResource(
+                            R.string.mb_last_sync_paused,
+                            (pausedForSeconds / 60).coerceAtLeast(1)
+                        )
+                        lastSyncAt == null -> stringResource(R.string.mb_last_sync_never)
+                        lastSyncFailed -> stringResource(
+                            R.string.mb_last_sync_failed,
+                            DateUtils.getRelativeTimeSpanString(lastSyncAt).toString()
+                        )
+                        else -> stringResource(
+                            R.string.mb_last_sync,
+                            DateUtils.getRelativeTimeSpanString(lastSyncAt).toString()
+                        )
+                    },
+                    style = if (pausedForSeconds > 0 || lastSyncFailed)
+                        typography().xxs.semiBold.color(colorPalette().red)
+                    else
+                        typography().xxs.secondary
+                )
+            }
+            if (isSyncing) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(end = 12.dp)
+                        .size(18.dp),
+                    color = colorPalette().textSecondary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.refresh),
+                    contentDescription = stringResource(R.string.mb_resync),
+                    tint = colorPalette().textSecondary,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable { onResyncClick() }
+                        .padding(6.dp)
+                        .size(18.dp)
+                )
+            }
             Icon(
                 painter = painterResource(if (readMore) R.drawable.chevron_up else R.drawable.chevron_down),
                 contentDescription = null,

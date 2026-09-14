@@ -6,5 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 val From38To39Migration = object : Migration(38, 39) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE Album ADD COLUMN description TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE Artist ADD COLUMN mbLastFetch INTEGER DEFAULT NULL")
+        db.execSQL("ALTER TABLE Album ADD COLUMN mbLastFetch INTEGER DEFAULT NULL")
     }
 }

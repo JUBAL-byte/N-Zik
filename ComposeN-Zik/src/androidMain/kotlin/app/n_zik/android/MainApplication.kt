@@ -60,9 +60,12 @@ import it.fast4x.innertube.utils.InnertubeLogger
 import it.fast4x.innertube.models.ArtistConjunctions
 import it.fast4x.invidious.utils.InvidiousLogger
 import app.n_zik.android.extensions.musicbrainz.workers.MbBackfillWorker
+import app.n_zik.android.musicbrainz.MBCircuitBreakerPersistence
 import app.n_zik.android.musicbrainz.MBLogger
 import app.n_zik.android.musicbrainz.MBNetwork
 import app.n_zik.android.musicbrainz.MusicBrainz
+import app.it.fast4x.rimusic.utils.mbCircuitOpenUntilKey
+import app.it.fast4x.rimusic.utils.mbCircuitFailuresKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -104,6 +107,12 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
 
         // Route MBLogger (JVM module) to Timber (Android debug log)
         MusicBrainz.appVersion = BuildConfig.VERSION_NAME
+        // Persist the circuit breaker's cooldown across app restarts — otherwise
+        // force-quitting the app during a MusicBrainz outage would silently reset it.
+        MBCircuitBreakerPersistence.load = { preferences.getLong(mbCircuitOpenUntilKey, 0L) }
+        MBCircuitBreakerPersistence.save = { value -> preferences.edit().putLong(mbCircuitOpenUntilKey, value).apply() }
+        MBCircuitBreakerPersistence.loadFailures = { preferences.getInt(mbCircuitFailuresKey, 0) }
+        MBCircuitBreakerPersistence.saveFailures = { value -> preferences.edit().putInt(mbCircuitFailuresKey, value).apply() }
         MBLogger.addListener { tag, level, message, throwable ->
             when (level) {
                 MBLogger.Level.DEBUG -> Timber.tag(tag).d(throwable, "%s", message)

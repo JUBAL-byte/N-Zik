@@ -182,6 +182,8 @@ fun ArtistScreen(
     var selectedTabIndex by remember { mutableStateOf(0) }
 
     var localArtist: Artist? by remember { mutableStateOf(null) }
+    var mbSyncing by remember { mutableStateOf(false) }
+    var mbPausedSeconds by remember { mutableStateOf(0L) }
     LaunchedEffect(Unit) {
         Database.artistTable
             .findById(browseId)
@@ -255,12 +257,18 @@ fun ArtistScreen(
 
     LaunchedEffect(localArtist?.id) {
         val artist = localArtist ?: return@LaunchedEffect
-        withContext(Dispatchers.IO) {
-            val channelId = browseId.removePrefix(MODIFIED_PREFIX)
-            if (artist.youtubeChannelId != channelId) {
-                Database.artistTable.update(artist.copy(youtubeChannelId = channelId))
+        mbSyncing = true
+        try {
+            withContext(Dispatchers.IO) {
+                val channelId = browseId.removePrefix(MODIFIED_PREFIX)
+                if (artist.youtubeChannelId != channelId) {
+                    Database.artistTable.update(artist.copy(youtubeChannelId = channelId))
+                }
+                MBMetadataHelper.Default.onArtistViewed(artist.id)
             }
-            MBMetadataHelper.Default.onArtistViewed(artist.id)
+        } finally {
+            mbSyncing = false
+            mbPausedSeconds = MBMetadataHelper.Default.circuitOpenRemainingSeconds()
         }
     }
 
@@ -286,7 +294,11 @@ fun ArtistScreen(
                         Loader()
                     }
                 } else {
-                    ArtistOverview(navController, localArtist, artistPage, thumbnailPainter)
+                    ArtistOverview(
+                        navController, localArtist, artistPage, thumbnailPainter,
+                        mbSyncing, { mbSyncing = it },
+                        mbPausedSeconds, { mbPausedSeconds = it }
+                    )
                 }
             }
             1 -> {
@@ -313,7 +325,11 @@ fun ArtistOverview(
     navController: NavController,
     localArtist: Artist?,
     artistPage: ArtistPage?,
-    thumbnailPainter: Painter
+    thumbnailPainter: Painter,
+    mbSyncing: Boolean = false,
+    onMbSyncingChange: (Boolean) -> Unit = {},
+    mbPausedSeconds: Long = 0,
+    onMbPausedSecondsChange: (Long) -> Unit = {}
 ) {
     artistPage ?: return
 
@@ -590,6 +606,30 @@ fun ArtistOverview(
                         translate = translate,
                         translator = translator,
                         languageDestination = languageDestination,
+                        lastSyncAt = localArtist?.mbLastFetch,
+                        lastSyncFailed = localArtist?.mbLastFetch != null && localArtist?.genres == null,
+                        pausedForSeconds = mbPausedSeconds,
+                        isSyncing = mbSyncing,
+                        onResyncClick = {
+                            val id = localArtist?.id ?: artistPage.artist.key
+                            scope.launch(Dispatchers.IO) {
+                                onMbSyncingChange(true)
+                                try {
+                                    val success = MBMetadataHelper.Default.onArtistViewed(id, force = true)
+                                    val paused = MBMetadataHelper.Default.circuitOpenRemainingSeconds()
+                                    onMbPausedSecondsChange(paused)
+                                    when {
+                                        success -> Toaster.s(R.string.mb_resync_success)
+                                        paused > 0 -> Toaster.e(
+                                            appContext().getString(R.string.mb_resync_paused, (paused / 60).coerceAtLeast(1))
+                                        )
+                                        else -> Toaster.e(R.string.mb_resync_error)
+                                    }
+                                } finally {
+                                    onMbSyncingChange(false)
+                                }
+                            }
+                        },
                         onInsightsClick = {
                             val id = localArtist?.id ?: artistPage.artist.key
                             navController.navigate("$ARTIST_INSIGHTS_ROUTE/$id")

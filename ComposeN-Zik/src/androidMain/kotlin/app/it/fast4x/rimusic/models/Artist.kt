@@ -32,7 +32,8 @@ data class Artist(
     val disambiguation: String? = null,
     val links: List<ExternalLink>? = null,
     val mbId: String? = null,
-    val youtubeChannelId: String? = null
+    val youtubeChannelId: String? = null,
+    val mbLastFetch: Long? = null
 ) {
     fun cleanName() = cleanPrefix( this.name ?: "" )
 

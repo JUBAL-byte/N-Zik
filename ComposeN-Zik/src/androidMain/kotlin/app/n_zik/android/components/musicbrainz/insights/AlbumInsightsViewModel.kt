@@ -5,8 +5,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import app.it.fast4x.rimusic.cleanPrefix
+import app.it.fast4x.rimusic.models.Album
 import app.n_zik.android.Dependencies
 import app.n_zik.android.core.database.Database
+import it.fast4x.innertube.Innertube
+import it.fast4x.innertube.YtMusic
+import it.fast4x.innertube.requests.ArtistSection
+import timber.log.Timber
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,8 +28,6 @@ import kotlinx.coroutines.withContext
 class AlbumInsightsViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object : ViewModelProvider.Factory {
-        private const val MAX_OTHER_ALBUMS = 20
-
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(AlbumInsightsViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
@@ -62,17 +66,94 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
 
             val artist = withContext(Dispatchers.IO) {
                 val authors = album.authorsText?.trim().orEmpty()
-                if (authors.isNotBlank()) artistTable.findByNameDirect(authors) else null
-            }
-
-            val otherAlbums = withContext(Dispatchers.IO) {
-                val artistName = album.authorsText?.trim().orEmpty()
-                if (artistName.isBlank()) {
-                    emptyList()
-                } else {
-                    albumTable.getOtherAlbumsByArtistName(artistName, albumId, limit = MAX_OTHER_ALBUMS)
+                val byName = if (authors.isNotBlank()) artistTable.findByNameDirect(authors) else null
+                // Name matching is fragile (casing, "feat.", collab text); fall back to the
+                // actual SongArtistMap relation of the album's own tracks, same source used
+                // by "Go to artist" elsewhere in the app.
+                byName ?: tracks.firstOrNull()?.let { song ->
+                    artistTable.findBySongIdDirect(song.id).firstOrNull()
                 }
             }
+
+            // MusicBrainz-matched local albums carry an albumType ("Album", "Single",
+            // "EP", "Live", "Compilation", "Remix"); split on it so a local single/EP
+            // lands in the same section as its online counterpart. Albums never matched
+            // against MusicBrainz have a null albumType and default to "Other albums".
+            val (localOtherAlbums, localSinglesAndEps) = withContext(Dispatchers.IO) {
+                val artistName = album.authorsText?.trim().orEmpty()
+                if (artistName.isBlank()) {
+                    emptyList<Album>() to emptyList()
+                } else {
+                    val singleOrEpTypes = setOf("single", "ep")
+                    albumTable.getOtherAlbumsByArtistName(artistName, albumId, limit = Int.MAX_VALUE)
+                        .partition { it.albumType?.lowercase() !in singleOrEpTypes }
+                }
+            }
+            val localAlbumsAll = localOtherAlbums + localSinglesAndEps
+
+            // Local library only tracks albums the user has already interacted with, so
+            // fetch the artist's YouTube Music page to fill in what's missing: full
+            // albums go into "Other albums", singles/EPs into their own section
+            // (YTM bundles EPs with singles under "Singles & EPs", no way to split them).
+            val (missingAlbums, missingSinglesAndEps) = withContext(Dispatchers.IO) {
+                val artistId = artist?.id?.takeIf { it.isNotBlank() && !it.startsWith("local:") }
+                if (artistId == null) {
+                    Timber.tag("AlbumInsights").d(
+                        "missingAlbums skipped: no usable YouTube artist id (artist.id=${artist?.id})"
+                    )
+                    emptyList<Album>() to emptyList()
+                } else {
+                    val knownIds = localAlbumsAll.mapTo(mutableSetOf()) { it.id }
+                    val knownTitles = localAlbumsAll.mapNotNullTo(mutableSetOf()) {
+                        it.title?.let(::cleanPrefix)?.trim()?.lowercase()
+                    }
+
+                    fun mapSection(section: ArtistSection?): List<Album> = section
+                        ?.items
+                        ?.filterIsInstance<Innertube.AlbumItem>()
+                        ?.mapNotNull { item ->
+                            val id = item.info?.endpoint?.browseId
+                                ?.takeIf { it != albumId && it !in knownIds }
+                                ?: return@mapNotNull null
+                            val title = item.title
+                            if (title != null && cleanPrefix(title).trim().lowercase() in knownTitles) {
+                                return@mapNotNull null
+                            }
+                            Album(
+                                id = id,
+                                title = title,
+                                thumbnailUrl = item.thumbnail?.url,
+                                year = item.year,
+                                authorsText = album.authorsText
+                            )
+                        }
+                        ?.distinctBy { it.id }
+                        .orEmpty()
+
+                    val artistPageResult = YtMusic.getArtistPage(artistId)
+                    val artistPage = artistPageResult.getOrNull()
+                    val albumsSection = artistPage?.sections?.firstOrNull { it.title.equals("Albums", ignoreCase = true) }
+                    val singlesSection = artistPage?.sections?.firstOrNull { it.title.contains("Singles", ignoreCase = true) }
+
+                    val albumsResult = mapSection(albumsSection)
+                    val singlesResult = mapSection(singlesSection)
+
+                    Timber.tag("AlbumInsights").d(
+                        "missingAlbums: artistId=$artistId fetchSuccess=${artistPageResult.isSuccess} " +
+                            "sections=${artistPage?.sections?.map { it.title }} " +
+                            "localOther=${localOtherAlbums.size} localSingles=${localSinglesAndEps.size} " +
+                            "missing=${albumsResult.size} missingSingles=${singlesResult.size}"
+                    )
+                    if (artistPageResult.isFailure) {
+                        Timber.tag("AlbumInsights").e(artistPageResult.exceptionOrNull(), "getArtistPage failed")
+                    }
+
+                    albumsResult to singlesResult
+                }
+            }
+
+            val otherAlbums = localOtherAlbums + missingAlbums
+            val singlesAndEps = localSinglesAndEps + missingSinglesAndEps
 
             val stats = withContext(Dispatchers.IO) {
                 val likedSongs = tracks.count { it.likedAt != null }
@@ -88,9 +169,17 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
                 topTracks = topTracks,
                 artist = artist,
                 otherAlbums = otherAlbums,
+                singlesAndEps = singlesAndEps,
                 externalLinks = album.links.orEmpty(),
                 stats = stats
             )
+
+            // "Other albums"/"Singles & EPs" cards only get their rating badge once the
+            // user actually opens that specific album (AlbumScreen's own on-view sync) —
+            // opening this Insights page must not itself fan out into fetching MusicBrainz
+            // metadata for a dozen unrelated albums (missing=4 missingSingles=10 is not
+            // unusual), which is exactly the kind of bulk-fetch-on-a-single-view pattern
+            // MusicBrainz's rate limiting is meant to discourage.
         }
     }
 }

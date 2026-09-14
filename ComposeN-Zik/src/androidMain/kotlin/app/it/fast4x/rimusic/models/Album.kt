@@ -32,7 +32,8 @@ data class Album(
     val description: String? = null,
     val links: List<ExternalLink>? = null,
     val mbId: String? = null,
-    val youtubeAlbumId: String? = null
+    val youtubeAlbumId: String? = null,
+    val mbLastFetch: Long? = null
 ) {
     fun toggleBookmark(): Album {
         return copy(

@@ -25,8 +25,16 @@ class MbBackfillWorker(
         private const val TAG = "MbBackfillWorker"
         private const val WORK_NAME = "MbBackfillWorker"
         private const val MAX_ITEMS_PER_RUN = 5
-        private const val INITIAL_DELAY_HOURS = 1L
+        private const val INITIAL_DELAY_MS = 60L * 60 * 1000
         private const val RESCHEDULE_DELAY_MS = 24L * 60 * 60 * 1000
+
+        // MusicBrainz explicitly asks integrators to avoid synchronized requests across
+        // distributed installations (e.g. every install of a new app version hitting MB
+        // at the same fixed offset). +/-15min of jitter spreads the fleet out.
+        private const val JITTER_MS = 15L * 60 * 1000
+
+        private fun withJitter(baseDelayMs: Long) =
+            (baseDelayMs + (-JITTER_MS..JITTER_MS).random()).coerceAtLeast(0)
 
         /**
          * Schedules the first backfill run after a delay so the app
@@ -34,7 +42,7 @@ class MbBackfillWorker(
          */
         fun schedule(context: Context) {
             val request = OneTimeWorkRequestBuilder<MbBackfillWorker>()
-                .setInitialDelay(INITIAL_DELAY_HOURS, TimeUnit.HOURS)
+                .setInitialDelay(withJitter(INITIAL_DELAY_MS), TimeUnit.MILLISECONDS)
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
@@ -44,7 +52,10 @@ class MbBackfillWorker(
         }
     }
 
-    private val helper = MBMetadataHelper()
+    // Shares MBMetadataHelper.Default's MusicBrainz client (and its rate-limiting mutex)
+    // so this background backfill can't burst past 1 req/sec together with foreground
+    // fetches triggered by browsing artist/album pages.
+    private val helper = MBMetadataHelper.Default
 
     override suspend fun doWork(): Result {
         Timber.tag(TAG).i("Starting MusicBrainz metadata backfill")
@@ -71,7 +82,7 @@ class MbBackfillWorker(
 
     private fun reschedule(): Result {
         val request = OneTimeWorkRequestBuilder<MbBackfillWorker>()
-            .setInitialDelay(RESCHEDULE_DELAY_MS, TimeUnit.MILLISECONDS)
+            .setInitialDelay(withJitter(RESCHEDULE_DELAY_MS), TimeUnit.MILLISECONDS)
             .build()
         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
             WORK_NAME,
