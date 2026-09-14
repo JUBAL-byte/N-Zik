@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -101,10 +100,7 @@ fun InfoAndCommunity(
             Icon(
                 painter = painterResource(if (readMore) R.drawable.chevron_up else R.drawable.chevron_down),
                 contentDescription = null,
-                tint = colorPalette().textSecondary,
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .size(24.dp)
+                tint = colorPalette().textSecondary
             )
         }
         Column(
@@ -223,10 +219,7 @@ fun InfoAndCommunity(
             Icon(
                 painter = painterResource(R.drawable.chevron_forward),
                 contentDescription = null,
-                tint = colorPalette().textSecondary,
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .size(24.dp)
+                tint = colorPalette().textSecondary
             )
         }
     }

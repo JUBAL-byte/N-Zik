@@ -1,3 +1,8 @@
+improve(ui): align "Info and Community" / "Insights" chevrons with section header icons
+  - `InfoAndCommunity.kt`: removed the explicit `Modifier.size(24.dp).padding(end = 12.dp)` on both chevrons (chevron up/down + chevron_forward) so they use the default size and sit flush with the row's content edge, matching the artist/album section header icons (dice/play/chevron_forward in `ArtistScreen.kt`)
+  - Whole title rows stay clickable (expand/collapse + navigate to Insights) with the rounded ripple; text placement already identical (`m.semiBold`, `weight(1f)`, 16/24/8 padding = `sectionTextModifier`)
+  - Removed the now-unused `androidx.compose.foundation.layout.size` import
+
 feat(musicbrainz): port "Info and Community" + Insights from RiPlay with MusicBrainz metadata
   - `extensions/musicbrainz` (new Gradle module): MusicBrainz API client (artist/album lookup, release year/country, keywords, external links, Wikipedia bio) + `cleanWikipediaText()`; wired via `implementation(projects.musicbrainz)` in `ComposeN-Zik/build.gradle.kts`; `MainApplication.kt`: network + Timber setup
   - DB 37 -> 38: `AlbumTable.kt` / `ArtistTable.kt` additive MusicBrainz columns (year, country, keywords, links, Wikipedia bio) + `Converters.kt` list/string converters; `From37To38Migration.kt` is additive-only (ALTER TABLE ADD COLUMN, no data loss) + `schemas/.../38.json`
