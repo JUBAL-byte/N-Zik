@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">শিল্পী</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">এলবামস</string>
-  <string name="mb_stat_likes">Likes</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">গানগুলো</string>
   <string name="overview">সংক্ষিপ্ত বিবরণ</string>
   <string name="singles">সিংগেলস</string>
   <string name="library">লাইব্রেরী</string>
