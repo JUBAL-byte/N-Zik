@@ -396,7 +396,7 @@ private fun AlbumHeader(
         Spacer(Modifier.height(8.dp))
 
         val infoText = buildList {
-            album.originalYear?.let { add(it.toString()) }
+            (album.originalYear?.toString() ?: album.year)?.let { add(it) }
             album.albumType?.let { add(it) }
         }.joinToString(" • ")
 
