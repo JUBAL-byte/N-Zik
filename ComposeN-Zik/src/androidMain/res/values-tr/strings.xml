@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Sanatçı</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Albümler</string>
-  <string name="mb_stat_likes">Beğeniler</string>
   <string name="mb_stat_liked_songs">Beğenilen şarkılar</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Şarkılar</string>
   <string name="overview">Genel bakış</string>
   <string name="singles">Tekliler</string>
   <string name="library">Kütüphane</string>
