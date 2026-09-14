@@ -59,7 +59,10 @@ class ArtistInsightsViewModel(application: Application) : AndroidViewModel(appli
             }
 
             val topTracks = withContext(Dispatchers.IO) {
+                // getTopSongsByArtist caps at `limit` regardless of play time, so
+                // never-listened songs (0ms) would fill the list; keep only listened.
                 artistTable.getTopSongsByArtist(artistId, limit = 5)
+                    .filter { it.totalPlayTimeMs >= 1 }
             }
 
             val relations = withContext(Dispatchers.IO) {

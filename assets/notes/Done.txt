@@ -1,3 +1,8 @@
+fix(insights): "Top tracks" no longer lists never-listened songs
+  - `ArtistInsightsViewModel.kt`: `getTopSongsByArtist` caps at the limit regardless of play time, so songs at 0ms (never listened) were filling the "Top tracks" list; filtered the result to `totalPlayTimeMs >= 1` so only actually listened songs are shown
+  - Empty result now hides the whole section (existing `if (state.topTracks.isNotEmpty())` in `ArtistInsightsScreen.kt`)
+  - Did not change the DAO query so the "liked songs" stat (which reuses `getTopSongsByArtist`) is unaffected
+
 improve(ui): align "Info and Community" / "Insights" chevrons with section header icons
   - `InfoAndCommunity.kt`: removed the explicit `Modifier.size(24.dp).padding(end = 12.dp)` on both chevrons (chevron up/down + chevron_forward) so they use the default size and sit flush with the row's content edge, matching the artist/album section header icons (dice/play/chevron_forward in `ArtistScreen.kt`)
   - Whole title rows stay clickable (expand/collapse + navigate to Insights) with the rounded ripple; text placement already identical (`m.semiBold`, `weight(1f)`, 16/24/8 padding = `sectionTextModifier`)
