@@ -10,6 +10,7 @@ data class ArtistDetailUiState(
     val artist: Artist? = null,
     val albums: List<Album> = emptyList(),
     val topTracks: List<Song> = emptyList(),
+    val topAlbums: List<Album> = emptyList(),
     val relations: List<ArtistRelationInfo> = emptyList(),
     val externalLinks: List<ExternalLink> = emptyList(),
     val stats: ArtistStats? = null
@@ -26,7 +27,8 @@ data class ArtistStats(
     val totalPlayTimeMs: Long,
     val playCount: Int,
     val likedSongsCount: Int,
-    val distinctAlbumsCount: Int
+    val distinctAlbumsCount: Int,
+    val bookmarkedAlbumsCount: Int
 )
 
 data class AlbumDetailUiState(

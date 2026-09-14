@@ -3,6 +3,7 @@ package app.n_zik.android.components.musicbrainz.insights
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -116,6 +118,19 @@ fun ArtistInsightsScreen(
                 ArtistHeader(artist = artist)
             }
 
+            // Prefer the Wikipedia bio; fall back to the stored YouTube description.
+            val bio = artist.wikipediaBio ?: artist.description
+            if (!bio.isNullOrBlank()) {
+                item(key = "bio") {
+                    InfoCard(title = stringResource(R.string.mb_insights_biography), icon = R.drawable.information) {
+                        Text(
+                            text = bio,
+                            style = typography().xs
+                        )
+                    }
+                }
+            }
+
             if (state.relations.isNotEmpty()) {
                 item(key = "relations") {
                     InfoCard(title = stringResource(R.string.mb_insights_members_collabs), icon = R.drawable.people) {
@@ -166,13 +181,94 @@ fun ArtistInsightsScreen(
                 }
             }
 
-            artist.wikipediaBio?.let { bio ->
-                if (bio.isNotBlank()) {
-                    item(key = "bio") {
-                        InfoCard(title = stringResource(R.string.mb_insights_biography), icon = R.drawable.information) {
-                            Text(
-                                text = bio,
-                                style = typography().xs
+            if (state.topTracks.isNotEmpty()) {
+                item(key = "top_songs") {
+                    InfoCard(title = stringResource(R.string.mb_insights_top_songs), icon = R.drawable.musical_notes) {
+                        state.topTracks.forEachIndexed { index, song ->
+                            SwipeablePlaylistItem(
+                                mediaItem = song.asMediaItem,
+                                onPlayNext = {
+                                    binder?.player?.addNext(song.asMediaItem)
+                                }
+                            ) {
+                                SongItem(
+                                    song = song,
+                                    isLiked = likeStatesMap[song.id],
+                                    navController = navController,
+                                    showThumbnail = true,
+                                    backgroundColor = colorPalette().background2,
+                                    thumbnailOverlay = {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(thumbnailShape())
+                                                .background(colorPalette().overlay)
+                                        ) {
+                                            BasicText(
+                                                text = "${index + 1}",
+                                                style = typography().s.semiBold.center.color(colorPalette().onOverlay),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.align(Alignment.Center)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        binder?.stopRadio()
+                                        binder?.player?.forcePlay(song.asMediaItem)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (state.topAlbums.isNotEmpty()) {
+                item(key = "top_albums") {
+                    InfoCard(title = stringResource(R.string.mb_insights_top_albums), icon = R.drawable.album) {
+                        state.topAlbums.forEachIndexed { index, album ->
+                            AlbumItem(
+                                album = album,
+                                thumbnailSizePx = 0,
+                                thumbnailSizeDp = Dimensions.thumbnails.song,
+                                alternative = false,
+                                showAuthors = true,
+                                showInfo = true,
+                                yearCentered = false,
+                                disableScrollingText = false,
+                                modifier = Modifier
+                                    .clip(uiRoundnessShape())
+                                    .combinedClickable(
+                                        onClick = {
+                                            navController.navigate("album/${album.id}")
+                                        },
+                                        onLongClick = {
+                                            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            menuState.display {
+                                                OnlineAlbumItemMenu(
+                                                    navController = navController,
+                                                    album = album.toInnertube()
+                                                ).MenuComponent()
+                                            }
+                                        }
+                                    ),
+                                thumbnailOverlay = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(thumbnailShape())
+                                            .background(colorPalette().overlay)
+                                    ) {
+                                        BasicText(
+                                            text = "${index + 1}",
+                                            style = typography().s.semiBold.center.color(colorPalette().onOverlay),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.align(Alignment.Center)
+                                        )
+                                    }
+                                }
                             )
                         }
                     }
@@ -181,7 +277,7 @@ fun ArtistInsightsScreen(
 
             if (state.albums.isNotEmpty()) {
                 item(key = "albums") {
-                    InfoCard(title = stringResource(R.string.mb_insights_discography), icon = R.drawable.album) {
+                    InfoCard(title = stringResource(R.string.mb_insights_local_library), icon = R.drawable.library) {
                         val rows = state.albums.chunked(albumColumns)
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             rows.forEachIndexed { _, rowAlbums ->
@@ -246,49 +342,6 @@ fun ArtistInsightsScreen(
                                         Spacer(modifier = Modifier.weight(1f))
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (state.topTracks.isNotEmpty()) {
-                item(key = "top_tracks") {
-                    InfoCard(title = stringResource(R.string.mb_insights_top_tracks), icon = R.drawable.musical_notes) {
-                        state.topTracks.forEachIndexed { index, song ->
-                            SwipeablePlaylistItem(
-                                mediaItem = song.asMediaItem,
-                                onPlayNext = {
-                                    binder?.player?.addNext(song.asMediaItem)
-                                }
-                            ) {
-                                SongItem(
-                                    song = song,
-                                    isLiked = likeStatesMap[song.id],
-                                    navController = navController,
-                                    showThumbnail = true,
-                                    backgroundColor = colorPalette().background2,
-                                    thumbnailOverlay = {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .clip(thumbnailShape())
-                                                .background(colorPalette().overlay)
-                                        ) {
-                                            BasicText(
-                                                text = "${index + 1}",
-                                                style = typography().s.semiBold.center.color(colorPalette().onOverlay),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.align(Alignment.Center)
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlay(song.asMediaItem)
-                                    }
-                                )
                             }
                         }
                     }
@@ -373,20 +426,19 @@ private fun ArtistHeader(artist: Artist) {
 
 @Composable
 private fun ArtistStatsRow(stats: ArtistStats) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        StatItem(stringResource(R.string.mb_stat_listens), stats.playCount.toString())
-        StatItem(stringResource(R.string.mb_stat_albums), stats.distinctAlbumsCount.toString())
-        StatItem(stringResource(R.string.mb_stat_likes), stats.likedSongsCount.toString())
-        StatItem(stringResource(R.string.mb_stat_time), formatPlayTime(stats.totalPlayTimeMs))
+    Row(modifier = Modifier.fillMaxWidth()) {
+        StatItem(stringResource(R.string.mb_stat_listens), stats.playCount.toString(), modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+        StatItem(stringResource(R.string.mb_stat_albums), stats.distinctAlbumsCount.toString(), modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+        StatItem(stringResource(R.string.mb_stat_liked_songs), stats.likedSongsCount.toString(), modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+        StatItem(stringResource(R.string.mb_stat_bookmarked_albums), stats.bookmarkedAlbumsCount.toString(), modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
+        StatItem(stringResource(R.string.mb_stat_time), formatPlayTime(stats.totalPlayTimeMs), modifier = Modifier.weight(1f).padding(horizontal = 4.dp))
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Text(
             text = value,
             style = typography().xs.semiBold
@@ -394,7 +446,12 @@ private fun StatItem(label: String, value: String) {
         Text(
             text = label,
             style = typography().xxs,
-            color = colorPalette().textSecondary
+            color = colorPalette().textSecondary,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .basicMarquee(iterations = Int.MAX_VALUE)
         )
     }
 }

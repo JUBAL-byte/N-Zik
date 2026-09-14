@@ -226,6 +226,17 @@ fun ArtistScreen(
                         ?.also {
                             localArtist?.let { artist -> mapIgnore(artist, *it.toTypedArray()) }
                         }
+
+                    // Store the YouTube description so the Insights page can reuse it
+                    // as a bio fallback without refetching the artist page.
+                    val ytDescription = online.description?.takeIf { it.isNotBlank() }
+                    if (ytDescription != null) {
+                        artistTable.findByIdDirect(browseId)?.let { current ->
+                            if (current.description != ytDescription) {
+                                artistTable.update(current.copy(description = ytDescription))
+                            }
+                        }
+                    }
                 }
 
                 val itemsToFetch = online.sections.flatMap { it.items }

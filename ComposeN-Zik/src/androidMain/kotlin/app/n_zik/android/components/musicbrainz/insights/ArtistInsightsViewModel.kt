@@ -65,6 +65,10 @@ class ArtistInsightsViewModel(application: Application) : AndroidViewModel(appli
                     .filter { it.totalPlayTimeMs >= 1 }
             }
 
+            val topAlbums = withContext(Dispatchers.IO) {
+                artistTable.getTopAlbumsByArtist(artistId, limit = 5)
+            }
+
             val relations = withContext(Dispatchers.IO) {
                 fetchRelations(artist)
             }
@@ -72,9 +76,10 @@ class ArtistInsightsViewModel(application: Application) : AndroidViewModel(appli
             val stats = withContext(Dispatchers.IO) {
                 val likedSongs = artistTable.getTopSongsByArtist(artistId, limit = 1000)
                     .count { it.likedAt != null }
+                val bookmarkedAlbums = artistTable.getBookmarkedAlbumsCountByArtist(artistId)
                 val totalPlayTimeMs = eventTable.getArtistTotalPlayTime(artistId).first()
                 val playCount = eventTable.getArtistPlayCount(artistId).first()
-                ArtistStats(totalPlayTimeMs, playCount, likedSongs, albums.size)
+                ArtistStats(totalPlayTimeMs, playCount, likedSongs, albums.size, bookmarkedAlbums)
             }
 
             _state.value = ArtistDetailUiState(
@@ -82,6 +87,7 @@ class ArtistInsightsViewModel(application: Application) : AndroidViewModel(appli
                 artist = artist,
                 albums = albums,
                 topTracks = topTracks,
+                topAlbums = topAlbums,
                 relations = relations,
                 externalLinks = artist.links.orEmpty(),
                 stats = stats

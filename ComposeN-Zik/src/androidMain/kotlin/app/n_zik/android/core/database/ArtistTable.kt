@@ -163,11 +163,44 @@ interface ArtistTable {
         SELECT DISTINCT A.*
         FROM Album A
         JOIN SongAlbumMap sam ON sam.albumId = A.id
+        JOIN Song S ON S.id = sam.songId
         JOIN SongArtistMap saa ON saa.songId = sam.songId
         WHERE saa.artistId = :artistId
+          AND S.totalPlayTimeMs >= 1
         ORDER BY A.ROWID
     """)
     fun getAlbumsByArtist( artistId: String ): List<Album>
+
+    /**
+     * @return the albums of the given artist ordered by total play time (desc),
+     * keeping only albums that have been listened to.
+     */
+    @Query("""
+        SELECT A.*
+        FROM Album A
+        JOIN SongAlbumMap sam ON sam.albumId = A.id
+        JOIN SongArtistMap saa ON saa.songId = sam.songId
+        LEFT JOIN Event E ON E.songId = sam.songId
+        WHERE saa.artistId = :artistId
+        GROUP BY A.id
+        HAVING IFNULL(SUM(E.playtime), 0) >= 1
+        ORDER BY IFNULL(SUM(E.playtime), 0) DESC
+        LIMIT :limit
+    """)
+    fun getTopAlbumsByArtist( artistId: String, limit: Int ): List<Album>
+
+    /**
+     * @return the number of bookmarked albums of the given artist.
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT A.id)
+        FROM Album A
+        JOIN SongAlbumMap sam ON sam.albumId = A.id
+        JOIN SongArtistMap saa ON saa.songId = sam.songId
+        WHERE saa.artistId = :artistId
+          AND A.bookmarkedAt IS NOT NULL
+    """)
+    fun getBookmarkedAlbumsCountByArtist( artistId: String ): Int
 
     /**
      * @return most listened songs of the given artist

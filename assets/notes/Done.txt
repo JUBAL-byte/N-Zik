@@ -1,3 +1,16 @@
+improve(insights): artist insights rework — bio fallback, section reorder, top albums, richer stats
+  - `ArtistScreen.kt`: when the artist page is viewed, the YouTube description is now stored in `artist.description` (only when non-blank and different) so the Insights page can reuse it as a bio fallback without refetching the artist page
+  - `ArtistInsightsScreen.kt`: biography now reads `artist.wikipediaBio ?: artist.description` and was moved to the second position (right after the header) instead of appearing last; it was previously blank when no Wikipedia bio existed
+  - `ArtistInsightsScreen.kt`: sections reordered to Header → Biography → Members & Collabs → Tags & Genres → Popularity → Your listening → Top songs → Top albums → Local library → Links
+  - `ArtistInsightsScreen.kt`: new "Top albums" section under "Top songs" — top 5 albums by total play time, rendered as list-mode `AlbumItem` (cover size = `Dimensions.thumbnails.song`, same as songs) with a rank overlay, tap to open the album, long-press for the album menu
+  - `ArtistTable.kt`: new `getTopAlbumsByArtist(artistId, limit)` — joins `Album → SongAlbumMap → SongArtistMap → Event`, `GROUP BY A.id`, keeps only listened albums (`HAVING IFNULL(SUM(E.playtime),0) >= 1`), ordered by play time desc
+  - `ArtistTable.kt`: `getAlbumsByArtist` now returns only albums that have at least one listened song (added `JOIN Song S` + `S.totalPlayTimeMs >= 1`) — the "Local library" section no longer lists albums whose songs were never played
+  - `ArtistTable.kt`: new `getBookmarkedAlbumsCountByArtist(artistId)` — counts distinct albums of the artist with `bookmarkedAt IS NOT NULL`
+  - `models.kt`: `ArtistDetailUiState` gained `topAlbums`; `ArtistStats` gained `bookmarkedAlbumsCount`
+  - `ArtistInsightsViewModel.kt`: loads `topAlbums` (limit 5) and the bookmarked-albums count, and passes them into the state
+  - `ArtistInsightsScreen.kt`: "Your listening" stats row now shows 5 items (Listens, Albums, Liked songs, Bookmarked, Total time); each `StatItem` uses `Modifier.weight(1f)` + `padding(horizontal = 4.dp)` and the label is single-line `basicMarquee` + `fillMaxWidth` + centered, so long labels scroll and never overflow/overlap
+  - `strings.xml`: renamed `mb_insights_discography` → `mb_insights_local_library` ("Local library", section icon now `R.drawable.library`), `mb_insights_top_tracks` → `mb_insights_top_songs`; added `mb_insights_top_albums`, `mb_stat_liked_songs` ("Liked songs") and `mb_stat_bookmarked_albums` ("Bookmarked albums"); the album insights keeps the shared `mb_stat_likes` untouched
+
 fix(insights): "Top tracks" no longer lists never-listened songs
   - `ArtistInsightsViewModel.kt`: `getTopSongsByArtist` caps at the limit regardless of play time, so songs at 0ms (never listened) were filling the "Top tracks" list; filtered the result to `totalPlayTimeMs >= 1` so only actually listened songs are shown
   - Empty result now hides the whole section (existing `if (state.topTracks.isNotEmpty())` in `ArtistInsightsScreen.kt`)
