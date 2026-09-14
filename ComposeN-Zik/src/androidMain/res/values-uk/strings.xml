@@ -78,11 +78,10 @@
   <string name="mb_insights_artist">Виконавець</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Альбоми</string>
-  <string name="mb_stat_likes">Сподобалося</string>
   <string name="mb_stat_liked_songs">Liked songs</string>
   <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Композиції</string>
   <string name="overview">Огляд</string>
   <string name="singles">Сингли</string>
   <string name="library">Бібліотека</string>
