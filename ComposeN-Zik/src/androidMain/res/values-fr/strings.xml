@@ -1861,4 +1861,14 @@ Volume BAS : titre précédent</string>
     <string name="lastfm_auth_failed">Échec de la connexion. Vérifiez vos identifiants Last.fm.</string>
     <string name="lastfm_session_expired">La session Last.fm a expiré. Veuillez vous reconnecter.</string>
     <string name="lastfm_show_password">Afficher le mot de passe</string>
+    <string name="lastfm_now_playing">Now Playing</string>
+    <string name="lastfm_now_playing_info">Send a Now Playing update when a track starts</string>
+    <string name="lastfm_scrobble">Scrobble</string>
+    <string name="lastfm_scrobble_info">Scrobble tracks after the configured delay</string>
+    <string name="lastfm_min_track_duration">Minimum track duration</string>
+    <string name="lastfm_min_track_duration_info">Tracks this short or shorter are never sent</string>
+    <string name="lastfm_scrobble_threshold">Scrobble delay %</string>
+    <string name="lastfm_scrobble_threshold_info">Scrobble after this percentage of the track</string>
+    <string name="lastfm_max_scrobble_delay">Maximum scrobble delay</string>
+    <string name="lastfm_max_scrobble_delay_info">The scrobble delay never exceeds this limit</string>
 </resources>
