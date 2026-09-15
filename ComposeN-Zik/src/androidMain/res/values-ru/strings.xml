@@ -1842,4 +1842,20 @@
   <string name="find_identify_another_hint">Tap the button to identify another song</string>
   <string name="find_music_hint">Play some music for the analysis to work</string>
   <string name="and">and</string>
+  <string name="social_lastfm">Last.fm</string>
+  <string name="social_lastfm_info">Scrobble your music to Last.fm</string>
+  <string name="lastfm_enable_scrobbling">Enable scrobbling</string>
+  <string name="lastfm_connect">Подключиться</string>
+  <string name="lastfm_disconnect">Отключиться</string>
+  <string name="lastfm_connected">Connected to Last.fm account</string>
+  <string name="lastfm_username">Логин</string>
+  <string name="lastfm_password">Пароль</string>
+  <string name="lastfm_login">Log in</string>
+  <string name="lastfm_love">Love on Last.fm</string>
+  <string name="lastfm_unlove">Unlove on Last.fm</string>
+  <string name="lastfm_loved">Loved on Last.fm</string>
+  <string name="lastfm_unloved">Removed from loved tracks</string>
+  <string name="lastfm_action_failed">Last.fm request failed</string>
+  <string name="lastfm_auth_failed">Login failed, check your Last.fm credentials</string>
+  <string name="lastfm_session_expired">Last.fm session expired, please connect again</string>
 </resources>
