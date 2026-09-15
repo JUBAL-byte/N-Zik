@@ -78,3 +78,9 @@ fun MediaItem.albumTitleOrDb(): String {
     if (album.isNotBlank() && album != "null") return album
     return Database.albumTable.findBySongIdDirect(mediaId)?.title ?: album
 }
+
+fun MediaItem.titleOrDb(): String {
+    val title = cleanPrefix(mediaMetadata.title?.toString() ?: "")
+    if (title.isNotBlank() && title != "null") return title
+    return Database.songTable.findByIdDirect(mediaId)?.title?.let { cleanPrefix(it) } ?: title
+}

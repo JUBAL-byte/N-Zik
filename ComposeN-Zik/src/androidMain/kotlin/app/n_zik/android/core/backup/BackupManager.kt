@@ -8,6 +8,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -33,6 +37,7 @@ object BackupManager {
     const val PREF_TARGET = "autoBackupTargetKey"
     const val PREF_INCLUDE_YTB = "autoBackupIncludeYtbKey"
     const val PREF_INCLUDE_DISCORD = "autoBackupIncludeDiscordKey"
+    const val PREF_INCLUDE_LASTFM = "autoBackupIncludeLastfmKey"
     const val PREF_PRE_INSTALL = "autoBackupPreInstallKey"
 
     const val TARGET_DATABASE = 0
@@ -175,7 +180,8 @@ object BackupManager {
                 val target = prefs.getInt(PREF_TARGET, TARGET_DATABASE)
                 val includeYtb = prefs.getBoolean(PREF_INCLUDE_YTB, false)
                 val includeDiscord = prefs.getBoolean(PREF_INCLUDE_DISCORD, false)
-                Timber.tag("AutoBackup").d("executeBackup settings: Target=$target, IncludeYtb=$includeYtb, IncludeDiscord=$includeDiscord")
+                val includeLastfm = prefs.getBoolean(PREF_INCLUDE_LASTFM, false)
+                Timber.tag("AutoBackup").d("executeBackup settings: Target=$target, IncludeYtb=$includeYtb, IncludeDiscord=$includeDiscord, IncludeLastfm=$includeLastfm")
                 
                 var success = true
                 val date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss"))
@@ -214,7 +220,7 @@ object BackupManager {
                         context.contentResolver, docUri, "text/csv", fileName
                     )
                     if (newDocUri != null) {
-                        exportSettings(context, newDocUri, includeYtb, includeDiscord)
+                        exportSettings(context, newDocUri, includeYtb, includeDiscord, includeLastfm)
                         Timber.tag("AutoBackup").i("Settings backup successful to $fileName")
                     } else {
                         Timber.tag("AutoBackup").e("Failed to create document for settings backup")
@@ -294,7 +300,7 @@ object BackupManager {
         }
     }
 
-    private suspend fun exportSettings(context: Context, uri: Uri, includeYtb: Boolean, includeDiscord: Boolean) {
+    private suspend fun exportSettings(context: Context, uri: Uri, includeYtb: Boolean, includeDiscord: Boolean, includeLastfm: Boolean) {
         val entries: MutableList<Triple<String, String, Any>> = context.preferences
             .all
             .map {
@@ -307,7 +313,7 @@ object BackupManager {
 
         Timber.tag("AutoBackup").d("exportSettings: Base settings count: ${entries.size}")
 
-        if (includeYtb || includeDiscord) {
+        if (includeYtb || includeDiscord || includeLastfm) {
             val ytbKeys = listOf(
                 ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey, ytAccountNameKey, ytAccountEmailKey,
                 ytAccountChannelHandleKey, ytAccountThumbnailKey, enableYouTubeLoginKey, enableYouTubeSyncKey,
@@ -316,6 +322,9 @@ object BackupManager {
             val discordKeys = listOf(
                 discordPersonalAccessTokenKey, discordAvatarKey, discordUsernameKey,
                 isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
+            )
+            val lastfmKeys = listOf(
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey
             )
             val encryptedPrefs = context.encryptedPreferences.all
             if (includeYtb) {
@@ -334,9 +343,17 @@ object BackupManager {
                     }
                 }
             }
+            if (includeLastfm) {
+                lastfmKeys.forEach { key ->
+                    encryptedPrefs[key]?.let { value ->
+                        val type = value::class.simpleName ?: "null"
+                        if (type != "null") entries.add(Triple(type, key, value))
+                    }
+                }
+            }
         }
 
-        Timber.tag("AutoBackup").d("exportSettings: Final settings count to write: ${entries.size} (Include Ytb: $includeYtb, Include Discord: $includeDiscord)")
+        Timber.tag("AutoBackup").d("exportSettings: Final settings count to write: ${entries.size} (Include Ytb: $includeYtb, Include Discord: $includeDiscord, Include Lastfm: $includeLastfm)")
 
         context.contentResolver.openOutputStream(uri)?.use { outStream ->
             csvWriter().open(outStream) {

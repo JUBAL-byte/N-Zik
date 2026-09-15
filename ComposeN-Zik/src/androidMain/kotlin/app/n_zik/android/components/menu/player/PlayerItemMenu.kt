@@ -80,6 +80,10 @@ import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showDislikedPlaylistKey
+import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.LastFmActions
 import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.enums.DislikeMode
 import kotlinx.coroutines.Dispatchers
@@ -151,6 +155,9 @@ class PlayerItemMenu private constructor(
     }
 
     lateinit var buttons: List<Button>
+    lateinit var lastFmLoveButton: MenuIcon
+    lateinit var lastFmUnloveButton: MenuIcon
+    private var showLastFmSection = false
     override var menuStyle: MenuStyle by styleState
 
     @Composable
@@ -158,6 +165,7 @@ class PlayerItemMenu private constructor(
         val song = remember(mediaItem) { mediaItem.asSong }
         val playerTimelineType by rememberPreference(playerTimelineTypeKey, PlayerTimelineType.Wavy)
         ListMenu.Menu(title = null, showDragHandle = false) {
+            val lastFmSectionSize = if (showLastFmSection) 2 else 0
             // Section: Information
             SectionTitle(stringResource(R.string.information))
         buttons.getOrNull(0)?.let { if (it is MenuIcon) it.ListMenuItem() }
@@ -203,10 +211,16 @@ class PlayerItemMenu private constructor(
             buttons.filterIsInstance<DeleteSongDialog>().firstOrNull()?.let { it.ListMenuItem() }
 
             SectionTitle(stringResource(R.string.navigation))
-            for (i in 13 until buttons.size) {
+            for (i in 13 until buttons.size - lastFmSectionSize) {
                 val btn = buttons.getOrNull(i)
                 if (btn is DeleteSongDialog) continue
                 btn?.let { if (it is MenuIcon) it.ListMenuItem() }
+            }
+
+            if (showLastFmSection) {
+                SectionTitle(stringResource(R.string.social_lastfm))
+                lastFmLoveButton.ListMenuItem()
+                lastFmUnloveButton.ListMenuItem()
             }
         }
         }
@@ -217,6 +231,7 @@ class PlayerItemMenu private constructor(
         val song = remember(mediaItem) { mediaItem.asSong }
         val playerTimelineType by rememberPreference(playerTimelineTypeKey, PlayerTimelineType.Wavy)
         GridMenu.Menu(title = null, showDragHandle = false) {
+            val lastFmSectionSize = if (showLastFmSection) 2 else 0
             // Section: Information
             item(span = { GridItemSpan(maxLineSpan) }) {
             SectionTitle(stringResource(R.string.information))
@@ -272,10 +287,18 @@ class PlayerItemMenu private constructor(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 SectionTitle(stringResource(R.string.navigation))
             }
-            for (i in 13 until buttons.size) {
+            for (i in 13 until buttons.size - lastFmSectionSize) {
                 val btn = buttons.getOrNull(i)
                 if (btn is DeleteSongDialog) continue
                 btn?.let { item { if (it is MenuIcon) it.GridMenuItem() } }
+            }
+
+            if (showLastFmSection) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    SectionTitle(stringResource(R.string.social_lastfm))
+                }
+                item { lastFmLoveButton.GridMenuItem() }
+                item { lastFmUnloveButton.GridMenuItem() }
             }
         }
         }
@@ -485,6 +508,43 @@ class PlayerItemMenu private constructor(
         val changeAlbumId = ChangeAlbumBrowseIdDialog(menuState = menuState) { albumData }
         val changeArtistId = ChangeArtistBrowseIdDialog(menuState = menuState) { artistsData.firstOrNull() }
 
+        val isLastfmScrobblingEnabled by rememberEncryptedPreference(isLastfmScrobblingEnabledKey, false)
+        val lastfmSession by rememberEncryptedPreference(lastfmSessionKey, "")
+        showLastFmSection = !song.isLocal &&
+            isLastfmScrobblingEnabled &&
+            lastfmSession.isNotEmpty() &&
+            BuildConfig.LASTFM_API_KEY.isNotEmpty() &&
+            BuildConfig.LASTFM_API_SECRET.isNotEmpty()
+
+        lastFmLoveButton = remember {
+            object : MenuIcon, Descriptive, Clickable {
+                override val iconId: Int = R.drawable.heart
+                override val messageId: Int = R.string.lastfm_love
+                @get:Composable
+                override val menuIconTitle: String get() = stringResource(R.string.lastfm_love)
+
+                override fun onShortClick() {
+                    menuState.hide()
+                    LastFmActions.setLoveStatus(song.cleanArtistsText(), song.cleanTitle(), love = true)
+                }
+                override fun onLongClick() {}
+            }
+        }
+        lastFmUnloveButton = remember {
+            object : MenuIcon, Descriptive, Clickable {
+                override val iconId: Int = R.drawable.heart_dislike
+                override val messageId: Int = R.string.lastfm_unlove
+                @get:Composable
+                override val menuIconTitle: String get() = stringResource(R.string.lastfm_unlove)
+
+                override fun onShortClick() {
+                    menuState.hide()
+                    LastFmActions.setLoveStatus(song.cleanArtistsText(), song.cleanTitle(), love = false)
+                }
+                override fun onLongClick() {}
+            }
+        }
+
         // Re-order to match SongItemMenu layout exactly
         buttons = remember(song, albumData, artistsData) {
             mutableListOf<Button>().apply {
@@ -608,6 +668,11 @@ class PlayerItemMenu private constructor(
 
                     add(listenOnButton)
                     add(deleteSongDialog)
+
+                    if (showLastFmSection) {
+                        add(lastFmLoveButton)
+                        add(lastFmUnloveButton)
+                    }
                 }
             }
         }

@@ -118,6 +118,8 @@ import app.it.fast4x.rimusic.extensions.audiovolume.AudioVolumeObserver
 import app.it.fast4x.rimusic.extensions.audiovolume.OnAudioVolumeChangedListener
 import app.n_zik.android.core.network.utils.NetworkQualityHelper
 import app.n_zik.android.extensions.discord.DiscordPresenceManager
+import app.n_zik.android.extensions.lastfm.LastFmScrobbleManager
+import it.fast4x.lastfm.LastFm
 import app.n_zik.android.isHandleAudioFocusEnabled
 import app.n_zik.android.isPauseOnHeadphoneDisconnectEnabled
 import app.it.fast4x.rimusic.models.Event
@@ -238,6 +240,9 @@ import android.os.Binder as AndroidBinder
 import androidx.compose.ui.util.fastMap
 import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.BuildConfig
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.playback.exceptions.ExplicitContentException
 import app.n_zik.android.playback.exceptions.LoginRequiredException
@@ -293,6 +298,9 @@ class PlayerServiceModern : MediaLibraryService(),
         if (key == isDiscordBrowsingEnabledKey) {
             discordPresenceManager?.onBrowsingSettingChanged()
         }
+        if (key == isLastfmScrobblingEnabledKey || key == lastfmSessionKey) {
+            maybeSetupLastFmScrobbleManager()
+        }
     }
     private var isPersistentQueueEnabled: Boolean = false
     private var isclosebackgroundPlayerEnabled = false
@@ -305,6 +313,11 @@ class PlayerServiceModern : MediaLibraryService(),
      * Discord presence
      */
     private var discordPresenceManager: DiscordPresenceManager? = null
+
+    /**
+     * Last.fm scrobbling
+     */
+    private var lastFmScrobbleManager: LastFmScrobbleManager? = null
 
     var loudnessEnhancer: LoudnessEnhancer? = null
     private var binder = Binder()
@@ -669,8 +682,37 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
             }
         }
-        
+
+        /**
+         * Last.fm scrobbling
+         */
+        maybeSetupLastFmScrobbleManager()
+
         encryptedPreferences.registerOnSharedPreferenceChangeListener(encryptedPrefsListener)
+    }
+
+    /**
+     * Creates (or tears down) the LastFM scrobble manager based on the
+     * current settings: toggle ON + session key + API keys all required.
+     */
+    private fun maybeSetupLastFmScrobbleManager() {
+        val enabled = encryptedPreferences.getBoolean(isLastfmScrobblingEnabledKey, false)
+        val sessionKey = encryptedPreferences.getString(lastfmSessionKey, null).orEmpty()
+        val ready = enabled &&
+            sessionKey.isNotEmpty() &&
+            BuildConfig.LASTFM_API_KEY.isNotEmpty() &&
+            BuildConfig.LASTFM_API_SECRET.isNotEmpty()
+
+        if (ready) {
+            LastFm.initialize(BuildConfig.LASTFM_API_KEY, BuildConfig.LASTFM_API_SECRET)
+            LastFm.sessionKey = sessionKey
+            if (lastFmScrobbleManager == null) {
+                lastFmScrobbleManager = LastFmScrobbleManager(context = this)
+            }
+        } else {
+            lastFmScrobbleManager?.destroy()
+            lastFmScrobbleManager = null
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -815,6 +857,11 @@ class PlayerServiceModern : MediaLibraryService(),
                 Toaster.i(R.string.discord_presence_closed)
                 discordPresenceManager?.onStop()
             }
+            /**
+             * Last.fm scrobbling cleanup
+             */
+            lastFmScrobbleManager?.destroy()
+            lastFmScrobbleManager = null
             maybeSavePlayerQueue()
             preferences.unregisterOnSharedPreferenceChangeListener(this)
             encryptedPreferences.unregisterOnSharedPreferenceChangeListener(encryptedPrefsListener)
@@ -1057,6 +1104,11 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
             }
         }
+
+        /**
+         * Last.fm scrobbling
+         */
+        lastFmScrobbleManager?.onTrackTransition(mediaItem, duration)
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -1112,6 +1164,11 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
             }
         }
+
+        /**
+         * Last.fm scrobbling
+         */
+        lastFmScrobbleManager?.onPlayingStateChanged(isPlaying, item, duration)
         updateWidgets()
 
         // Start/stop the per-second widget progress refresh

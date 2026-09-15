@@ -17,6 +17,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import app.n_zik.android.BuildConfig
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.it.fast4x.rimusic.utils.discordAvatarKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.discordUsernameKey
@@ -40,14 +44,16 @@ class ExportSettingsDialog private constructor(
     private val launcher: ManagedActivityResultLauncher<String, Uri?>,
     private val context: Context,
     private val includeYtbState: MutableState<Boolean>,
-    private val includeDiscordState: MutableState<Boolean>
+    private val includeDiscordState: MutableState<Boolean>,
+    private val includeLastfmState: MutableState<Boolean>
 ) {
     companion object {
         private fun onExport(
             uri: Uri,
             context: Context,
             includeYtb: Boolean,
-            includeDiscord: Boolean
+            includeDiscord: Boolean,
+            includeLastfm: Boolean
         ) = CoroutineScope( Dispatchers.IO ).launch {
             runCatching {
                 Timber.tag("ExportSettingsDialog").d("Starting settings export...")
@@ -61,43 +67,8 @@ class ExportSettingsDialog private constructor(
                     .filter { it.first != "null" && it.third !== Unit }
                     .toMutableList()
 
-                if (includeYtb || includeDiscord) {
-                    val ytbKeys = listOf(
-                        ytCookieKey,
-                        ytVisitorDataKey,
-                        ytDataSyncIdKey,
-                        ytAccountNameKey,
-                        ytAccountEmailKey,
-                        ytAccountChannelHandleKey,
-                        ytAccountThumbnailKey,
-                        enableYouTubeLoginKey,
-                        enableYouTubeSyncKey,
-                        useYtLoginOnlyForBrowseKey
-                    )
-                    val discordKeys = listOf(
-                        discordPersonalAccessTokenKey,
-                        discordAvatarKey,
-                        discordUsernameKey,
-                        isDiscordPresenceEnabledKey,
-                        isDiscordBrowsingEnabledKey
-                    )
-                    val encryptedPrefs = context.encryptedPreferences.all
-                    if (includeYtb) {
-                        ytbKeys.forEach { key ->
-                            encryptedPrefs[key]?.let { value ->
-                                val type = value::class.simpleName ?: "null"
-                                if (type != "null") entries.add(Triple(type, key, value))
-                            }
-                        }
-                    }
-                    if (includeDiscord) {
-                        discordKeys.forEach { key ->
-                            encryptedPrefs[key]?.let { value ->
-                                val type = value::class.simpleName ?: "null"
-                                if (type != "null") entries.add(Triple(type, key, value))
-                            }
-                        }
-                    }
+                if (includeYtb || includeDiscord || includeLastfm) {
+                    entries.addAll(buildCredentialEntries(context.encryptedPreferences.all, includeYtb, includeDiscord, includeLastfm))
                 }
 
                 Timber.tag("ExportSettingsDialog").d("Found ${entries.size} settings entries")
@@ -120,10 +91,70 @@ class ExportSettingsDialog private constructor(
             }
         }
 
+        internal fun buildCredentialEntries(
+            encryptedPrefs: Map<String, Any?>,
+            includeYtb: Boolean,
+            includeDiscord: Boolean,
+            includeLastfm: Boolean
+        ): List<Triple<String, String, Any>> {
+            val ytbKeys = listOf(
+                ytCookieKey,
+                ytVisitorDataKey,
+                ytDataSyncIdKey,
+                ytAccountNameKey,
+                ytAccountEmailKey,
+                ytAccountChannelHandleKey,
+                ytAccountThumbnailKey,
+                enableYouTubeLoginKey,
+                enableYouTubeSyncKey,
+                useYtLoginOnlyForBrowseKey
+            )
+            val discordKeys = listOf(
+                discordPersonalAccessTokenKey,
+                discordAvatarKey,
+                discordUsernameKey,
+                isDiscordPresenceEnabledKey,
+                isDiscordBrowsingEnabledKey
+            )
+            val lastfmKeys = listOf(
+                lastfmSessionKey,
+                lastfmUsernameKey,
+                lastfmAvatarUrlKey,
+                isLastfmScrobblingEnabledKey
+            )
+            val entries = mutableListOf<Triple<String, String, Any>>()
+            if (includeYtb) {
+                ytbKeys.forEach { key ->
+                    encryptedPrefs[key]?.let { value ->
+                        val type = value::class.simpleName ?: "null"
+                        if (type != "null") entries.add(Triple(type, key, value))
+                    }
+                }
+            }
+            if (includeDiscord) {
+                discordKeys.forEach { key ->
+                    encryptedPrefs[key]?.let { value ->
+                        val type = value::class.simpleName ?: "null"
+                        if (type != "null") entries.add(Triple(type, key, value))
+                    }
+                }
+            }
+            if (includeLastfm) {
+                lastfmKeys.forEach { key ->
+                    encryptedPrefs[key]?.let { value ->
+                        val type = value::class.simpleName ?: "null"
+                        if (type != "null") entries.add(Triple(type, key, value))
+                    }
+                }
+            }
+            return entries
+        }
+
         @Composable
         operator fun invoke( context: Context ): ExportSettingsDialog {
             val includeYtbState = remember { mutableStateOf(false) }
             val includeDiscordState = remember { mutableStateOf(false) }
+            val includeLastfmState = remember { mutableStateOf(false) }
             val launcher = rememberLauncherForActivityResult(
                 ActivityResultContracts.CreateDocument( "text/csv" )
             ) { uri ->
@@ -131,17 +162,19 @@ class ExportSettingsDialog private constructor(
                 uri ?: return@rememberLauncherForActivityResult
                 val ytb = includeYtbState.value
                 val discord = includeDiscordState.value
-                onExport( uri, context, ytb, discord )
+                val lastfm = includeLastfmState.value
+                onExport( uri, context, ytb, discord, lastfm )
             }
             return remember(launcher, context) {
-                ExportSettingsDialog(launcher, context, includeYtbState, includeDiscordState)
+                ExportSettingsDialog(launcher, context, includeYtbState, includeDiscordState, includeLastfmState)
             }
         }
     }
 
-    fun export(includeYtb: Boolean = false, includeDiscord: Boolean = false) {
+    fun export(includeYtb: Boolean = false, includeDiscord: Boolean = false, includeLastfm: Boolean = false) {
         includeYtbState.value = includeYtb
         includeDiscordState.value = includeDiscord
+        includeLastfmState.value = includeLastfm
         val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
         val fileName = "${BuildConfig.APP_NAME} $date Settings"
         Timber.tag("ExportSettingsDialog").d("Launching file picker with name: $fileName.csv")

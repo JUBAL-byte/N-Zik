@@ -134,6 +134,10 @@ android {
         }
         val shazamKey = localProperties.getProperty("shazam_proxy_api_key", "")
         buildConfigField("String", "SHAZAM_PROXY_API_KEY", "\"$shazamKey\"")
+        val lastfmApiKey = localProperties.getProperty("lastfm_api_key") ?: System.getenv("LASTFM_API_KEY") ?: ""
+        val lastfmApiSecret = localProperties.getProperty("lastfm_api_secret") ?: System.getenv("LASTFM_API_SECRET") ?: ""
+        buildConfigField("String", "LASTFM_API_KEY", "\"$lastfmApiKey\"")
+        buildConfigField("String", "LASTFM_API_SECRET", "\"$lastfmApiSecret\"")
     }
 
     packaging {
@@ -348,6 +352,7 @@ dependencies {
     implementation(projects.kugou)
     implementation(projects.lrclib)
     implementation(projects.musicbrainz)
+    implementation(projects.lastfm)
     implementation(projects.betterlyrics)
     implementation(libs.freedroidwarn)
 

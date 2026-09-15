@@ -32,6 +32,8 @@ include(":invidious")
 project(":invidious").projectDir = file("extensions/invidious")
 include(":ktor-client-brotli")
 project(":ktor-client-brotli").projectDir = file("extensions/ktor-client-brotli")
+include(":lastfm")
+project(":lastfm").projectDir = file("extensions/lastfm")
 // Submodules
 include(":betterlyrics")
 project(":betterlyrics").projectDir = file("modules/betterlyrics")

@@ -65,6 +65,7 @@ import app.n_zik.android.colorPalette
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.extensions.discord.DiscordLoginAndGetToken
 import app.n_zik.android.extensions.discord.DiscordPresenceManager
+import app.n_zik.android.components.settings.LastFmSettingsCard
 import app.it.fast4x.rimusic.extensions.youtubelogin.YouTubeLogin
 import app.n_zik.android.thumbnailShape
 import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
@@ -1096,6 +1097,9 @@ fun AccountsSettings() {
         }
 
         
+        // Last.fm Section
+        LastFmSettingsCard()
+
         val searchCtx_Reset = search.inputValue.isBlank() || stringResource(R.string.settings_reset).contains(search.inputValue, true) || stringResource(R.string.settings_restore_default_settings).contains(search.inputValue, true)
         AnimatedVisibility(
             visible = searchCtx_Reset,

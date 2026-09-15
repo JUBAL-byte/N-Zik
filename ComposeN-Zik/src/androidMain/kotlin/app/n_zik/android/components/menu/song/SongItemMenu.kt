@@ -79,6 +79,10 @@ import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
+import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.LastFmActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -137,10 +141,12 @@ class SongItemMenu private constructor(
 
     lateinit var buttons: List<Button>
     var refreshBtn: Button? = null
+    private var showLastFmSection = false
     override var menuStyle: MenuStyle by styleState
 
     @Composable
     override fun ListMenu() = ListMenu.Menu(title = null, showDragHandle = false) {
+        val lastFmSectionSize = if (showLastFmSection) 2 else 0
         // Section: Info
         SectionTitle(stringResource(R.string.information))
         buttons.getOrNull(0)?.let { if (it is MenuIcon) it.ListMenuItem() }
@@ -192,16 +198,24 @@ class SongItemMenu private constructor(
 
             // Section: Navigation
             SectionTitle(stringResource(R.string.navigation))
-            for (i in 9 until buttons.size) {
+            for (i in 9 until buttons.size - lastFmSectionSize) {
                 val btn = buttons.getOrNull(i)
                 if (btn is ChangeAlbumBrowseIdDialog || btn is ChangeArtistBrowseIdDialog || btn is ResetSongDialog || btn is DeleteSongDialog || btn is ExportCacheDialog) continue
                 btn?.let { if (it is MenuIcon) it.ListMenuItem() }
+            }
+
+            if (showLastFmSection) {
+                // Section: Last.fm
+                SectionTitle(stringResource(R.string.social_lastfm))
+                buttons.getOrNull(buttons.size - 2)?.let { if (it is MenuIcon) it.ListMenuItem() }
+                buttons.getOrNull(buttons.size - 1)?.let { if (it is MenuIcon) it.ListMenuItem() }
             }
         }
     }
 
     @Composable
     override fun GridMenu() = GridMenu.Menu(title = null, showDragHandle = false) {
+        val lastFmSectionSize = if (showLastFmSection) 2 else 0
         // Section: Info
         item(span = { GridItemSpan(maxLineSpan) }) {
             SectionTitle(stringResource(R.string.information))
@@ -265,10 +279,19 @@ class SongItemMenu private constructor(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 SectionTitle(stringResource(R.string.navigation))
             }
-            for (i in 9 until buttons.size) {
+            for (i in 9 until buttons.size - lastFmSectionSize) {
                 val btn = buttons.getOrNull(i)
                 if (btn is ChangeAlbumBrowseIdDialog || btn is ChangeArtistBrowseIdDialog || btn is ResetSongDialog || btn is DeleteSongDialog || btn is ExportCacheDialog) continue
                 btn?.let { item { if (it is MenuIcon) it.GridMenuItem() } }
+            }
+
+            if (showLastFmSection) {
+                // Section: Last.fm
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    SectionTitle(stringResource(R.string.social_lastfm))
+                }
+                buttons.getOrNull(buttons.size - 2)?.let { item { if (it is MenuIcon) it.GridMenuItem() } }
+                buttons.getOrNull(buttons.size - 1)?.let { item { if (it is MenuIcon) it.GridMenuItem() } }
             }
         }
     }
@@ -403,6 +426,14 @@ class SongItemMenu private constructor(
         val changeAlbumId = ChangeAlbumBrowseIdDialog(menuState = menuState) { albumForInfo }
         val changeArtistId = ChangeArtistBrowseIdDialog(menuState = menuState) { artistsData.firstOrNull() }
 
+        val isLastfmScrobblingEnabled by rememberEncryptedPreference(isLastfmScrobblingEnabledKey, false)
+        val lastfmSession by rememberEncryptedPreference(lastfmSessionKey, "")
+        showLastFmSection = !song.isLocal &&
+            isLastfmScrobblingEnabled &&
+            lastfmSession.isNotEmpty() &&
+            BuildConfig.LASTFM_API_KEY.isNotEmpty() &&
+            BuildConfig.LASTFM_API_SECRET.isNotEmpty()
+
         buttons = mutableListOf<Button>().apply {
             add( infoButton )
             if (song.isLocal) {
@@ -487,6 +518,32 @@ class SongItemMenu private constructor(
                 add( deleteSongDialog )
             }
             if (BuildConfig.ENABLE_FFMPEG) add( exportCacheDialog )
+            if (showLastFmSection) {
+                add( object : MenuIcon, Descriptive, Clickable {
+                    override val iconId: Int = R.drawable.heart
+                    override val messageId: Int = R.string.lastfm_love
+                    @get:Composable
+                    override val menuIconTitle: String get() = stringResource(R.string.lastfm_love)
+
+                    override fun onShortClick() {
+                        menuState.hide()
+                        LastFmActions.setLoveStatus(song.cleanArtistsText(), song.cleanTitle(), love = true)
+                    }
+                    override fun onLongClick() {}
+                })
+                add( object : MenuIcon, Descriptive, Clickable {
+                    override val iconId: Int = R.drawable.heart_dislike
+                    override val messageId: Int = R.string.lastfm_unlove
+                    @get:Composable
+                    override val menuIconTitle: String get() = stringResource(R.string.lastfm_unlove)
+
+                    override fun onShortClick() {
+                        menuState.hide()
+                        LastFmActions.setLoveStatus(song.cleanArtistsText(), song.cleanTitle(), love = false)
+                    }
+                    override fun onLongClick() {}
+                })
+            }
         }
         //</editor-fold>
 

@@ -18,6 +18,10 @@ import java.io.InputStream
 
 import app.n_zik.android.components.ImportFromFile
 import app.n_zik.android.components.dialog.common.RestartAppDialog
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.it.fast4x.rimusic.utils.discordAvatarKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
@@ -50,7 +54,8 @@ class ImportSettings private constructor(
                 ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey, ytAccountNameKey, ytAccountEmailKey,
                 ytAccountChannelHandleKey, ytAccountThumbnailKey, enableYouTubeLoginKey,
                 enableYouTubeSyncKey, useYtLoginOnlyForBrowseKey, discordPersonalAccessTokenKey,
-                discordAvatarKey, discordUsernameKey, isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
+                discordAvatarKey, discordUsernameKey, isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey,
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey
             )
             
             val editor = context.preferences.edit()

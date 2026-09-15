@@ -72,6 +72,7 @@ object ExportBackupDialog : Dialog {
 
         var includeYtbCredentials by remember { mutableStateOf(false) }
         var includeDiscordCredentials by remember { mutableStateOf(false) }
+        var includeLastfmCredentials by remember { mutableStateOf(false) }
 
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -147,6 +148,20 @@ object ExportBackupDialog : Dialog {
                                 )
                                 Text(stringResource(R.string.include_discord_credentials), style = typography().xxs, color = colorPalette().text)
                             }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clickable { includeLastfmCredentials = !includeLastfmCredentials }
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(if (includeLastfmCredentials) R.drawable.checked_filled else R.drawable.unchecked_outline),
+                                    contentDescription = null,
+                                    tint = if (includeLastfmCredentials) colorPalette().text else colorPalette().textSecondary,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(stringResource(R.string.include_lastfm_credentials), style = typography().xxs, color = colorPalette().text)
+                            }
                         }
                     }
                 }
@@ -158,10 +173,10 @@ object ExportBackupDialog : Dialog {
                 onClick = {
                     when (selectedOption) {
                         0 -> exportDbDialog.export()
-                        1 -> exportSettingsDialog.export(includeYtbCredentials, includeDiscordCredentials)
+                        1 -> exportSettingsDialog.export(includeYtbCredentials, includeDiscordCredentials, includeLastfmCredentials)
                         2 -> {
                             exportDbDialog.export()
-                            exportSettingsDialog.export(includeYtbCredentials, includeDiscordCredentials)
+                            exportSettingsDialog.export(includeYtbCredentials, includeDiscordCredentials, includeLastfmCredentials)
                         }
                     }
                 },

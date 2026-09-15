@@ -37,6 +37,7 @@ fun AutoBackupSettingsBlock() {
     var autoBackupTarget by rememberPreference(BackupManager.PREF_TARGET, BackupManager.TARGET_DATABASE)
     var autoBackupIncludeYtb by rememberPreference(BackupManager.PREF_INCLUDE_YTB, false)
     var autoBackupIncludeDiscord by rememberPreference(BackupManager.PREF_INCLUDE_DISCORD, false)
+    var autoBackupIncludeLastfm by rememberPreference(BackupManager.PREF_INCLUDE_LASTFM, false)
     var autoBackupPreInstall by rememberPreference(BackupManager.PREF_PRE_INSTALL, false)
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -106,6 +107,14 @@ fun AutoBackupSettingsBlock() {
                 isChecked = autoBackupIncludeDiscord,
                 onCheckedChange = { autoBackupIncludeDiscord = it },
                 icon = R.drawable.logo_discord,
+                modifier = Modifier.padding(start = 24.dp)
+            )
+            OtherSwitchSettingEntry(
+                title = stringResource(R.string.include_lastfm_credentials),
+                text = "",
+                isChecked = autoBackupIncludeLastfm,
+                onCheckedChange = { autoBackupIncludeLastfm = it },
+                icon = R.drawable.logo_lastfm,
                 modifier = Modifier.padding(start = 24.dp)
             )
         }
