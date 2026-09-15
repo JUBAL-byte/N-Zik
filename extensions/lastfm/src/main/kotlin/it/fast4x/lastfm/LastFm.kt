@@ -23,6 +23,52 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 
+/**
+ * Assembles the raw Now Playing request parameters (unsigned, without session key).
+ * The `duration` parameter is included only when it is > 0.
+ */
+fun nowPlayingParams(
+    artist: String,
+    track: String,
+    album: String?,
+    duration: Long,
+    apiKey: String
+): MutableMap<String, String> =
+    mutableMapOf(
+        "method" to "track.updateNowPlaying",
+        "artist" to artist,
+        "track" to track,
+        "api_key" to apiKey,
+        "format" to "json"
+    ).apply {
+        album?.takeIf { it.isNotBlank() }?.let { this["album"] = it }
+        if (duration > 0L) this["duration"] = duration.toString()
+    }
+
+/**
+ * Assembles the raw scrobble request parameters (unsigned, without session key).
+ * The `duration[0]` parameter is included only when it is > 0.
+ */
+fun scrobbleParams(
+    artist: String,
+    track: String,
+    timestamp: Long,
+    album: String?,
+    duration: Long,
+    apiKey: String
+): MutableMap<String, String> =
+    mutableMapOf(
+        "method" to "track.scrobble",
+        "artist[0]" to artist,
+        "track[0]" to track,
+        "timestamp[0]" to timestamp.toString(),
+        "api_key" to apiKey,
+        "format" to "json"
+    ).apply {
+        album?.takeIf { it.isNotBlank() }?.let { this["album[0]"] = it }
+        if (duration > 0L) this["duration[0]"] = duration.toString()
+    }
+
 object LastFm {
 
     private const val BASE_URL = "https://ws.audioscrobbler.com/2.0/"
@@ -112,20 +158,16 @@ object LastFm {
 
     /**
      * Sends a Now Playing update for the current track.
+     *
+     * @param duration Track duration in seconds; the `duration` parameter is
+     *                 omitted when it is <= 0 (unknown).
      */
-    suspend fun updateNowPlaying(artist: String, track: String, album: String? = null): Result<Unit> =
+    suspend fun updateNowPlaying(artist: String, track: String, album: String? = null, duration: Long = 0L): Result<Unit> =
         try {
             val sk = requireSessionKey() ?: return Result.failure(Exception("LastFM: no session key"))
 
-            val params = mutableMapOf(
-                "method" to "track.updateNowPlaying",
-                "artist" to artist,
-                "track" to track,
-                "api_key" to apiKey,
-                "sk" to sk,
-                "format" to "json"
-            )
-            album?.takeIf { it.isNotBlank() }?.let { params["album"] = it }
+            val params = nowPlayingParams(artist, track, album, duration, apiKey)
+            params["sk"] = sk
             params["api_sig"] = LastFmAuthUtils.generateSignature(params, apiSecret)
 
             val response: LastFmResponse = client.submitForm(
@@ -145,21 +187,15 @@ object LastFm {
      * Sends a scrobble for a finished track.
      *
      * @param timestamp Epoch seconds when the track started playing.
+     * @param duration Track duration in seconds; the `duration[0]` parameter is
+     *                 omitted when it is <= 0 (unknown).
      */
-    suspend fun scrobble(artist: String, track: String, timestamp: Long, album: String? = null): Result<Unit> =
+    suspend fun scrobble(artist: String, track: String, timestamp: Long, album: String? = null, duration: Long = 0L): Result<Unit> =
         try {
             val sk = requireSessionKey() ?: return Result.failure(Exception("LastFM: no session key"))
 
-            val params = mutableMapOf(
-                "method" to "track.scrobble",
-                "artist[0]" to artist,
-                "track[0]" to track,
-                "timestamp[0]" to timestamp.toString(),
-                "api_key" to apiKey,
-                "sk" to sk,
-                "format" to "json"
-            )
-            album?.takeIf { it.isNotBlank() }?.let { params["album[0]"] = it }
+            val params = scrobbleParams(artist, track, timestamp, album, duration, apiKey)
+            params["sk"] = sk
             params["api_sig"] = LastFmAuthUtils.generateSignature(params, apiSecret)
 
             val response: LastFmResponse = client.submitForm(

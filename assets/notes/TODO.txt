@@ -1,12 +1,16 @@
-# TODO List
+TODO List
 
-## YouTube Sync (Revamp)
-- [ ] Rework the YouTube Sync logic and UI: it's currently too confusing to distinguish between app and YouTube sync states.
-- [ ] Clarify what Auto-sync actually does vs Import/Export.
-- [ ] Fix Full Sync not respecting the home screen (Podcasts are entirely missing).
-- [ ] Improve YouTube Playlist sync: currently only supports pulling, not pushing (push only works for creating a playlist and adding tracks, but lacks full management).
-- [ ] Optimize background sync: it's currently syncing too much on every single page.
-- [ ] Add an option in settings to hide sync toast notifications.
+YouTube Sync (Revamp)
+- Rework the YouTube Sync logic and UI: it's currently too confusing to distinguish between app and YouTube sync states.
+- Clarify what Auto-sync actually does vs Import/Export.
+- Fix Full Sync not respecting the home screen (Podcasts are entirely missing).
+- Improve YouTube Playlist sync: currently only supports pulling, not pushing (push only works for creating a playlist and adding tracks, but lacks full management).
+- Optimize background sync: it's currently syncing too much on every single page.
+- Add an option in settings to hide sync toast notifications.
 
-## Features & UI
-- [ ] Build the Desktop version of the application.
+Features & UI
+- Build the Desktop version of the application.
+
+Lyrics
+- Translation and romanization is broken
+- also this issue with persistence https://github.com/N-Zik-Group/N-Zik/issues/765

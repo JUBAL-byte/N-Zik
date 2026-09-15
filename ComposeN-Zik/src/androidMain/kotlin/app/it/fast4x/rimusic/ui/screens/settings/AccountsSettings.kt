@@ -880,7 +880,8 @@ fun AccountsSettings() {
 
         /* Removed Spacer */
 
-
+        // Last.fm Section
+        LastFmSettingsCard()
 
         // Discord Section
         if (isAtLeastAndroid7) {
@@ -1096,9 +1097,7 @@ fun AccountsSettings() {
             }
         }
 
-        
-        // Last.fm Section
-        LastFmSettingsCard()
+    
 
         val searchCtx_Reset = search.inputValue.isBlank() || stringResource(R.string.settings_reset).contains(search.inputValue, true) || stringResource(R.string.settings_restore_default_settings).contains(search.inputValue, true)
         AnimatedVisibility(

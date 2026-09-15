@@ -240,6 +240,8 @@ import android.os.Binder as AndroidBinder
 import androidx.compose.ui.util.fastMap
 import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastFmConfigKey
+import app.n_zik.android.extensions.lastfm.isLastFmSetupKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.BuildConfig
@@ -298,8 +300,12 @@ class PlayerServiceModern : MediaLibraryService(),
         if (key == isDiscordBrowsingEnabledKey) {
             discordPresenceManager?.onBrowsingSettingChanged()
         }
-        if (key == isLastfmScrobblingEnabledKey || key == lastfmSessionKey) {
+        if (isLastFmSetupKey(key)) {
             maybeSetupLastFmScrobbleManager()
+        }
+        // Sub-options apply at runtime without recreating the manager
+        if (isLastFmConfigKey(key)) {
+            lastFmScrobbleManager?.onConfigChanged()
         }
     }
     private var isPersistentQueueEnabled: Boolean = false

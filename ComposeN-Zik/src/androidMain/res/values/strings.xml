@@ -1860,4 +1860,14 @@
 <string name="lastfm_auth_failed">Login failed, check your Last.fm credentials</string>
     <string name="lastfm_session_expired">Last.fm session expired, please connect again</string>
     <string name="lastfm_show_password">Show password</string>
+    <string name="lastfm_now_playing">Now Playing</string>
+    <string name="lastfm_now_playing_info">Send a Now Playing update when a track starts</string>
+    <string name="lastfm_scrobble">Scrobble</string>
+    <string name="lastfm_scrobble_info">Scrobble tracks after the configured delay</string>
+    <string name="lastfm_min_track_duration">Minimum track duration</string>
+    <string name="lastfm_min_track_duration_info">Tracks this short or shorter are never sent</string>
+    <string name="lastfm_scrobble_threshold">Scrobble delay %</string>
+    <string name="lastfm_scrobble_threshold_info">Scrobble after this percentage of the track</string>
+    <string name="lastfm_max_scrobble_delay">Maximum scrobble delay</string>
+    <string name="lastfm_max_scrobble_delay_info">The scrobble delay never exceeds this limit</string>
 </resources>

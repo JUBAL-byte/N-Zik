@@ -1,7 +1,12 @@
 package app.n_zik.android.components.dialog.export
 
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
@@ -21,6 +26,11 @@ class ExportSettingsDialogTest {
         lastfmUsernameKey to "NEVARLeVrai",
         lastfmAvatarUrlKey to "https://s.example/avatar.jpg",
         isLastfmScrobblingEnabledKey to true,
+        isLastfmNowPlayingEnabledKey to true,
+        isLastfmScrobbleEnabledKey to true,
+        lastfmMinTrackDurationSecondsKey to 30,
+        lastfmScrobbleThresholdPercentKey to 50,
+        lastfmMaxScrobbleDelaySecondsKey to 50,
         discordPersonalAccessTokenKey to "discord-token"
     )
 
@@ -31,7 +41,11 @@ class ExportSettingsDialogTest {
 
         assertTrue(without.isEmpty())
         assertEquals(
-            setOf(lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey),
+            setOf(
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
+                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
+                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
+            ),
             with.map { it.second }.toSet()
         )
     }

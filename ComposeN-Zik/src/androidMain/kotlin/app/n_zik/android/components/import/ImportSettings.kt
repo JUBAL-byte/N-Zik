@@ -18,8 +18,13 @@ import java.io.InputStream
 
 import app.n_zik.android.components.ImportFromFile
 import app.n_zik.android.components.dialog.common.RestartAppDialog
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -55,7 +60,9 @@ class ImportSettings private constructor(
                 ytAccountChannelHandleKey, ytAccountThumbnailKey, enableYouTubeLoginKey,
                 enableYouTubeSyncKey, useYtLoginOnlyForBrowseKey, discordPersonalAccessTokenKey,
                 discordAvatarKey, discordUsernameKey, isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey,
-                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
+                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
+                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
             )
             
             val editor = context.preferences.edit()

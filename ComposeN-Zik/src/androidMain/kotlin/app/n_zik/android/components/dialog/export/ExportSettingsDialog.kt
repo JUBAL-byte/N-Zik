@@ -17,8 +17,13 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import app.n_zik.android.BuildConfig
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.it.fast4x.rimusic.utils.discordAvatarKey
@@ -120,7 +125,12 @@ class ExportSettingsDialog private constructor(
                 lastfmSessionKey,
                 lastfmUsernameKey,
                 lastfmAvatarUrlKey,
-                isLastfmScrobblingEnabledKey
+                isLastfmScrobblingEnabledKey,
+                isLastfmNowPlayingEnabledKey,
+                isLastfmScrobbleEnabledKey,
+                lastfmMinTrackDurationSecondsKey,
+                lastfmScrobbleThresholdPercentKey,
+                lastfmMaxScrobbleDelaySecondsKey
             )
             val entries = mutableListOf<Triple<String, String, Any>>()
             if (includeYtb) {

@@ -25,7 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +49,7 @@ import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
 import app.it.fast4x.rimusic.ui.screens.settings.OtherSettingsEntry
 import app.it.fast4x.rimusic.ui.screens.settings.OtherSwitchSettingEntry
 import app.it.fast4x.rimusic.ui.screens.settings.SettingsSectionCard
+import app.it.fast4x.rimusic.ui.screens.settings.SliderSettingsEntry
 import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.BuildConfig
@@ -55,8 +58,13 @@ import app.n_zik.android.colorPalette
 import app.n_zik.android.components.dialog.common.InputDialog
 import app.n_zik.android.components.menu.ListMenu
 import app.n_zik.android.core.coil.ImageCacheFactory
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import app.n_zik.android.thumbnailShape
@@ -87,11 +95,23 @@ fun LastFmSettingsCard() {
             icon = R.drawable.logo_lastfm,
             content = {
                 var isLastfmScrobblingEnabled by rememberEncryptedPreference(isLastfmScrobblingEnabledKey, false)
+                var isLastfmNowPlayingEnabled by rememberEncryptedPreference(isLastfmNowPlayingEnabledKey, true)
+                var isLastfmScrobbleEnabled by rememberEncryptedPreference(isLastfmScrobbleEnabledKey, true)
+                var lastfmMinTrackDurationSeconds by rememberEncryptedPreference(lastfmMinTrackDurationSecondsKey, 30)
+                var lastfmScrobbleThresholdPercent by rememberEncryptedPreference(lastfmScrobbleThresholdPercentKey, 50)
+                var lastfmMaxScrobbleDelaySeconds by rememberEncryptedPreference(lastfmMaxScrobbleDelaySecondsKey, 50)
                 var lastfmSession by rememberEncryptedPreference(lastfmSessionKey, "")
                 var lastfmUsername by rememberEncryptedPreference(lastfmUsernameKey, "")
                 var lastfmAvatarUrl by rememberEncryptedPreference(lastfmAvatarUrlKey, "")
                 var loginLastfm by remember { mutableStateOf(false) }
                 val cardScope = rememberCoroutineScope()
+
+                val minDurationInitial by remember { derivedStateOf { lastfmMinTrackDurationSeconds.toFloat() } }
+                var minDurationUi by remember(minDurationInitial) { mutableFloatStateOf(minDurationInitial) }
+                val thresholdInitial by remember { derivedStateOf { lastfmScrobbleThresholdPercent.toFloat() } }
+                var thresholdUi by remember(thresholdInitial) { mutableFloatStateOf(thresholdInitial) }
+                val maxDelayInitial by remember { derivedStateOf { lastfmMaxScrobbleDelaySeconds.toFloat() } }
+                var maxDelayUi by remember(maxDelayInitial) { mutableFloatStateOf(maxDelayInitial) }
 
                 OtherSwitchSettingEntry(
                     title = stringResource(R.string.lastfm_enable_scrobbling),
@@ -163,6 +183,65 @@ fun LastFmSettingsCard() {
                                 }
                             }
                         )
+
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.lastfm_now_playing),
+                            text = stringResource(R.string.lastfm_now_playing_info),
+                            isChecked = isLastfmNowPlayingEnabled,
+                            onCheckedChange = { isLastfmNowPlayingEnabled = it },
+                            icon = R.drawable.play
+                        )
+
+                        OtherSwitchSettingEntry(
+                            title = stringResource(R.string.lastfm_scrobble),
+                            text = stringResource(R.string.lastfm_scrobble_info),
+                            isChecked = isLastfmScrobbleEnabled,
+                            onCheckedChange = { isLastfmScrobbleEnabled = it },
+                            icon = R.drawable.history
+                        )
+
+                        // Gates Now Playing too, so it stays visible even when scrobbling is off
+                        SliderSettingsEntry(
+                            title = stringResource(R.string.lastfm_min_track_duration),
+                            text = stringResource(R.string.lastfm_min_track_duration_info),
+                            state = minDurationUi,
+                            range = 10f..60f,
+                            stepSize = 5f,
+                            onSlide = { minDurationUi = it },
+                            onSlideComplete = { lastfmMinTrackDurationSeconds = minDurationUi.toInt() },
+                            toDisplay = { "${it.toInt()} s" },
+                            isIntegerOnly = true,
+                            icon = R.drawable.time
+                        )
+
+                        AnimatedVisibility(visible = isLastfmScrobbleEnabled) {
+                            Column {
+                                SliderSettingsEntry(
+                                    title = stringResource(R.string.lastfm_scrobble_threshold),
+                                    text = stringResource(R.string.lastfm_scrobble_threshold_info),
+                                    state = thresholdUi,
+                                    range = 30f..95f,
+                                    stepSize = 5f,
+                                    onSlide = { thresholdUi = it },
+                                    onSlideComplete = { lastfmScrobbleThresholdPercent = thresholdUi.toInt() },
+                                    toDisplay = { "${it.toInt()} %" },
+                                    isIntegerOnly = true,
+                                    icon = R.drawable.playbackduration
+                                )
+                                SliderSettingsEntry(
+                                    title = stringResource(R.string.lastfm_max_scrobble_delay),
+                                    text = stringResource(R.string.lastfm_max_scrobble_delay_info),
+                                    state = maxDelayUi,
+                                    range = 30f..360f,
+                                    stepSize = 30f,
+                                    onSlide = { maxDelayUi = it },
+                                    onSlideComplete = { lastfmMaxScrobbleDelaySeconds = maxDelayUi.toInt() },
+                                    toDisplay = { "${it.toInt()} s" },
+                                    isIntegerOnly = true,
+                                    icon = R.drawable.playbackduration
+                                )
+                            }
+                        }
 
                         CustomModalBottomSheet(
                             showSheet = loginLastfm,

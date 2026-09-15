@@ -44,10 +44,12 @@ import org.junit.jupiter.api.Test
 
 /**
  * Tests the Metrolist-style scrobble semantics of [LastFmScrobbleManager]:
- * Now Playing on start, scrobble after min(50% of duration, 50s) with the
- * track-start timestamp, pause/resume preserving the remaining delay,
- * cancellation on transition, local/short/blank metadata skips and
- * session-expired (error code 9) handling for both Now Playing and scrobble.
+ * Now Playing on start, scrobble after min(threshold % of duration, max
+ * delay) with the track-start timestamp, pause/resume preserving the
+ * remaining delay, cancellation on transition, local/short/blank metadata
+ * skips, session-expired (error code 9) handling for both Now Playing and
+ * scrobble, and the configurable options (NP/scrobble switches, custom
+ * thresholds and [LastFmScrobbleManager.onConfigChanged] re-arming).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class LastFmScrobbleManagerTest {
@@ -91,6 +93,13 @@ class LastFmScrobbleManagerTest {
         mockkStatic("app.it.fast4x.rimusic.utils.EncryptedPreferencesKt")
         every { context.encryptedPreferences } returns prefs
 
+        // Config defaults = previous hard-coded behavior
+        every { prefs.getBoolean(isLastfmNowPlayingEnabledKey, true) } returns true
+        every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns true
+        every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 30
+        every { prefs.getInt(lastfmScrobbleThresholdPercentKey, 50) } returns 50
+        every { prefs.getInt(lastfmMaxScrobbleDelaySecondsKey, 50) } returns 50
+
         mockkStatic("app.n_zik.android.utils.MediaItemUtilsKt")
         every { any<MediaItem>().artistTextOrDb() } returns "Artist"
         every { any<MediaItem>().titleOrDb() } returns "Title"
@@ -98,8 +107,8 @@ class LastFmScrobbleManagerTest {
 
         mockkObject(LastFm)
         every { LastFm.initialize(any(), any()) } just Runs
-        coEvery { LastFm.updateNowPlaying(any(), any(), any()) } returns Result.success(Unit)
-        coEvery { LastFm.scrobble(any(), any(), any(), any()) } returns Result.success(Unit)
+        coEvery { LastFm.updateNowPlaying(any(), any(), any(), any()) } returns Result.success(Unit)
+        coEvery { LastFm.scrobble(any(), any(), any(), any(), any()) } returns Result.success(Unit)
 
         mockkObject(Toaster)
         every { Toaster.e(any<Int>()) } just Runs
@@ -131,6 +140,14 @@ class LastFmScrobbleManagerTest {
             assertEquals(0L, LastFmScrobbleManager.computeScrobbleDelayMs(-1L))
             assertEquals(0L, LastFmScrobbleManager.computeScrobbleDelayMs(0L))
         }
+
+        @Test
+        fun `delay honors a custom threshold and cap`() {
+            val config = LastFmScrobbleConfig(scrobbleThresholdPercent = 90, maxScrobbleDelayMs = 120_000L)
+            assertEquals(120_000L, LastFmScrobbleManager.computeScrobbleDelayMs(240_000L, config))
+            val capped = LastFmScrobbleConfig(scrobbleThresholdPercent = 30, maxScrobbleDelayMs = 10_000L)
+            assertEquals(10_000L, LastFmScrobbleManager.computeScrobbleDelayMs(60_000L, capped))
+        }
     }
 
     @Nested
@@ -141,12 +158,12 @@ class LastFmScrobbleManagerTest {
             withManager { manager ->
                 manager.onTrackTransition(onlineItem(), 60_000L)
 
-                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album") }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 60L) }
 
                 advanceTimeBy(30_000L)
                 runCurrent()
 
-                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album") }
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
             }
         }
 
@@ -159,8 +176,8 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any()) }
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -172,8 +189,8 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any()) }
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -186,7 +203,7 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -196,14 +213,14 @@ class LastFmScrobbleManagerTest {
                 manager.onTrackTransition(onlineItem(), -1L)
                 advanceTimeBy(60_000L)
                 runCurrent()
-                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
 
                 manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 60_000L)
 
-                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album") }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 60L) }
                 advanceTimeBy(30_000L)
                 runCurrent()
-                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album") }
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
             }
         }
 
@@ -218,8 +235,270 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any()) }
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+    }
+
+    @Nested
+    inner class ScrobbleOptions {
+
+        @Test
+        fun `now playing off sends no NP but still scrobbles`() {
+            every { prefs.getBoolean(isLastfmNowPlayingEnabledKey, true) } returns false
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(30_000L)
+                runCurrent()
+
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
+            }
+        }
+
+        @Test
+        fun `scrobble off sends NP but never scrobbles`() {
+            every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns false
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(60_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 60L) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `both options off emit no LastFm requests`() {
+            every { prefs.getBoolean(isLastfmNowPlayingEnabledKey, true) } returns false
+            every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns false
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(60_000L)
+                runCurrent()
+
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `custom threshold and cap scrobble a 4 minute track at the cap`() {
+            every { prefs.getInt(lastfmScrobbleThresholdPercentKey, 50) } returns 90
+            every { prefs.getInt(lastfmMaxScrobbleDelaySecondsKey, 50) } returns 120
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 240_000L)
+
+                advanceTimeBy(119_000L)
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+
+                advanceTimeBy(1_000L)
+                runCurrent()
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 240L) }
+            }
+        }
+
+        @Test
+        fun `track below the configured minimum is never sent`() {
+            every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 60
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 40_000L)
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 40_000L)
+
+                advanceTimeBy(60_000L)
+                runCurrent()
+
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `config change recalculates the pending delay from now without duplicating NP`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(10_000L)
+                virtualNow += 10_000L
+                every { prefs.getInt(lastfmScrobbleThresholdPercentKey, 50) } returns 90
+                manager.onConfigChanged()
+
+                // New delay: min(90% of 60s, 50s cap) = 50s from the change
+                advanceTimeBy(49_000L)
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+
+                advanceTimeBy(1_000L)
+                runCurrent()
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `config change above the track duration cancels the timer`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 40_000L)
+
+                advanceTimeBy(5_000L)
+                virtualNow += 5_000L
+                every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 60
+                manager.onConfigChanged()
+
+                advanceTimeBy(120_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `disabling scrobble mid-track cancels the pending scrobble`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(10_000L)
+                virtualNow += 10_000L
+                every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns false
+                manager.onConfigChanged()
+
+                advanceTimeBy(120_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `config change never re-sends now playing`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(5_000L)
+                virtualNow += 5_000L
+                every { prefs.getBoolean(isLastfmNowPlayingEnabledKey, true) } returns false
+                manager.onConfigChanged()
+
+                advanceTimeBy(60_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `config change while paused recomputes the delay and the scrobble fires once`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+                advanceTimeBy(10_000L)
+                virtualNow += 10_000L
+                manager.onPlayingStateChanged(isPlaying = false, onlineItem(), 60_000L)
+
+                virtualNow += 10_000L
+                every { prefs.getInt(lastfmScrobbleThresholdPercentKey, 50) } returns 90
+                manager.onConfigChanged()
+
+                virtualNow += 10_000L
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 60_000L)
+                // New delay: min(90% of 60s, 50s cap) = 50s from the resume
+                advanceTimeBy(49_000L)
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+
+                advanceTimeBy(1_000L)
+                runCurrent()
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `re-enabling scrobble mid-track does not scrobble the current track`() {
+            every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns false
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+
+                advanceTimeBy(5_000L)
+                virtualNow += 5_000L
+                every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns true
+                manager.onConfigChanged()
+
+                advanceTimeBy(120_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `lowering the min duration makes an idle track eligible when it starts playing`() {
+            every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 30
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 20_000L)
+                advanceTimeBy(1_000L)
+                virtualNow += 1_000L
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+
+                every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 10
+                manager.onConfigChanged()
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 20_000L)
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 20L) }
+                advanceTimeBy(10_000L)
+                runCurrent()
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1001L, "Album", 20L) }
+            }
+        }
+
+        @Test
+        fun `lowering the min duration mid-play starts the currently playing track`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 20_000L)
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 20_000L)
+                advanceTimeBy(1_000L)
+                virtualNow += 1_000L
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+
+                every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 10
+                manager.onConfigChanged()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 20L) }
+                advanceTimeBy(10_000L)
+                runCurrent()
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1001L, "Album", 20L) }
+            }
+        }
+
+        @Test
+        fun `lowering the min duration mid-play with scrobble off sends now playing only`() {
+            every { prefs.getBoolean(isLastfmScrobbleEnabledKey, true) } returns false
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 20_000L)
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 20_000L)
+                advanceTimeBy(1_000L)
+                virtualNow += 1_000L
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+
+                every { prefs.getInt(lastfmMinTrackDurationSecondsKey, 30) } returns 10
+                manager.onConfigChanged()
+
+                coVerify(exactly = 1) { LastFm.updateNowPlaying("Artist", "Title", "Album", 20L) }
+                advanceTimeBy(30_000L)
+                runCurrent()
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
     }
@@ -237,15 +516,15 @@ class LastFmScrobbleManagerTest {
 
                 advanceTimeBy(30_000L)
                 runCurrent()
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
 
                 virtualNow += 10_000L
                 manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 60_000L)
                 advanceTimeBy(20_000L)
                 runCurrent()
 
-                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album") }
-                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
             }
         }
 
@@ -255,14 +534,14 @@ class LastFmScrobbleManagerTest {
                 manager.onTrackTransition(onlineItem(), 60_000L)
                 advanceTimeBy(30_000L)
                 runCurrent()
-                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any(), any()) }
 
                 manager.onPlayingStateChanged(isPlaying = false, onlineItem(), 60_000L)
                 manager.onPlayingStateChanged(isPlaying = true, onlineItem(), 60_000L)
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -277,7 +556,26 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(60_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `resume with unknown duration keeps the known one so the scrobble still fires`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+                advanceTimeBy(10_000L)
+                virtualNow += 10_000L
+                manager.onPlayingStateChanged(isPlaying = false, onlineItem(), 60_000L)
+
+                // Stream still loading after a recovery seek: the resume callback
+                // carries C.TIME_UNSET (-1); the tracked duration must be kept.
+                virtualNow += 10_000L
+                manager.onPlayingStateChanged(isPlaying = true, onlineItem(), -1L)
+                advanceTimeBy(20_000L)
+                runCurrent()
+
+                coVerify(exactly = 1) { LastFm.scrobble("Artist", "Title", 1000L, "Album", 60L) }
             }
         }
     }
@@ -295,8 +593,8 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(120_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), 1000L, any()) }
-                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), 1005L, any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), 1000L, any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), 1005L, any(), any()) }
             }
         }
 
@@ -311,8 +609,8 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(30_000L)
                 runCurrent()
 
-                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any()) }
-                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -325,7 +623,7 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(120_000L)
                 runCurrent()
 
-                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 1) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
     }
@@ -335,7 +633,7 @@ class LastFmScrobbleManagerTest {
 
         @Test
         fun `expired session code 9 from scrobble clears stored keys`() {
-            coEvery { LastFm.scrobble(any(), any(), any(), any()) } returns
+            coEvery { LastFm.scrobble(any(), any(), any(), any(), any()) } returns
                     Result.failure(LastFmApiException(9, "Session invalid"))
             LastFm.sessionKey = "session-abc"
             withManager { manager ->
@@ -353,7 +651,7 @@ class LastFmScrobbleManagerTest {
 
         @Test
         fun `expired session code 9 from now playing also clears stored keys`() {
-            coEvery { LastFm.updateNowPlaying(any(), any(), any()) } returns
+            coEvery { LastFm.updateNowPlaying(any(), any(), any(), any()) } returns
                     Result.failure(LastFmApiException(9, "Session invalid"))
             LastFm.sessionKey = "session-abc"
             withManager { manager ->
@@ -371,7 +669,7 @@ class LastFmScrobbleManagerTest {
 
         @Test
         fun `other api errors do not clear the session`() {
-            coEvery { LastFm.scrobble(any(), any(), any(), any()) } returns
+            coEvery { LastFm.scrobble(any(), any(), any(), any(), any()) } returns
                     Result.failure(LastFmApiException(6, "Invalid API key"))
             withManager { manager ->
                 manager.onTrackTransition(onlineItem(), 60_000L)
@@ -391,7 +689,7 @@ class LastFmScrobbleManagerTest {
 
         @Test
         fun `offline scrobble is abandoned without clearing the session or crashing`() {
-            coEvery { LastFm.scrobble(any(), any(), any(), any()) } returns
+            coEvery { LastFm.scrobble(any(), any(), any(), any(), any()) } returns
                     Result.failure(Exception("UnknownHostException: ws.audioscrobbler.com"))
             withManager { manager ->
                 manager.onTrackTransition(onlineItem(), 60_000L)
@@ -420,7 +718,7 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(120_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
 
@@ -433,8 +731,22 @@ class LastFmScrobbleManagerTest {
                 advanceTimeBy(120_000L)
                 runCurrent()
 
-                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any()) }
-                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.updateNowPlaying(any(), any(), any(), any()) }
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
+            }
+        }
+
+        @Test
+        fun `config change after destroy is a no-op`() {
+            withManager { manager ->
+                manager.onTrackTransition(onlineItem(), 60_000L)
+                manager.destroy()
+                manager.onConfigChanged()
+
+                advanceTimeBy(120_000L)
+                runCurrent()
+
+                coVerify(exactly = 0) { LastFm.scrobble(any(), any(), any(), any(), any()) }
             }
         }
     }

@@ -8,8 +8,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
 import kotlinx.coroutines.Dispatchers
@@ -324,7 +329,9 @@ object BackupManager {
                 isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
             )
             val lastfmKeys = listOf(
-                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
+                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
+                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
             )
             val encryptedPrefs = context.encryptedPreferences.all
             if (includeYtb) {
