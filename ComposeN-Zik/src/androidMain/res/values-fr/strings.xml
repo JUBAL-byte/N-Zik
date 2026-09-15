@@ -1843,4 +1843,20 @@ Volume BAS : titre précédent</string>
   <string name="find_identify_another_hint">Appuyez sur le bouton pour identifier un autre morceau</string>
   <string name="find_music_hint">Lancez un morceau de musique pour que l\'analyse fonctionne</string>
   <string name="and">et</string>
+  <string name="social_lastfm">Last.fm</string>
+  <string name="social_lastfm_info">Scrobble your music to Last.fm</string>
+  <string name="lastfm_enable_scrobbling">Enable scrobbling</string>
+  <string name="lastfm_connect">Se connecter</string>
+  <string name="lastfm_disconnect">Se déconnecter</string>
+  <string name="lastfm_connected">Connected to Last.fm account</string>
+  <string name="lastfm_username">Nom d’utilisateur</string>
+  <string name="lastfm_password">Mot de passe</string>
+  <string name="lastfm_login">Log in</string>
+  <string name="lastfm_love">Love on Last.fm</string>
+  <string name="lastfm_unlove">Unlove on Last.fm</string>
+  <string name="lastfm_loved">Loved on Last.fm</string>
+  <string name="lastfm_unloved">Removed from loved tracks</string>
+  <string name="lastfm_action_failed">Last.fm request failed</string>
+  <string name="lastfm_auth_failed">Login failed, check your Last.fm credentials</string>
+  <string name="lastfm_session_expired">Last.fm session expired, please connect again</string>
 </resources>
