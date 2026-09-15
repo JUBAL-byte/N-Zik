@@ -67,8 +67,9 @@
   <string name="mb_insights_popularity">Popularity</string>
   <string name="mb_insights_your_listening">Your listening</string>
   <string name="mb_insights_biography">Biography</string>
-  <string name="mb_insights_discography">Discography</string>
-  <string name="mb_insights_top_tracks">Top tracks</string>
+  <string name="mb_insights_local_library">Local library</string>
+  <string name="mb_insights_top_songs">Legjobb dalok</string>
+  <string name="mb_insights_top_albums">Top albums</string>
   <string name="mb_insights_members_collabs">Members &amp; Collaborations</string>
   <string name="mb_insights_links">Links</string>
   <string name="mb_insights_tracklist">Tracklist</string>
@@ -77,9 +78,10 @@
   <string name="mb_insights_artist">Előadó</string>
   <string name="mb_stat_listens">Listens</string>
   <string name="mb_stat_albums">Albumok</string>
-  <string name="mb_stat_likes">Likes</string>
+  <string name="mb_stat_liked_songs">Liked songs</string>
+  <string name="mb_stat_bookmarked_albums">Bookmarked albums</string>
   <string name="mb_stat_time">Total time</string>
-  <string name="mb_stat_tracks">Tracks</string>
+  <string name="mb_stat_songs">Dal</string>
   <string name="overview">Áttekintés</string>
   <string name="singles">Kislemez</string>
   <string name="library">Könyvtár</string>
