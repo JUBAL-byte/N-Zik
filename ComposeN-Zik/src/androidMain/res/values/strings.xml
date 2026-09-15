@@ -61,6 +61,14 @@
 <string name="mb_rating_votes_mb">%1$d votes on MusicBrainz</string>
 <string name="mb_wikipedia">Wikipedia</string>
 <string name="mb_musicbrainz">MusicBrainz</string>
+<string name="mb_resync">Resync</string>
+<string name="mb_last_sync">Last sync: %1$s</string>
+<string name="mb_last_sync_never">Never synced</string>
+<string name="mb_last_sync_failed">Sync failed: %1$s</string>
+<string name="mb_resync_success">MusicBrainz data synced</string>
+<string name="mb_resync_error">Resync failed — MusicBrainz may be busy, try again later</string>
+<string name="mb_resync_paused">MusicBrainz paused after repeated failures — retry in %1$d min</string>
+<string name="mb_last_sync_paused">Paused (too many failures): retry in %1$d min</string>
 <string name="mb_insights">Insights</string>
 <string name="mb_insights_back">Back</string>
 <string name="mb_insights_tags_genres">Tags &amp; Genres</string>
@@ -75,6 +83,7 @@
 <string name="mb_insights_tracklist">Tracklist</string>
 <string name="mb_insights_tracklist_count">Tracklist (%1$d)</string>
 <string name="mb_insights_other_albums">Other albums</string>
+<string name="mb_insights_singles_eps">Singles &amp; EPs</string>
 <string name="mb_insights_artist">Artist</string>
 <string name="mb_stat_listens">Listens</string>
 <string name="mb_stat_albums">Albums</string>
@@ -1833,4 +1842,20 @@
 <string name="find_identify_another_hint">Tap the button to identify another song</string>
 <string name="find_music_hint">Play some music for the analysis to work</string>
 <string name="and">and</string>
+<string name="social_lastfm">Last.fm</string>
+<string name="social_lastfm_info">Scrobble your music to Last.fm</string>
+<string name="lastfm_enable_scrobbling">Enable scrobbling</string>
+<string name="lastfm_connect">Connect</string>
+<string name="lastfm_disconnect">Disconnect</string>
+<string name="lastfm_connected">Connected to Last.fm account</string>
+<string name="lastfm_username">Username</string>
+<string name="lastfm_password">Password</string>
+<string name="lastfm_login">Log in</string>
+<string name="lastfm_love">Love on Last.fm</string>
+<string name="lastfm_unlove">Unlove on Last.fm</string>
+<string name="lastfm_loved">Loved on Last.fm</string>
+<string name="lastfm_unloved">Removed from loved tracks</string>
+<string name="lastfm_action_failed">Last.fm request failed</string>
+<string name="lastfm_auth_failed">Login failed, check your Last.fm credentials</string>
+<string name="lastfm_session_expired">Last.fm session expired, please connect again</string>
 </resources>
