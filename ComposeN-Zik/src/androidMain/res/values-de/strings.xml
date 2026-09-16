@@ -1717,6 +1717,7 @@
     <string name="updating_waveform_in_progress">Updating waveform in progress…</string>
     <string name="waveform_updated_successfully">Waveform updated successfully</string>
     <string name="error_updating_waveform">Error updating waveform</string>
+    <string name="waveform_update_after_download">Waveform will be updated as soon as the download finishes</string>
     <string name="metadata_exported">Exportiert</string>
     <string name="container">Container</string>
     <string name="miniplayer_button_play_pause">Start/Pause</string>
