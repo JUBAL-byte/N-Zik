@@ -1,3 +1,14 @@
+refactor(threading): introduce NzikDispatchers, a centralized coroutine-dispatcher object (issue https://github.com/N-Zik-Group/N-Zik/issues/606)
+  - New `app.n_zik.android.utils.coroutines.NzikDispatchers`: single source of truth for 5 named dispatchers (UI/PLAYBACK/VISUALIZER/MEDIA/DATA) and 2 named Room executors (ROOM_QUERY_EXECUTOR/ROOM_TX_EXECUTOR); all pool-backed members are `by lazy` so referencing one doesn't eagerly spin up the others (a Kotlin `object` initializes all its properties together on first touch)
+  - Absorbed `playback/utils/PlaybackDispatchers.kt` (STREAM_RESOLVER) into `NzikDispatchers.PLAYBACK`; deleted the file and redirected its 8 usages in `StreamResolver.kt`
+  - Fixed a latent crash risk found during the migration: `MainActivity.onDestroy()` called `PlaybackDispatchers.STREAM_RESOLVER.close()` on the process-wide singleton executor — since `PlayerServiceModern` (and its `StreamResolver`) can outlive the Activity, this could throw `RejectedExecutionException` on the next stream resolution after any Activity recreation; the close call is removed (NzikDispatchers members are process-lifetime, daemon-threaded, and never explicitly closed)
+  - `MyDownloadHelper.kt`: replaced its dedicated `Executors.newCachedThreadPool()` with `NzikDispatchers.DATA`, using `.asExecutor()` for the raw `Executor` media3's `DownloadManager` constructor requires; kept the existing `Semaphore(3)` download-preparation limit; `release()` no longer shuts down a pool it no longer owns
+  - `Database.kt`: wired `RoomDatabase.Builder.setQueryExecutor()`/`.setTransactionExecutor()` to the two new named/bounded (4 threads each) executors — same off-main behavior Room's defaults already provided, now visible by name in ANR/profiler traces
+  - Hardening from review: exposed the two Room executors through a plain `Executor` SAM wrapper so a caller can't cast to `ExecutorService` and call `.shutdown()` on a process-lifetime pool
+  - Tests: `NzikDispatchersTest` (11 cases — aliasing, distinctness, thread naming, PLAYBACK FIFO ordering, executor cast-safety) and `RoomExecutorsTest` (Robolectric, confirms query/transaction executors still run correctly with the new named pools)
+  - `VISUALIZER` and `MEDIA` are created but have no consumer yet — wiring the actual hotspots (visualizer FFT capture, lyrics fetch/parsing) onto them is deferred to follow-up work tracked in `deferred-work.md`
+  - Full architecture decisions in `_bmad-output/planning-artifacts/architecture/architecture-N-Zik-2026-09-16/ARCHITECTURE-SPINE.md`
+
 fix(ui): migrate slider to Material 3 state API
   - Slider.kt: replace the hidden value-based custom Slider overload with SliderState for Material 3 1.5.0-alpha28 compatibility
   - rememberControlledSliderState synchronizes the animated parent value and recreates the state when the range changes, preserving continuous steps and local magnetism

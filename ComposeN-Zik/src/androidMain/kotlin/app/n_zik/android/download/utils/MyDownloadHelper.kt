@@ -50,7 +50,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,8 +66,9 @@ import app.it.fast4x.rimusic.utils.ExternalUris
 import app.n_zik.android.core.coil.ImageCacheFactory
 
 import app.kreate.android.me.knighthat.utils.Toaster
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.asExecutor
 import timber.log.Timber
-import java.util.concurrent.Executors
 import kotlin.io.path.createTempDirectory
 import app.it.fast4x.rimusic.EXPLICIT_PREFIX
 import app.n_zik.android.R
@@ -77,9 +77,8 @@ import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 
 @UnstableApi
 object MyDownloadHelper {
-    private val executor = Executors.newCachedThreadPool()
     private val coroutineScope = CoroutineScope(
-        executor.asCoroutineDispatcher() +
+        NzikDispatchers.DATA +
                 SupervisorJob() +
                 CoroutineName("MyDownloadService-Executor-Scope")
     )
@@ -259,7 +258,7 @@ object MyDownloadHelper {
                 getDatabaseProvider(context),
                 getDownloadCache(context),
                 createDownloadDataSourceFactory(), // Use dedicated download resolver
-                executor
+                NzikDispatchers.DATA.asExecutor()
             ).apply {
                 maxParallelDownloads = 3
                 minRetryCount = 2
@@ -550,12 +549,12 @@ object MyDownloadHelper {
     }
 
     /**
-     * Cancel the coroutine scope and shut down the executor.
+     * Cancel the coroutine scope tracking download-preparation jobs.
      * Call this when the download system is being torn down.
      */
     fun release() {
         coroutineScope.cancel()
-        executor.shutdown()
+        // NzikDispatchers.DATA is a shared, process-lifetime dispatcher - nothing to shut down here.
     }
 }
 

@@ -2,7 +2,7 @@ package app.n_zik.android.playback.services
 
 import app.n_zik.android.core.database.Database
 
-import app.n_zik.android.playback.utils.PlaybackDispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 import android.content.ContentResolver
 import android.net.Uri
@@ -77,7 +77,7 @@ private val PARTIAL_CONTENT_RANGE = Regex("""bytes\s+0-0/(\d+)""", RegexOption.I
 private val UNSATISFIED_CONTENT_RANGE = Regex("""bytes\s+\*/(\d+)""", RegexOption.IGNORE_CASE)
 
 // Structured scope for background tasks (caching, metadata upsert)
-private val scope = CoroutineScope(PlaybackDispatchers.STREAM_RESOLVER + Job())
+private val scope = CoroutineScope(NzikDispatchers.PLAYBACK + Job())
 
 // PoTokenGenerator for metadata-only requests (playerResponseForMetadata).
 // Stream playback uses InnerTubeXPlayer's own PoTokenGenerator instance.
@@ -232,7 +232,7 @@ suspend fun upsertSongInfo(videoId: String) {
                         Timber.tag(TAG).d("[Artist Cache] $artistId was fetched $daysAgo days ago ($msAgo ms), skipping.")
                     } else if (fetchingArtists.add(artistId)) {
                         Timber.tag(TAG).d("[Artist Cache] $artistId outdated, fetching in background.")
-                        scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+                        scope.launch(NzikDispatchers.PLAYBACK) {
                             try {
                                 Timber.tag(TAG).d("upsertSongInfo: fetching artist page for $artistId")
                                 val artistPage = Innertube.artistPage(browseId = artistId)?.getOrNull()
@@ -274,7 +274,7 @@ suspend fun upsertSongInfo(videoId: String) {
                     Timber.tag(TAG).d("[Album Cache] $albumId fetched $daysAgo days ago ($msAgo ms), skipping.")
                 } else if (fetchingAlbums.add(albumId)) {
                     Timber.tag(TAG).d("[Album Cache] $albumId outdated, fetching songs.")
-                    scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+                    scope.launch(NzikDispatchers.PLAYBACK) {
                         try {
                             val savedCount = fetchAndSaveAlbumSongs(albumId)
                             if (savedCount < 2) {
@@ -396,7 +396,7 @@ private fun saveFormatSafe(format: Format) {
             formatTable.upsert(format)
         } catch (e: SQLiteConstraintException) {
             Timber.tag(TAG).w("Foreign key constraint failed for songId ${format.songId}. Retrying in 5 s...")
-            scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+            scope.launch(NzikDispatchers.PLAYBACK) {
                 delay(5000)
                 try {
                     Database.asyncTransaction {
@@ -425,7 +425,7 @@ private fun fetchFormatIfMissing(videoId: String) {
     if (videoId in fetchedFormatIds) return
     if (videoId.startsWith(LOCAL_KEY_PREFIX)) return
     if (videoId.length != 11) return
-    scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+    scope.launch(NzikDispatchers.PLAYBACK) {
         try {
             val existing = Database.formatTable.findBySongIdDirect(videoId)
             if (existing != null) {
@@ -676,7 +676,7 @@ private suspend fun resolveStreamUriViaInnerTubeX(
                     PlaybackDataStore.saveStreamClient(appContext(), videoId, playbackData.streamClient)
 
                     // Upsert song format in background
-                    scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+                    scope.launch(NzikDispatchers.PLAYBACK) {
                         upsertSongFormat(
                             videoId,
                             playbackData.format,
@@ -924,7 +924,7 @@ fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
 
         if (isLocal) return@Factory dataSpec
 
-        scope.launch(PlaybackDispatchers.STREAM_RESOLVER) { upsertSongInfo(videoId) }
+        scope.launch(NzikDispatchers.PLAYBACK) { upsertSongInfo(videoId) }
 
         dataSpec.process(videoId, audioQualityFormat, applicationContext.isConnectionMetered())
             .buildUpon()
@@ -971,7 +971,7 @@ fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
 
         fun resolveFresh(): DataSpec {
             fetchFormatIfMissing(videoId)
-            scope.launch(PlaybackDispatchers.STREAM_RESOLVER) { upsertSongInfo(videoId) }
+            scope.launch(NzikDispatchers.PLAYBACK) { upsertSongInfo(videoId) }
             val resolvedSpec = dataSpec.process(videoId, audioQualityFormat, appContext().isConnectionMetered(), allowBoundedRange = false)
             val cachedStream = streamUrlCache[videoId]
             if (cachedStream != null) {
@@ -1103,7 +1103,7 @@ private fun DataSpec.processForDownload(
                     val streamUrl = "${playbackData.streamUrl}&range=0-$contentLength"
 
                     // Upsert song/artist/album info in background (fire-and-forget, like Cubic Music)
-                    scope.launch(PlaybackDispatchers.STREAM_RESOLVER) {
+                    scope.launch(NzikDispatchers.PLAYBACK) {
                         upsertSongInfo(videoId)
                         upsertSongFormat(
                             videoId,

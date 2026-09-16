@@ -109,7 +109,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.compose.rememberNavController
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.R
-import app.n_zik.android.playback.utils.PlaybackDispatchers
 import android.graphics.Bitmap
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.ime
@@ -1730,9 +1729,8 @@ class MainActivity :
         runCatching {
             monet.removeMonetColorsChangedListener(this)
             _monet = null
-
-            // Close threads
-            PlaybackDispatchers.STREAM_RESOLVER.close()
+            // NzikDispatchers is process-lifetime and shared with PlayerServiceModern's
+            // StreamResolver, which can outlive this Activity — never close it here.
         }.onFailure {
             Timber.tag("MainActivity").e("onDestroy removeMonetColorsChangedListener ${it.stackTraceToString()}")
         }

@@ -1,5 +1,6 @@
 package app.n_zik.android.core.database
 import app.n_zik.android.appContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 import app.n_zik.android.core.database.*
 import app.n_zik.android.*
@@ -687,6 +688,8 @@ abstract class DatabaseInitializer protected constructor() : RoomDatabase() {
                     klass = DatabaseInitializer::class.java,
                     name = Database.FILE_NAME
                 )
+                .setQueryExecutor(NzikDispatchers.ROOM_QUERY_EXECUTOR)
+                .setTransactionExecutor(NzikDispatchers.ROOM_TX_EXECUTOR)
                 .addMigrations(
                     From8To9Migration(),
                     From10To11Migration(),
