@@ -1,6 +1,6 @@
 package app.n_zik.android.components.ui.sliders
 
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -108,7 +107,7 @@ fun Slider(
 
     Slider(
         enabled = isEnabled,
-        value = animatedValue,
+        state = rememberControlledSliderState(animatedValue, range),
         onValueChange = { newValue ->
             val normalized = normalize(newValue)
             var finalValue = if (abs(newValue - normalized) <= magneticThreshold) normalized else newValue
@@ -126,9 +125,7 @@ fun Slider(
         onValueChangeFinished = {
             onSlideComplete()
         },
-        valueRange = range,
         modifier = modifier,
-        steps = 0,
         interactionSource = interactionSource,
         thumb = {
             Box(
@@ -140,7 +137,7 @@ fun Slider(
                     )
             )
         },
-        track = { sliderState ->
+        track = {
             Box(contentAlignment = Alignment.CenterStart) {
                 val fraction = if (range.endInclusive > range.start) {
                     ((state - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)
@@ -239,4 +236,17 @@ fun Slider(
             }
         }
     )
+}
+
+@Composable
+internal fun rememberControlledSliderState(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+): SliderState {
+    val sliderState = remember(range) {
+        SliderState(value = value, steps = 0, trackRange = range)
+    }
+    // The parent owns the animated value; keep Material's state in sync on recomposition.
+    sliderState.value = value
+    return sliderState
 }

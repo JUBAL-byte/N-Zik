@@ -1,3 +1,10 @@
+fix(ui): migrate slider to Material 3 state API
+  - Slider.kt: replace the hidden value-based custom Slider overload with SliderState for Material 3 1.5.0-alpha28 compatibility
+  - rememberControlledSliderState synchronizes the animated parent value and recreates the state when the range changes, preserving continuous steps and local magnetism
+  - Preserve custom thumb/track rendering, animations, interaction source, value callbacks and drag completion
+  - Add SliderStateSynchronizationTest and SliderIntegrationTest for recomposition, range changes, progress semantics, dragging and completion callbacks
+  - Verified both tests and assembleDebug; code review completed and functionality confirmed by the user
+
 feat(lastfm): configurable scrobble options — Now Playing toggle, min duration, delay % and cap sliders (issue https://github.com/N-Zik-Group/N-Zik/issues/574)
   - baseline e9acb3210df0bb7a1bdd8bbb25bbe0fa9f24fdef
   - `LastFmPrefs.kt`: 5 new encrypted keys (now-playing toggle, scrobble toggle, min track duration, scrobble delay %, max scrobble delay) + internal `isLastFmSetupKey`/`isLastFmConfigKey` classifiers; defaults preserve the 574 behavior (NP ON, scrobble ON, 30 s / 50 % / 50 s)
