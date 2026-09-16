@@ -163,6 +163,8 @@ fun NextVisualizer() {
 
             val binder = LocalPlayerServiceBinder.current
             val visualizerView = remember { VisualizerView(context) }
+            // Capture seam (issue #606) is wired once in MainApplication.onCreate() — guaranteed
+            // to run before this or any other visualizer composable (e.g. SeekBarVisualizer).
             val helper = remember(binder?.player?.audioSessionId) {
                 VisualizerHelper(binder?.player?.audioSessionId ?: 0)
             }

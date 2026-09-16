@@ -1,6 +1,5 @@
 package app.n_zik.android.extensions.audiobar.views
 
-import android.media.audiofx.Visualizer
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -51,14 +50,15 @@ import app.it.fast4x.rimusic.utils.semiBold
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import utils.VisualizerHelper
 import timber.log.Timber
 import app.n_zik.android.LocalPlayerServiceBinder
+import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.Animatable
 import androidx.media3.common.Player
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val waveWidthPercentOfSpaceAvailable = 0.5f
 
@@ -146,52 +146,56 @@ fun SeekBarVisualizer(
         if (hasPermission && audioSessionId != null && localIsPlaying) {
             @Suppress("SENSELESS_COMPARISON")
             val currentSessionId = audioSessionId ?: return@BoxWithConstraints
-            LaunchedEffect(currentSessionId, localIsPlaying) {
-                val helper = VisualizerHelper(currentSessionId)
-                
+
+            // Issue #606: no more direct Visualizer.getFft() call here. The shared capture
+            // coordinator (NzikDispatchers.VISUALIZER) publishes one snapshot per sessionId at
+            // 60fps and VisualizerView reads the same instance through VisualizerHelper's
+            // snapshotProvider -- this just collects it, lifecycle-aware.
+            val snapshot by VisualizerCaptureCoordinator.snapshotFlow(currentSessionId)
+                .collectAsStateWithLifecycle()
+
+            LaunchedEffect(snapshot) {
+                val currentSnapshot = snapshot ?: return@LaunchedEffect
+                val fft = currentSnapshot.fft
                 try {
-                    while (true) {
-                        val fft = helper.getFft()
-                        
-                        if (fft.isNotEmpty() && liveWaveform.isNotEmpty()) {
-                            val newWaveform = liveWaveform.clone()
-                            
-                            val actualSamplingRate = 44100
-                            val binsToUse = kotlin.math.max(1, (2500 * fft.size) / actualSamplingRate)
-                            
-                            val binsPerWave = kotlin.math.max(1, binsToUse / liveWaveform.size)
-                            
-                            for (index in liveWaveform.indices) {
-                                val startBin = index * binsPerWave
-                                val endBin = startBin + binsPerWave
-                                
-                                var sumMagnitude = 0f
-                                var count = 0
-                                
-                                for (bin in startBin until endBin) {
-                                    val fftIndex = bin * 2 + 2 // +2 to skip DC and Nyquist
-                                    if (fftIndex + 1 < fft.size) {
-                                        val real = fft[fftIndex].toInt()
-                                        val imag = fft[fftIndex + 1].toInt()
-                                        val magnitude = sqrt((real * real + imag * imag).toFloat())
-                                        sumMagnitude += magnitude
-                                        count++
-                                    }
+                    if (fft.isNotEmpty() && liveWaveform.isNotEmpty()) {
+                        val newWaveform = liveWaveform.clone()
+
+                        // Visualizer.getSamplingRate() (and VisualizerSnapshot.samplingRate) is in
+                        // milliHertz (e.g. 44100000), while this formula's constant is Hz-scale.
+                        val actualSamplingRate = currentSnapshot.samplingRate / 1000
+                        val binsToUse = kotlin.math.max(1, (2500 * fft.size) / actualSamplingRate)
+
+                        val binsPerWave = kotlin.math.max(1, binsToUse / liveWaveform.size)
+
+                        for (index in liveWaveform.indices) {
+                            val startBin = index * binsPerWave
+                            val endBin = startBin + binsPerWave
+
+                            var sumMagnitude = 0f
+                            var count = 0
+
+                            for (bin in startBin until endBin) {
+                                val fftIndex = bin * 2 + 2 // +2 to skip DC and Nyquist
+                                if (fftIndex + 1 < fft.size) {
+                                    val real = fft[fftIndex].toInt()
+                                    val imag = fft[fftIndex + 1].toInt()
+                                    val magnitude = sqrt((real * real + imag * imag).toFloat())
+                                    sumMagnitude += magnitude
+                                    count++
                                 }
-                                
-                                val avgMagnitude = if (count > 0) sumMagnitude / count else 0f
-                                
-                                val weight = 1.0f + (index.toFloat() / liveWaveform.size) * 2.0f
-                                val blockAmplitude = (avgMagnitude * 3.5f * weight).toInt().coerceIn(0, 127)
-                                newWaveform[index] = blockAmplitude.toByte()
                             }
-                            liveWaveform = newWaveform
+
+                            val avgMagnitude = if (count > 0) sumMagnitude / count else 0f
+
+                            val weight = 1.0f + (index.toFloat() / liveWaveform.size) * 2.0f
+                            val blockAmplitude = (avgMagnitude * 3.5f * weight).toInt().coerceIn(0, 127)
+                            newWaveform[index] = blockAmplitude.toByte()
                         }
-                        
-                        delay(40) // Poll at 25fps
+                        liveWaveform = newWaveform
                     }
                 } catch (e: Exception) {
-                    Timber.tag("SeekBarVisualizer").e(e, "Failed to capture visualizer waveform")
+                    Timber.tag("SeekBarVisualizer").e(e, "Failed to decode visualizer waveform")
                 }
             }
         } else if (!localIsPlaying) {

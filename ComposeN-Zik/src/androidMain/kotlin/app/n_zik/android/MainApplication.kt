@@ -47,6 +47,8 @@ import app.it.fast4x.rimusic.utils.ytVisitorDataKey
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import app.n_zik.android.core.network.client.Store
+import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
+import utils.VisualizerHelper
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.playback.services.PlayerServiceModern
@@ -125,6 +127,12 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         ArtistConjunctions.conjunctions = listOf(R.string.and).mapNotNull { id ->
             runCatching { getString(id) }.getOrNull()
         }
+
+        // Wire the visualizer capture seam (issue #606) here, not in a composable: SeekBarVisualizer
+        // (mini-player) can mount before the full NextVisualizer screen ever composes, and this must
+        // be set before ANY VisualizerHelper.getFft()/getWave() call — nextvisualizer can't depend
+        // on coroutines, so it exposes this plain function-type injection point instead.
+        VisualizerHelper.snapshotProvider = VisualizerCaptureCoordinator::currentSnapshot
 
         migrateCredentialsToEncrypted()
         InnerTubeXPlayer.initialize(this)
