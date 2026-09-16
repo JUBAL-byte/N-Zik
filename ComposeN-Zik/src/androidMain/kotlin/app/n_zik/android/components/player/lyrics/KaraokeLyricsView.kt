@@ -55,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.n_zik.android.enums.lyrics.LyricsAlignment
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.compose.ui.graphics.Path
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.foundation.LocalIndication
@@ -62,9 +63,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.text.TextLayoutResult
-
-/** Vertical spacing (dp) for header/footer in lyrics views. */
-private val LYRICS_SPACING = 24.dp
 
 /**
  * A single word with its start and end time in milliseconds.
@@ -228,6 +226,44 @@ private fun parseWordTimings(line: String): List<KaraokeWord> {
     }
 }
 
+/**
+ * One-shot computation of the interval-indicator data for karaoke lines:
+ * the initial gap (when the first non-background line starts late) and the per-line
+ * gap windows (overlapping windows removed to prevent double loaders in duets).
+ */
+fun computeKaraokeGapWindows(lines: List<KaraokeLine>): Pair<Pair<Long, Long>?, Map<Int, Pair<Long, Long>>> {
+    val firstStart = lines.firstOrNull { !it.isBackground }?.timeMs ?: 0L
+    val initialGapWindow = if (firstStart > 3000L) Pair(0L, firstStart - 650L) else null
+
+    val gapWindows = buildMap {
+        lines.forEachIndexed { index, line ->
+            if (line.isBackground) return@forEachIndexed
+            val startMs = line.timeMs
+            val nextStartMs = if (index < lines.size - 1) lines.drop(index + 1).firstOrNull { !it.isBackground }?.timeMs ?: (startMs + 10000L) else startMs + 10000L
+            val lineEndMs = if (line.words.isNotEmpty()) line.words.maxOf { it.endMs } else line.timeMs + 2000L
+
+            val gap = nextStartMs - lineEndMs
+            if (gap > 2500L) {
+                put(index, Pair(lineEndMs, nextStartMs - 650L))
+            }
+        }
+    }.toMutableMap().apply {
+        val keysToRemove = mutableSetOf<Int>()
+        for ((idx1, window1) in this) {
+            for ((idx2, window2) in this) {
+                if (idx1 < idx2) {
+                    if (window1.first < window2.second && window1.second > window2.first) {
+                        keysToRemove.add(idx1)
+                    }
+                }
+            }
+        }
+        keysToRemove.forEach { remove(it) }
+    }
+
+    return initialGapWindow to gapWindows
+}
+
 @Composable
 fun KaraokeLyricsView(
     text: String,
@@ -267,10 +303,18 @@ fun KaraokeLyricsView(
 ) {
     val density = LocalDensity.current
 
-    val karaokeLines = remember(text) {
-        val parsed = parseKaraokeLrc(text)
+    // Parse LRC + one-shot gap windows off the main thread (issue #606). Previous lines stay
+    // displayed until the new parse completes.
+    var karaokeLines by remember { mutableStateOf<List<KaraokeLine>>(emptyList()) }
+    var gapWindows by remember { mutableStateOf<Map<Int, Pair<Long, Long>>>(emptyMap()) }
+    var initialGapWindow by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    LaunchedEffect(text) {
+        val parsed = withContext(NzikDispatchers.MEDIA) { parseKaraokeLrc(text) }
+        val (initialGap, windows) = withContext(NzikDispatchers.MEDIA) { computeKaraokeGapWindows(parsed) }
+        karaokeLines = parsed
+        gapWindows = windows
+        initialGapWindow = initialGap
         if (parsed.isEmpty()) onInvalidLrc(true) else onInvalidLrc(false)
-        parsed
     }
 
     // Track current position for word-by-word animation with exact Metrolist interpolation
@@ -293,11 +337,11 @@ fun KaraokeLyricsView(
     }
 
     // --- Translation cache ---
-    val translationCache = remember(text, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
+    val translationCache = remember(karaokeLines, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
         mutableStateMapOf<Int, String>()
     }
 
-    LaunchedEffect(text, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
+    LaunchedEffect(karaokeLines, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
         if (!showSecondLine && !translateEnabled && !romanizationEnabled) return@LaunchedEffect
 
         val linesToTranslate = mutableListOf<Pair<Int, String>>()
@@ -400,64 +444,31 @@ fun KaraokeLyricsView(
         }
     }
 
-    // Pre-compute gap windows for interval indicator
-    val initialGapWindow = remember(karaokeLines) {
-        val firstStart = karaokeLines.firstOrNull { !it.isBackground }?.timeMs ?: 0L
-        if (firstStart > 3000L) Pair(0L, firstStart - 650L) else null
-    }
-
-    val gapWindows = remember(karaokeLines) {
-        buildMap {
-            karaokeLines.forEachIndexed { index, line ->
-                if (line.isBackground) return@forEachIndexed
-                val startMs = line.timeMs
-                val nextStartMs = if (index < karaokeLines.size - 1) karaokeLines.drop(index + 1).firstOrNull { !it.isBackground }?.timeMs ?: (startMs + 10000L) else startMs + 10000L
-                val lineEndMs = if (line.words.isNotEmpty()) line.words.maxOf { it.endMs } else line.timeMs + 2000L
-
-                val gap = nextStartMs - lineEndMs
-                if (gap > 2500L) {
-                    put(index, Pair(lineEndMs, nextStartMs - 650L))
-                }
-            }
-        }.toMutableMap().apply {
-            // Remove overlapping gap windows to prevent double loaders in duets
-            val keysToRemove = mutableSetOf<Int>()
-            for ((idx1, window1) in this) {
-                for ((idx2, window2) in this) {
-                    if (idx1 < idx2) {
-                        if (window1.first < window2.second && window1.second > window2.first) {
-                            keysToRemove.add(idx1)
-                        }
-                    }
-                }
-            }
-            keysToRemove.forEach { remove(it) }
-        }
-    }
-
     // Determine active lines (multiple can be active for overlapping agents)
     val activeLineIndices = remember(currentPositionMs, karaokeLines) {
         val active = mutableSetOf<Int>()
-        var lastPassedNonBgIndex = 0
-        for (i in karaokeLines.indices) {
-            val line = karaokeLines[i]
-            if (line.timeMs > currentPositionMs + 50L) break
-            if (!line.isBackground) lastPassedNonBgIndex = i
+        if (karaokeLines.isNotEmpty()) {
+            var lastPassedNonBgIndex = 0
+            for (i in karaokeLines.indices) {
+                val line = karaokeLines[i]
+                if (line.timeMs > currentPositionMs + 50L) break
+                if (!line.isBackground) lastPassedNonBgIndex = i
 
-            // Determine line end time
-            val lineEndMs = if (line.words.isNotEmpty()) {
-                line.words.maxOf { it.endMs }
-            } else {
-                // Fallback: use next non-background line's start
-                karaokeLines.getOrNull(i + 1)?.timeMs ?: Long.MAX_VALUE
-            }
+                // Determine line end time
+                val lineEndMs = if (line.words.isNotEmpty()) {
+                    line.words.maxOf { it.endMs }
+                } else {
+                    // Fallback: use next non-background line's start
+                    karaokeLines.getOrNull(i + 1)?.timeMs ?: Long.MAX_VALUE
+                }
 
-            if (currentPositionMs <= lineEndMs) {
-                active.add(i)
+                if (currentPositionMs <= lineEndMs) {
+                    active.add(i)
+                }
             }
-        }
-        if (active.isEmpty()) {
-            active.add(lastPassedNonBgIndex)
+            if (active.isEmpty()) {
+                active.add(lastPassedNonBgIndex)
+            }
         }
         active
     }
@@ -466,6 +477,9 @@ fun KaraokeLyricsView(
     // Track max reached line, but reset when seeking backwards
     var maxReachedLineIndex by remember { mutableIntStateOf(0) }
     val primaryActiveIndex = remember(activeLineIndices, currentPositionMs) {
+        if (karaokeLines.isEmpty()) {
+            0
+        } else {
         val nonBgActive = activeLineIndices.filter { !karaokeLines[it].isBackground }
         val currentIndex = if (nonBgActive.isNotEmpty()) {
             nonBgActive.maxOrNull() ?: 0
@@ -485,6 +499,7 @@ fun KaraokeLyricsView(
             maxReachedLineIndex = currentIndex
         }
         maxReachedLineIndex
+        }
     }
 
     val lazyListState = rememberLazyListState()
@@ -632,12 +647,13 @@ fun KaraokeLyricsView(
             Spacer(modifier = Modifier.height(with(LocalConfiguration.current) { screenHeightDp.dp }))
         }
 
-        if (showIntervalIndicator && initialGapWindow != null) {
+        val initialGap = initialGapWindow
+        if (showIntervalIndicator && initialGap != null) {
             item(key = "initial_loader", contentType = 2) {
-                val isVisible = currentPositionMs in initialGapWindow.first until initialGapWindow.second
+                val isVisible = currentPositionMs in initialGap.first until initialGap.second
                 LyricsIntervalIndicator(
-                    gapStartMs = initialGapWindow.first,
-                    gapEndMs = initialGapWindow.second,
+                    gapStartMs = initialGap.first,
+                    gapEndMs = initialGap.second,
                     currentPositionMs = currentPositionMs,
                     visible = isVisible,
                     color = accentColor,

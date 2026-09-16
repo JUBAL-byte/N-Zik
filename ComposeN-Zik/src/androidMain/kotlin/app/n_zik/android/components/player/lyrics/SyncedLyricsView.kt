@@ -50,16 +50,11 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.n_zik.android.components.player.lyrics.utils.HtmlDecoder
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.compose.animation.core.tween
 import kotlinx.coroutines.CancellationException
 
-/** Minimum silence duration (ms) between two lines required to show the interval indicator. */
-private const val GAP_THRESHOLD_MS = 4000L
-
-/** Vertical spacing (dp) for header/footer in lyrics views. */
-private val LYRICS_SPACING = 24.dp
-
-private data class SyncedSentence(
+internal data class SyncedSentence(
     val timeMs: Long,
     val text: String,
     val agent: String? = null,
@@ -69,7 +64,7 @@ private data class SyncedSentence(
 private val agentTagRegex = Regex("\\{agent:([^}]*)\\}")
 private val bgTagRegex = Regex("\\{bg\\}")
 
-private fun parseSyncedSentences(lrcText: String): List<SyncedSentence> {
+internal fun parseSyncedSentences(lrcText: String): List<SyncedSentence> {
     val rawSentences = LrcLib.Lyrics(lrcText).sentences
     return rawSentences.map { (time, line) ->
         val agentMatch = agentTagRegex.find(line)
@@ -77,6 +72,49 @@ private fun parseSyncedSentences(lrcText: String): List<SyncedSentence> {
         val isBg = bgTagRegex.containsMatchIn(line)
         val cleanText = line.replace(agentTagRegex, "").replace(bgTagRegex, "").trim()
         SyncedSentence(time, cleanText, agent, isBg)
+    }
+}
+
+/**
+ * One-shot computation of the interval-indicator data for synced sentences: for each
+ * blank line, the gap to the next sentence (blank-line end estimated from the previous
+ * line's singing duration, clamped to a 2s margin before the next line).
+ */
+internal fun computeSyncedGapWindows(sentences: List<SyncedSentence>): Map<Int, Pair<Long, Long>> {
+    return buildMap {
+        sentences.forEachIndexed { index, sentence ->
+            val startMs = sentence.timeMs
+            val nextStartMs = if (index < sentences.size - 1) sentences[index + 1].timeMs else startMs + 10000L
+            val sentenceText = sentence.text.trim()
+
+            if (sentenceText.isBlank()) {
+                var currentEnd = startMs
+                val prevSentence = if (index > 0) sentences[index - 1] else null
+                if (prevSentence != null && prevSentence.text.isNotBlank()) {
+                    val prevStartMs = prevSentence.timeMs
+                    val prevText = prevSentence.text.trim()
+
+                    // Estimate end of singing: ~120ms per character + 500ms trailing
+                    val estimatedDuration = (prevText.length * 120L) + 500L
+                    // Max end is 2 seconds before the next line starts, so we guarantee a 2s gap if possible
+                    val maxEstimatedEnd = nextStartMs - 2000L
+
+                    currentEnd = (prevStartMs + estimatedDuration)
+                        .coerceAtMost(maxEstimatedEnd)
+                        // Minimum 1 second after the previous line started
+                        .coerceAtLeast(prevStartMs + 1000L)
+                        // We can even start the gap before the blank line's official timestamp!
+                        .coerceAtMost(startMs)
+                }
+
+                if (currentEnd < nextStartMs) {
+                    val gap = nextStartMs - currentEnd
+                    if (gap > 2000L) {
+                        put(index, Pair(currentEnd, nextStartMs - 650L))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -117,55 +155,21 @@ fun SyncedLyricsView(
     karaokeRespectAgentPosition: Boolean = true
 ) {
     val density = LocalDensity.current
-    val syncedSentences = remember(text) {
-        val decodedText = HtmlDecoder.decodeHtmlEntities(text)
-        val sentences = parseSyncedSentences(decodedText)
-        if (sentences.isEmpty()) onInvalidLrc(true) else onInvalidLrc(false)
-        sentences
-    }
-    val synchronizedLyrics = remember(syncedSentences) {
-        val pairs = syncedSentences.map { it.timeMs to it.text }
-        SynchronizedLyrics(pairs) { currentPositionProvider() + 50L }
-    }
 
-    // Pre-compute gap windows: for each sentence index, the gap to the next sentence (if > threshold)
-    // Structure: Map<lineIndex, Pair<gapStartMs, gapEndMs>>
-    val gapWindows = remember(syncedSentences) {
-        buildMap {
-            syncedSentences.forEachIndexed { index, sentence ->
-                val startMs = sentence.timeMs
-                val nextStartMs = if (index < syncedSentences.size - 1) syncedSentences[index + 1].timeMs else startMs + 10000L
-                val sentenceText = sentence.text.trim()
-                
-                if (sentenceText.isBlank()) {
-                    var currentEnd = startMs
-                    val prevSentence = if (index > 0) syncedSentences[index - 1] else null
-                    if (prevSentence != null && prevSentence.text.isNotBlank()) {
-                        val prevStartMs = prevSentence.timeMs
-                        val prevText = prevSentence.text.trim()
-                        
-                        // Estimate end of singing: ~120ms per character + 500ms trailing
-                        val estimatedDuration = (prevText.length * 120L) + 500L
-                        // Max end is 2 seconds before the next line starts, so we guarantee a 2s gap if possible
-                        val maxEstimatedEnd = nextStartMs - 2000L
-                        
-                        currentEnd = (prevStartMs + estimatedDuration)
-                            .coerceAtMost(maxEstimatedEnd)
-                            // Minimum 1 second after the previous line started
-                            .coerceAtLeast(prevStartMs + 1000L)
-                            // We can even start the gap before the blank line's official timestamp!
-                            .coerceAtMost(startMs)
-                    }
-
-                    if (currentEnd < nextStartMs) {
-                        val gap = nextStartMs - currentEnd
-                        if (gap > 2000L) {
-                            put(index, Pair(currentEnd, nextStartMs - 650L))
-                        }
-                    }
-                }
-            }
+    // Decode + parse LRC + one-shot gap windows off the main thread (issue #606).
+    // Previous sentences stay displayed until the new parse completes.
+    var syncedSentences by remember { mutableStateOf<List<SyncedSentence>>(emptyList()) }
+    var gapWindows by remember { mutableStateOf<Map<Int, Pair<Long, Long>>>(emptyMap()) }
+    var synchronizedLyrics by remember { mutableStateOf(SynchronizedLyrics(emptyList())) }
+    LaunchedEffect(text) {
+        val sentences = withContext(NzikDispatchers.MEDIA) {
+            parseSyncedSentences(HtmlDecoder.decodeHtmlEntities(text))
         }
+        val windows = withContext(NzikDispatchers.MEDIA) { computeSyncedGapWindows(sentences) }
+        syncedSentences = sentences
+        gapWindows = windows
+        synchronizedLyrics = SynchronizedLyrics(sentences.map { it.timeMs to it.text })
+        if (sentences.isEmpty()) onInvalidLrc(true) else onInvalidLrc(false)
     }
 
     // Live playback position for the interval indicator
@@ -179,12 +183,12 @@ fun SyncedLyricsView(
 
     // --- Translation cache ---
     // Keyed on options that affect translation output; survives scroll without re-fetching.
-    val translationCache = remember(text, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
+    val translationCache = remember(syncedSentences, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
         mutableStateMapOf<Int, String>()
     }
 
     // Pre-compute translations for every sentence in the background, once per key change.
-    LaunchedEffect(text, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
+    LaunchedEffect(syncedSentences, showSecondLine, translateEnabled, romanizationEnabled, languageDestination) {
         if (!showSecondLine && !translateEnabled && !romanizationEnabled) return@LaunchedEffect
 
         val linesToTranslate = mutableListOf<Pair<Int, String>>()
@@ -343,8 +347,9 @@ fun SyncedLyricsView(
     val fixedCenter = (effectiveVpH * multiplier).toInt()
 
     LaunchedEffect(synchronizedLyrics, density, isAutoScrollEnabled, vpH) {
-        synchronizedLyrics.update()
-        
+        // Position is read on UI and passed by value; the scan runs on MEDIA (issue #606).
+        synchronizedLyrics.update(currentPositionProvider() + 50L)
+
         if (isAutoScrollEnabled) {
             var reMeasuredVpH = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
             if (reMeasuredVpH == 0) {
@@ -364,7 +369,7 @@ fun SyncedLyricsView(
 
         while (isActive) {
             delay(50)
-            if (!synchronizedLyrics.update()) continue
+            if (!synchronizedLyrics.update(currentPositionProvider() + 50L)) continue
             if (isAutoScrollEnabled) {
                 var reMeasuredVpH = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
                 val finalEffectiveVpH = if (reMeasuredVpH > 0) reMeasuredVpH else screenHeightPx
