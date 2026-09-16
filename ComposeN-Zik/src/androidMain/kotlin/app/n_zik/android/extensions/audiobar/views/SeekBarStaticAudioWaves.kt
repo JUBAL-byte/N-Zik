@@ -33,6 +33,7 @@ import app.n_zik.android.LocalPlayerServiceBinder
 import app.n_zik.android.colorPalette
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
+import app.n_zik.android.extensions.audiobar.utils.WaveformResult
 import kotlinx.coroutines.isActive
 import kotlin.math.abs
 import java.util.Random
@@ -76,8 +77,11 @@ fun SeekBarStaticAudioWaves(
                 retryRound++
                 var extracted: List<Int>? = null
                 for (i in 0..5) {
-                    extracted = WaveformExtractor.getOrExtractWaveform(context, uiMedia.id, caches)
-                    if (extracted != null) break
+                    val result = WaveformExtractor.getOrExtractWaveform(context, uiMedia.id, caches)
+                    if (result is WaveformResult.Success) {
+                        extracted = result.amplitudes
+                        break
+                    }
                     kotlinx.coroutines.delay(500)
                 }
 

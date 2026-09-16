@@ -44,6 +44,10 @@ import app.n_zik.android.appContext
 import app.n_zik.android.colorPalette
 import app.n_zik.android.typography
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
+import app.n_zik.android.extensions.audiobar.utils.WaveformResult
+import app.n_zik.android.download.utils.MyDownloadHelper
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.exoplayer.offline.Download
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.filter
@@ -230,7 +234,16 @@ class VideoItemMenu private constructor(
         val downloadStateMediaState = rememberUpdatedState(
             binder?.let { getDownloadStateMedia(it, song.id) } ?: DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED
         )
-        
+        val isDownloadInProgress by remember(song.id) {
+            MyDownloadHelper.getDownload(song.id)
+                .map {
+                    it?.state == Download.STATE_QUEUED ||
+                        it?.state == Download.STATE_DOWNLOADING ||
+                        it?.state == Download.STATE_RESTARTING
+                }
+        }.collectAsStateWithLifecycle(initialValue = false)
+        val isDownloadInProgressState = rememberUpdatedState(isDownloadInProgress)
+
         refreshBtn = if (playerTimelineType == PlayerTimelineType.AudioWaves) {
             remember {
                 object : MenuIcon, Descriptive, Clickable {
@@ -238,25 +251,27 @@ class VideoItemMenu private constructor(
                     override val messageId: Int = R.string.update_waveform
                     @get:Composable
                     override val menuIconTitle: String get() = stringResource(R.string.update_waveform)
-                    
+
                     override val modifier: Modifier
                         get() = Modifier.alpha(
-                            if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED) 0.5f else 1f
+                            if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED ||
+                                isDownloadInProgressState.value
+                            ) 0.5f else 1f
                         )
 
                     override fun onShortClick() {
-                        if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED) {
+                        if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED ||
+                            isDownloadInProgressState.value
+                        ) {
                             Toaster.w(R.string.error_music_not_fully_cached)
                         } else {
                             Toaster.i(R.string.updating_waveform_in_progress)
-                            coroutineScope.launch(Dispatchers.Main) {
-                                WaveformExtractor.deleteWaveform(context, song.id)
-                                val caches = listOfNotNull(binder?.cache, binder?.downloadCache)
-                                val result = WaveformExtractor.getOrExtractWaveform(context, song.id, caches)
-                                if (result != null) {
-                                    Toaster.s(R.string.waveform_updated_successfully)
-                                } else {
-                                    Toaster.e(R.string.error_updating_waveform)
+                            val caches = listOfNotNull(binder?.cache, binder?.downloadCache)
+                            WaveformExtractor.requestUpdateWaveform(appContext(), song.id, caches) { result ->
+                                when (result) {
+                                    is WaveformResult.Success -> Toaster.s(R.string.waveform_updated_successfully)
+                                    is WaveformResult.NotReady -> Toaster.i(R.string.waveform_update_after_download)
+                                    is WaveformResult.NoCache, is WaveformResult.Failed -> Toaster.e(R.string.error_updating_waveform)
                                 }
                             }
                             menuState.hide()

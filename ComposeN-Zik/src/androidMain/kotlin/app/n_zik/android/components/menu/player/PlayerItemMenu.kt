@@ -106,8 +106,12 @@ import app.kreate.android.me.knighthat.sync.YouTubeSync
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import app.it.fast4x.rimusic.ui.screens.info.VideoOrSongInfoScreen
+import app.n_zik.android.appContext
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
+import app.n_zik.android.extensions.audiobar.utils.WaveformResult
 import app.n_zik.android.download.utils.MyDownloadHelper
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.exoplayer.offline.Download
 import app.n_zik.android.components.dialog.album.ChangeAlbumBrowseIdDialog
 import app.n_zik.android.components.dialog.artist.ChangeArtistBrowseIdDialog
 import app.it.fast4x.rimusic.enums.PlayerTimelineType
@@ -389,6 +393,15 @@ class PlayerItemMenu private constructor(
 
         val downloadStateMedia = getDownloadStateMedia(binder, mediaItem.mediaId)
         val downloadStateMediaState = rememberUpdatedState(downloadStateMedia)
+        val isDownloadInProgress by remember(mediaItem.mediaId) {
+            MyDownloadHelper.getDownload(mediaItem.mediaId)
+                .map {
+                    it?.state == Download.STATE_QUEUED ||
+                        it?.state == Download.STATE_DOWNLOADING ||
+                        it?.state == Download.STATE_RESTARTING
+                }
+        }.collectAsStateWithLifecycle(initialValue = false)
+        val isDownloadInProgressState = rememberUpdatedState(isDownloadInProgress)
 
         // Refresh Audio Waves
         val refreshAudioWavesButton = remember {
@@ -397,28 +410,30 @@ class PlayerItemMenu private constructor(
                 override val messageId: Int = R.string.update_waveform
                 @get:Composable
                 override val menuIconTitle: String get() = stringResource(R.string.update_waveform)
-                
+
                 override val modifier: Modifier
                     get() = Modifier.alpha(
-                        if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED) 0.5f else 1f
+                        if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED ||
+                            isDownloadInProgressState.value
+                        ) 0.5f else 1f
                     )
 
                 override fun onShortClick() {
                     // Check state through rememberUpdatedState which holds the latest composition value
-                    if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED) {
+                    if (downloadStateMediaState.value == DownloadedStateMedia.NOT_CACHED_OR_DOWNLOADED ||
+                        isDownloadInProgressState.value
+                    ) {
                         Toaster.w(R.string.error_music_not_fully_cached)
                     } else {
                         // Toast info refresh in progress
                         Toaster.i(R.string.updating_waveform_in_progress)
-                        
-                        coroutineScope.launch(Dispatchers.Main) {
-                            WaveformExtractor.deleteWaveform(mContext, mediaItem.mediaId)
-                            val caches = listOfNotNull(binder.cache, binder.downloadCache)
-                            val result = WaveformExtractor.getOrExtractWaveform(mContext, mediaItem.mediaId, caches)
-                            if (result != null) {
-                                Toaster.s(R.string.waveform_updated_successfully)
-                            } else {
-                                Toaster.e(R.string.error_updating_waveform)
+
+                        val caches = listOfNotNull(binder.cache, binder.downloadCache)
+                        WaveformExtractor.requestUpdateWaveform(appContext(), mediaItem.mediaId, caches) { result ->
+                            when (result) {
+                                is WaveformResult.Success -> Toaster.s(R.string.waveform_updated_successfully)
+                                is WaveformResult.NotReady -> Toaster.i(R.string.waveform_update_after_download)
+                                is WaveformResult.NoCache, is WaveformResult.Failed -> Toaster.e(R.string.error_updating_waveform)
                             }
                         }
                         menuState.hide()
