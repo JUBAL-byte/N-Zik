@@ -447,7 +447,7 @@ jobs:
       issues: write
     steps:
       - name: Close issues marked as "patched STABLE"
-        uses: gcampbell-msft/fixed-pending-release@0.0.12
+        uses: gcampbell-msft/fixed-pending-release@0.0.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           label: patched STABLE
@@ -457,7 +457,7 @@ jobs:
             This ticket is now closed. If you have any questions, feel free to reply below.
             If needed, the ticket will be reopened for further support.
       - name: Close issues marked as "implemented"
-        uses: gcampbell-msft/fixed-pending-release@0.0.12
+        uses: gcampbell-msft/fixed-pending-release@0.0.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           label: implemented
