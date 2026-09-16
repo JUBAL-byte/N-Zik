@@ -1718,6 +1718,7 @@ Volume BAS : titre précédent</string>
     <string name="updating_waveform_in_progress">Mise à jour de la forme d\'onde en cours…</string>
     <string name="waveform_updated_successfully">La forme d\'onde a été mise à jour avec succès</string>
     <string name="error_updating_waveform">Erreur lors de la mise à jour de la forme d\'onde</string>
+    <string name="waveform_update_after_download">La courbe d\'onde sera mise à jour dès que le téléchargement sera terminé.</string>
     <string name="metadata_exported">Exporté</string>
     <string name="container">Conteneur</string>
     <string name="miniplayer_button_play_pause">Lecture/Pause</string>
@@ -1861,14 +1862,14 @@ Volume BAS : titre précédent</string>
     <string name="lastfm_auth_failed">Échec de la connexion. Vérifiez vos identifiants Last.fm.</string>
     <string name="lastfm_session_expired">La session Last.fm a expiré. Veuillez vous reconnecter.</string>
     <string name="lastfm_show_password">Afficher le mot de passe</string>
-    <string name="lastfm_now_playing">Now Playing</string>
-    <string name="lastfm_now_playing_info">Send a Now Playing update when a track starts</string>
+    <string name="lastfm_now_playing">En cours de lecture</string>
+    <string name="lastfm_now_playing_info">Envoyer une mise à jour « En cours de lecture » lorsqu\'un morceau démarre</string>
     <string name="lastfm_scrobble">Scrobble</string>
-    <string name="lastfm_scrobble_info">Scrobble tracks after the configured delay</string>
-    <string name="lastfm_min_track_duration">Minimum track duration</string>
-    <string name="lastfm_min_track_duration_info">Tracks this short or shorter are never sent</string>
-    <string name="lastfm_scrobble_threshold">Scrobble delay %</string>
-    <string name="lastfm_scrobble_threshold_info">Scrobble after this percentage of the track</string>
-    <string name="lastfm_max_scrobble_delay">Maximum scrobble delay</string>
-    <string name="lastfm_max_scrobble_delay_info">The scrobble delay never exceeds this limit</string>
+    <string name="lastfm_scrobble_info">Enregistrer les morceaux après le délai défini</string>
+    <string name="lastfm_min_track_duration">Durée minimale d\'un morceau</string>
+    <string name="lastfm_min_track_duration_info">Les morceaux de cette durée ou plus courts ne sont jamais envoyés</string>
+    <string name="lastfm_scrobble_threshold">Délai de scrobble (%)</string>
+    <string name="lastfm_scrobble_threshold_info">Enregistrer ce morceau à partir de ce pourcentage</string>
+    <string name="lastfm_max_scrobble_delay">Délai maximal de scrobble</string>
+    <string name="lastfm_max_scrobble_delay_info">Le délai de scrobble ne dépasse jamais cette limite</string>
 </resources>
