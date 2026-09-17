@@ -49,12 +49,14 @@ import app.n_zik.android.core.database.Database
 import app.n_zik.android.playback.services.LOCAL_KEY_PREFIX
 import app.n_zik.android.typography
 import app.n_zik.android.uiRoundnessShape
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.kreate.android.me.knighthat.utils.Toaster
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -188,6 +190,16 @@ class EditMetadataDialog private constructor(
             val coroutineScope = rememberCoroutineScope()
             return EditMetadataDialog(remember { mutableStateOf(false) }, getSong, coroutineScope)
         }
+
+        /**
+         * Reads the full content of a picked cover-art [uri] (issue #606 M7b). Extracted so the
+         * `pickerLauncher` callback in [DialogBody] can dispatch it via
+         * `withContext(NzikDispatchers.DATA)` instead of running synchronously on Main (the
+         * thread an `ActivityResultLauncher` callback resumes on), and so it is unit-testable
+         * without instantiating the dialog.
+         */
+        internal fun readCoverArtBytes(context: Context, uri: Uri): ByteArray? =
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
     }
 
     private fun resolveFilePath(context: Context, songId: String): String? {
@@ -214,15 +226,21 @@ class EditMetadataDialog private constructor(
             contract = ActivityResultContracts.GetContent()
         ) { uri: Uri? ->
             if (uri != null) {
-                try {
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                    if (bytes != null) {
-                        coverArtBytes = bytes
-                        val idx = fields.indexOfFirst { it.isCoverArt }
-                        if (idx >= 0) fields[idx] = fields[idx].copy(value = TextFieldValue("New cover selected"))
+                coroutineScope.launch(NzikDispatchers.DATA) {
+                    try {
+                        val bytes = readCoverArtBytes(context, uri)
+                        if (bytes != null) {
+                            withContext(NzikDispatchers.UI) {
+                                coverArtBytes = bytes
+                                val idx = fields.indexOfFirst { it.isCoverArt }
+                                if (idx >= 0) fields[idx] = fields[idx].copy(value = TextFieldValue("New cover selected"))
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Timber.tag("EditMetadata").e(e, "Failed to read cover image")
                     }
-                } catch (e: Exception) {
-                    Timber.tag("EditMetadata").e(e, "Failed to read cover image")
                 }
             }
         }

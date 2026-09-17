@@ -380,15 +380,25 @@ fun ArtistOverview(
         override fun onShortClick() {
             scope.launch {
                 isGlobalLoading = true
+                // Shuffler.play() is fire-and-forget (issue #606 M2): when it's actually invoked,
+                // isGlobalLoading is cleared from its onComplete once work actually finishes, not
+                // as soon as play() returns. shufflerWillClear guards the `finally` below so an
+                // exception thrown before reaching Shuffler.play() (e.g. getSongs()) still clears
+                // the flag, matching this block's original exception-safety.
+                var shufflerWillClear = false
                 try {
                     val allSongs = getSongs()
                     if (allSongs.isNotEmpty()) {
-                        binder?.let { Shuffler.play(it, allSongs) }
+                        val b = binder
+                        if (b != null) {
+                            shufflerWillClear = true
+                            Shuffler.play(b, allSongs, onComplete = { isGlobalLoading = false })
+                        }
                     } else {
                         Toaster.i(R.string.no_song_to_shuffle)
                     }
                 } finally {
-                    isGlobalLoading = false
+                    if (!shufflerWillClear) isGlobalLoading = false
                 }
             }
         }
@@ -672,6 +682,11 @@ fun ArtistOverview(
                                         .clip(uiRoundnessShape()).clickable {
                                             scope.launch(Dispatchers.IO) {
                                                 sectionLoadingId = sectionId
+                                                // Shuffler.play() is fire-and-forget (issue #606 M2): when it's actually
+                                                // invoked, sectionLoadingId is cleared from its onComplete once playback
+                                                // dispatch actually finishes. shufflerWillClear guards the `finally`
+                                                // below so an exception before reaching Shuffler.play() still clears it.
+                                                var shufflerWillClear = false
                                                 try {
                                                     val allMediaItems = mutableListOf<MediaItem>()
                                                     if (section.items.fastAll { it is Innertube.SongItem } && section.moreEndpoint?.browseId != null) {
@@ -689,14 +704,18 @@ fun ArtistOverview(
                                                         }
                                                     }
                                                     if (allMediaItems.isNotEmpty()) {
-                                                        binder?.let { Shuffler.play(it, allMediaItems) }
+                                                        val b = binder
+                                                        if (b != null) {
+                                                            shufflerWillClear = true
+                                                            Shuffler.play(b, allMediaItems, onComplete = { sectionLoadingId = null })
+                                                        }
                                                     } else {
                                                         withContext(Dispatchers.Main) {
                                                             Toaster.e(R.string.no_song_found)
                                                         }
                                                     }
                                                 } finally {
-                                                    sectionLoadingId = null
+                                                    if (!shufflerWillClear) sectionLoadingId = null
                                                 }
                                             }
                                         }

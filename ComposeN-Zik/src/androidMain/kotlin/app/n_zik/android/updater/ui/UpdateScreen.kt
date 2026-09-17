@@ -1,6 +1,7 @@
 @file:kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 package app.n_zik.android.updater.ui
 
+import android.content.Context
 import app.n_zik.android.uiRoundnessShape
 
 import app.n_zik.android.updater.services.Updater
@@ -63,6 +64,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
 import app.n_zik.android.core.network.client.NetworkClientFactory
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.painterResource
@@ -763,13 +765,9 @@ fun UpdateScreen(navController: NavController) {
                         Updater.fetchCurrentChangelog()
                     }
                 }
-                val currentChangelog = remember {
-                    try {
-                        appContext().resources
-                            .openRawResource(R.raw.release_notes)
-                            .bufferedReader(Charsets.UTF_8)
-                            .readText()
-                    } catch (e: Exception) { "" }
+                var currentChangelog by remember { mutableStateOf("") }
+                LaunchedEffect(Unit) {
+                    currentChangelog = withContext(NzikDispatchers.DATA) { readLocalReleaseNotes() }
                 }
                 val changelogTextToDisplay = if (isReinstalling || !hasUpdate) {
                     Updater.currentChangelog?.takeIf { it.isNotBlank() }
@@ -935,6 +933,23 @@ fun UpdateScreen(navController: NavController) {
         }
     }
 }
+
+/**
+ * Reads the bundled local changelog (`R.raw.release_notes`), used as a last-resort fallback by
+ * [UpdateScreen] when neither [Updater.currentChangelog]/[Updater.latestChangelog] nor the GitHub
+ * release body are available yet. Extracted to a top-level function (issue #606 M7a) so the read
+ * can be dispatched via `withContext(NzikDispatchers.DATA)` from a `LaunchedEffect` instead of
+ * running synchronously during composition, and so it is unit-testable without instantiating the
+ * whole [UpdateScreen] composable. `context` defaults to [appContext] for production call sites;
+ * tests inject a Robolectric application context directly.
+ */
+internal fun readLocalReleaseNotes(context: Context = appContext()): String =
+    try {
+        context.resources
+            .openRawResource(R.raw.release_notes)
+            .bufferedReader(Charsets.UTF_8)
+            .readText()
+    } catch (e: Exception) { "" }
 
 fun parseChangelogText(text: String): List<Pair<String, List<String>>> {
     val sections = mutableListOf<Pair<String, List<String>>>()

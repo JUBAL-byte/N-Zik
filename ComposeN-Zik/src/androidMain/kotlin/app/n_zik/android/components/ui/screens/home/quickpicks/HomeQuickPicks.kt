@@ -378,13 +378,22 @@ fun HomeQuickPicks(
                                 onDiceClick = {
                                     scope.launch {
                                         isQuickPicksLoading = true
-                                        delay(50)
+                                        // Shuffler.play() is fire-and-forget (issue #606 M2): when it's actually
+                                        // invoked, isQuickPicksLoading is cleared from its onComplete once work
+                                        // actually finishes. shufflerWillClear guards the `finally` below so an
+                                        // exception thrown before reaching Shuffler.play() still clears the flag.
+                                        var shufflerWillClear = false
                                         try {
+                                            delay(50)
                                             val relatedInit = state.relatedPageResult.value?.getOrNull()
                                             val allItems = listOfNotNull(state.trending.value?.asMediaItem) + (relatedInit?.songs?.map { it.asMediaItem } ?: emptyList())
-                                            binder?.let { Shuffler.play(it, allItems) }
+                                            val b = binder
+                                            if (b != null) {
+                                                shufflerWillClear = true
+                                                Shuffler.play(b, allItems, onComplete = { isQuickPicksLoading = false })
+                                            }
                                         } finally {
-                                            isQuickPicksLoading = false
+                                            if (!shufflerWillClear) isQuickPicksLoading = false
                                         }
                                     }
                                 },

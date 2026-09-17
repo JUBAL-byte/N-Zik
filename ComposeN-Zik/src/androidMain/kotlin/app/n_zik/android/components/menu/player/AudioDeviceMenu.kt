@@ -22,6 +22,7 @@ import app.n_zik.android.components.ui.sliders.SliderControl
 import app.n_zik.android.gridMenuShape
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.utils.getBottomSheetDeviceIcon
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 import androidx.compose.foundation.lazy.grid.items
 import app.it.fast4x.rimusic.utils.menuStyleKey
@@ -203,13 +204,15 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            loadDevices(context, service?.preferredDeviceId, isCarProjectionActive, onSuccess = { devices ->
-                audioDevices = devices
-                isLoading = false
-            }, onError = { error ->
-                errorMessage = error
-                isLoading = false
-            })
+            coroutineScope.launch(NzikDispatchers.DATA) {
+                loadDevices(context, service?.preferredDeviceId, isCarProjectionActive, onSuccess = { devices ->
+                    audioDevices = devices
+                    isLoading = false
+                }, onError = { error ->
+                    errorMessage = error
+                    isLoading = false
+                })
+            }
         } else {
             errorMessage = context.getString(R.string.bluetooth_permission_required)
             isLoading = false
@@ -217,14 +220,16 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
     }
 
     fun refreshDevices() {
-        loadDevices(context, service?.preferredDeviceId, currentIsCarProjectionActive, onSuccess = { devices ->
-            audioDevices = devices
-            currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-            maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-            isLoading = false
-        }, onError = {
-            isLoading = false
-        })
+        coroutineScope.launch(NzikDispatchers.DATA) {
+            loadDevices(context, service?.preferredDeviceId, currentIsCarProjectionActive, onSuccess = { devices ->
+                audioDevices = devices
+                currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                isLoading = false
+            }, onError = {
+                isLoading = false
+            })
+        }
     }
 
     LaunchedEffect(service?.preferredDeviceId, carConnectionType) {
@@ -764,7 +769,13 @@ private fun VolumeRow(
 
 
 
-private fun loadDevices(
+/**
+ * Enumerates audio output devices (+ Bluetooth battery reflection). Visibility widened from
+ * `private` to `internal` (issue #606 M8) purely for testability -- callers still only wrap this
+ * in `coroutineScope.launch(NzikDispatchers.DATA) { ... }` from [AudioDeviceMenu]; no behavior
+ * change to the function itself.
+ */
+internal fun loadDevices(
     context: Context,
     preferredDeviceId: Int?,
     isCarProjectionActive: Boolean,

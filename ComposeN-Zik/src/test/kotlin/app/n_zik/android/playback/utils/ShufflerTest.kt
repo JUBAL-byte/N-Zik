@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.R
 import app.n_zik.android.appContext
+import app.n_zik.android.core.database.Database
+import app.n_zik.android.core.database.SongTable
 import app.n_zik.android.playback.services.PlayerServiceModern
 import app.it.fast4x.rimusic.enums.DislikeMode
 import app.it.fast4x.rimusic.enums.MaxSongs
@@ -14,15 +16,18 @@ import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.utils.forcePlayFromBeginning
 import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 import app.it.fast4x.rimusic.utils.preferences
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -30,6 +35,24 @@ import org.junit.jupiter.api.Assertions.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShufflerTest {
+
+    companion object {
+        /**
+         * Captured by [captureProductionDefaultBeforeAnyOverride] in a `@BeforeAll` -- which runs
+         * once, before this class's very first `@BeforeEach` -- so it reflects `Shuffler.kt`'s
+         * actual field initializer, not a value any test in this class (or elsewhere; grep
+         * confirms `ShufflerTest` is the only place that ever writes `Shuffler.backgroundDispatcher`)
+         * wrote back. Asserting against this, rather than setting-then-reading the same value
+         * inside a single test, is what actually pins the source's declared default.
+         */
+        private lateinit var productionDefaultBeforeAnyOverride: kotlinx.coroutines.CoroutineDispatcher
+
+        @JvmStatic
+        @BeforeAll
+        fun captureProductionDefaultBeforeAnyOverride() {
+            productionDefaultBeforeAnyOverride = Shuffler.backgroundDispatcher
+        }
+    }
 
     private lateinit var binder: PlayerServiceModern.Binder
     private lateinit var player: ExoPlayer
@@ -40,6 +63,7 @@ class ShufflerTest {
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
+        Shuffler.backgroundDispatcher = UnconfinedTestDispatcher()
 
         binder = mockk(relaxed = true)
         player = mockk(relaxed = true)
@@ -70,7 +94,22 @@ class ShufflerTest {
     @AfterEach
     fun teardown() {
         Dispatchers.resetMain()
+        Shuffler.backgroundDispatcher = NzikDispatchers.DATA
         unmockkAll()
+    }
+
+    /**
+     * Pins the production default independently of the `@BeforeEach` override above -- without
+     * this, a regression that changes the field's declared default (e.g. back to a raw
+     * `Dispatchers.IO`/`Default` literal, or to something that isn't actually off-main) would
+     * pass unnoticed, since every other test in this class runs under the
+     * `UnconfinedTestDispatcher()` override, never under the real production value. Asserts
+     * against the value [captureProductionDefaultBeforeAnyOverride] captured before any
+     * `@BeforeEach` ran, not against a value this test just wrote itself.
+     */
+    @Test
+    fun `backgroundDispatcher production default is NzikDispatchers DATA`() {
+        assertEquals(NzikDispatchers.DATA, productionDefaultBeforeAnyOverride)
     }
 
     private fun mediaItem(id: String) = MediaItem.Builder().setMediaId(id).build()
@@ -116,6 +155,116 @@ class ShufflerTest {
 
             assertEquals(100, captured.captured.size)
             verify { binder.stopRadio() }
+        }
+
+        @Test
+        fun `onComplete is invoked when the list is empty`() {
+            var completed = false
+
+            Shuffler.play(binder, emptyList<MediaItem>(), onComplete = { completed = true })
+
+            assertTrue(completed)
+        }
+
+        @Test
+        fun `onComplete fires only after the empty-list toast, not before`() {
+            val events = mutableListOf<String>()
+            every { Toaster.i(R.string.no_song_to_shuffle) } answers { events.add("toast") }
+
+            Shuffler.play(binder, emptyList<MediaItem>(), onComplete = { events.add("onComplete") })
+
+            assertEquals(listOf("toast", "onComplete"), events)
+        }
+
+        @Test
+        fun `onComplete is invoked after a successful play`() {
+            every {
+                sharedPreferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            mockkStatic("app.it.fast4x.rimusic.utils.PlayerKt")
+            every { player.forcePlayFromBeginning(any()) } just Runs
+            var completed = false
+
+            Shuffler.play(binder, mediaItems(5), onComplete = { completed = true })
+
+            assertTrue(completed)
+        }
+
+        @Test
+        fun `onComplete fires only after stopRadio and forcePlayFromBeginning complete, not before`() {
+            every {
+                sharedPreferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            mockkStatic("app.it.fast4x.rimusic.utils.PlayerKt")
+            val events = mutableListOf<String>()
+            every { binder.stopRadio() } answers { events.add("stopRadio") }
+            every { player.forcePlayFromBeginning(any()) } answers { events.add("forcePlayFromBeginning") }
+
+            Shuffler.play(binder, mediaItems(5), onComplete = { events.add("onComplete") })
+
+            assertEquals(listOf("stopRadio", "forcePlayFromBeginning", "onComplete"), events)
+        }
+
+        @Test
+        fun `play returns before onComplete fires when dispatched on a real background dispatcher`() {
+            // Unlike every other test in this class (which overrides backgroundDispatcher with
+            // UnconfinedTestDispatcher() in @BeforeEach for determinism), this test explicitly
+            // uses a StandardTestDispatcher: its queued work does NOT run until the scheduler is
+            // advanced. This is what actually proves play() is fire-and-forget (returns before
+            // its background work runs) rather than just checking relative call order under an
+            // eagerly-executing dispatcher.
+            val testDispatcher = StandardTestDispatcher()
+            Shuffler.backgroundDispatcher = testDispatcher
+            every {
+                sharedPreferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            every {
+                sharedPreferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)
+            } returns DislikeMode.Disabled.name
+            mockkStatic("app.it.fast4x.rimusic.utils.PlayerKt")
+            every { player.forcePlayFromBeginning(any()) } just Runs
+            var completed = false
+
+            Shuffler.play(binder, mediaItems(5), onComplete = { completed = true })
+            assertFalse(completed, "onComplete must not fire before play()'s background work has actually run")
+
+            testDispatcher.scheduler.advanceUntilIdle()
+            assertTrue(completed, "onComplete must fire once the dispatched work has actually completed")
+            verify { binder.stopRadio() }
+        }
+
+        @Test
+        fun `onComplete still fires when a dislike-filter DB lookup throws, with filtering left at its default-enabled setting`() {
+            // Deliberately does NOT override excludeDislikedSongsKey's preference (unlike every
+            // other test above) -- SharedPreferences.getString on this relaxed mock returns null,
+            // so `?: DislikeMode.Enabled` resolves to the real production default: filtering ON.
+            // That's what actually reaches Database.songTable.getAllDislikedIds() below.
+            mockkObject(Database)
+            val songTable = mockk<SongTable>()
+            every { Database.songTable } returns songTable
+            coEvery { songTable.getAllDislikedIds() } throws RuntimeException("DB unavailable")
+            var completed = false
+
+            Shuffler.play(binder, mediaItems(5), onComplete = { completed = true })
+
+            assertTrue(completed, "onComplete must still fire when filtering throws, or callers' loading flags stay stuck forever")
+            verify { Toaster.e(R.string.no_song_found) }
+            verify(exactly = 0) { binder.stopRadio() }
         }
     }
 

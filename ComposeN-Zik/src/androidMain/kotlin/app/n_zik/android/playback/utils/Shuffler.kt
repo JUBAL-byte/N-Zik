@@ -21,87 +21,121 @@ import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.utils.excludeDislikedArtistsKey
 import app.it.fast4x.rimusic.utils.excludeDislikedAlbumsKey
 import app.it.fast4x.rimusic.enums.DislikeMode
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 @OptIn(UnstableApi::class)
 object Shuffler {
 
-    fun play(binder: PlayerServiceModern.Binder, mediaItems: List<MediaItem>) {
+    /** Test seam: overridden with `UnconfinedTestDispatcher()` in `ShufflerTest` so assertions
+     *  made right after [play] stay deterministic instead of racing a real background thread. */
+    internal var backgroundDispatcher: CoroutineDispatcher = NzikDispatchers.DATA
+    internal val scope = CoroutineScope(SupervisorJob())
+
+    /**
+     * [onComplete] is invoked once the real work for the given exit path is actually finished,
+     * never before -- on the caller's own thread for the immediate `mediaItems.isEmpty()` early
+     * return below (no coroutine involved yet), and on [NzikDispatchers.UI] for every other exit
+     * path (empty after filtering, a filtering failure, and success/failure of the final playback
+     * dispatch). `play()` itself stays non-suspend (~8 of its ~13 callers invoke it from a
+     * non-suspend `onClick`), so callers that need to react to completion (e.g. clearing a loading
+     * flag) must do so via this callback rather than by assuming `play()` blocks until done, as it
+     * used to via `runBlocking`.
+     */
+    fun play(binder: PlayerServiceModern.Binder, mediaItems: List<MediaItem>, onComplete: () -> Unit = {}) {
         if (mediaItems.isEmpty()) {
             Toaster.i(R.string.no_song_to_shuffle)
+            onComplete()
             return
         }
 
-        var filteredMediaItems = mediaItems
-
-        // Filter disliked songs if setting is enabled
-        val preferences = appContext().preferences
-        val excludeDislikedSongs = preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
-        if (excludeDislikedSongs.isEnabled) {
-            val dislikedSongIds = runBlocking {
-                Database.songTable.getAllDislikedIds()
-            }
-            if (dislikedSongIds.isNotEmpty()) {
-                filteredMediaItems = filteredMediaItems.filter {
-                    !dislikedSongIds.contains(it.mediaId)
-                }
-            }
-        }
-
-        // Filter songs from disliked artists if setting is enabled
-        val excludeDislikedArtists = preferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
-        if (excludeDislikedArtists.isEnabled) {
-            val dislikedArtistSongIds = runBlocking {
-                Database.songTable.getSongsByDislikedArtists()
-            }
-            if (dislikedArtistSongIds.isNotEmpty()) {
-                filteredMediaItems = filteredMediaItems.filter {
-                    !dislikedArtistSongIds.contains(it.mediaId)
-                }
-            }
-        }
-
-        // Filter songs from disliked albums if setting is enabled
-        val excludeDislikedAlbums = preferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
-        if (excludeDislikedAlbums.isEnabled) {
-            val dislikedAlbumSongIds = runBlocking {
-                Database.songTable.getSongsByDislikedAlbums()
-            }
-            if (dislikedAlbumSongIds.isNotEmpty()) {
-                filteredMediaItems = filteredMediaItems.filter {
-                    !dislikedAlbumSongIds.contains(it.mediaId)
-                }
-            }
-        }
-
-        if (filteredMediaItems.isEmpty()) {
-            Toaster.i(R.string.no_song_to_shuffle)
-            return
-        }
-
-        val max = preferences
-            .getEnum(maxSongsInQueueKey, MaxSongs.Unlimited)
-            .toInt()
-        val toPlay = filteredMediaItems.shuffled().take(max)
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch(backgroundDispatcher) {
             try {
-                binder.stopRadio()
-                binder.player.forcePlayFromBeginning(toPlay)
-                Toaster.s(R.string.songs_shuffled, formatArgs = *arrayOf(toPlay.size))
+                var filteredMediaItems = mediaItems
+
+                // Filter disliked songs if setting is enabled
+                val preferences = appContext().preferences
+                val excludeDislikedSongs = preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
+                if (excludeDislikedSongs.isEnabled) {
+                    val dislikedSongIds = Database.songTable.getAllDislikedIds()
+                    if (dislikedSongIds.isNotEmpty()) {
+                        filteredMediaItems = filteredMediaItems.filter {
+                            !dislikedSongIds.contains(it.mediaId)
+                        }
+                    }
+                }
+
+                // Filter songs from disliked artists if setting is enabled
+                val excludeDislikedArtists = preferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
+                if (excludeDislikedArtists.isEnabled) {
+                    val dislikedArtistSongIds = Database.songTable.getSongsByDislikedArtists()
+                    if (dislikedArtistSongIds.isNotEmpty()) {
+                        filteredMediaItems = filteredMediaItems.filter {
+                            !dislikedArtistSongIds.contains(it.mediaId)
+                        }
+                    }
+                }
+
+                // Filter songs from disliked albums if setting is enabled
+                val excludeDislikedAlbums = preferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
+                if (excludeDislikedAlbums.isEnabled) {
+                    val dislikedAlbumSongIds = Database.songTable.getSongsByDislikedAlbums()
+                    if (dislikedAlbumSongIds.isNotEmpty()) {
+                        filteredMediaItems = filteredMediaItems.filter {
+                            !dislikedAlbumSongIds.contains(it.mediaId)
+                        }
+                    }
+                }
+
+                if (filteredMediaItems.isEmpty()) {
+                    withContext(NzikDispatchers.UI) {
+                        Toaster.i(R.string.no_song_to_shuffle)
+                        onComplete()
+                    }
+                    return@launch
+                }
+
+                val max = preferences
+                    .getEnum(maxSongsInQueueKey, MaxSongs.Unlimited)
+                    .toInt()
+                val toPlay = filteredMediaItems.shuffled().take(max)
+                withContext(NzikDispatchers.UI) {
+                    try {
+                        binder.stopRadio()
+                        binder.player.forcePlayFromBeginning(toPlay)
+                        Toaster.s(R.string.songs_shuffled, formatArgs = *arrayOf(toPlay.size))
+                    } catch (e: Exception) {
+                        Toaster.e(R.string.no_song_found)
+                    } finally {
+                        onComplete()
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Toaster.e(R.string.no_song_found)
+                // Preference/DB lookups above (getAllDislikedIds/getSongsByDislikedArtists/
+                // getSongsByDislikedAlbums) run with no caller-side try/finally to fall back on
+                // now that this whole block is dispatched off-main -- without this catch, a
+                // transient DB error would leave onComplete() (and therefore any caller's loading
+                // flag) stuck forever instead of surfacing an error toast like the equivalent
+                // failure a few lines below already does.
+                withContext(NzikDispatchers.UI) {
+                    Toaster.e(R.string.no_song_found)
+                    onComplete()
+                }
             }
         }
     }
 
     @JvmName("playSongs")
-    fun play(binder: PlayerServiceModern.Binder, songs: List<Song>) {
-        play(binder, songs.map(Song::asMediaItem))
+    fun play(binder: PlayerServiceModern.Binder, songs: List<Song>, onComplete: () -> Unit = {}) {
+        play(binder, songs.map(Song::asMediaItem), onComplete)
     }
 
     fun queue(player: Player) {
@@ -128,7 +162,7 @@ object Shuffler {
     fun <T> shuffle(list: List<T>): List<T> = list.shuffled()
 
     fun positions(playlistId: Long) {
-        CoroutineScope(Dispatchers.Default).launch {
+        CoroutineScope(NzikDispatchers.DATA).launch {
             try {
                 val items = Database.songPlaylistMapTable.allSongsOf(playlistId).first()
                 val count = items.size
@@ -139,11 +173,11 @@ object Shuffler {
                         Database.songPlaylistMapTable.updatePosition(playlistId, song.id, i)
                     }
                 }
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     Toaster.s(R.string.playlist_positions_shuffled, formatArgs = *arrayOf(count))
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     Toaster.e(R.string.no_song_found)
                 }
             }
