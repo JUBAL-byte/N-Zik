@@ -1717,6 +1717,7 @@
     <string name="updating_waveform_in_progress">Waveform güncelleniyor…</string>
     <string name="waveform_updated_successfully">Waveform başarıyla güncellendi</string>
     <string name="error_updating_waveform">Waveform güncellenirken hata oluştu</string>
+    <string name="waveform_update_after_download">Waveform will be updated as soon as the download finishes</string>
     <string name="metadata_exported">Dışa aktarıldı</string>
     <string name="container">Medya Türü</string>
     <string name="miniplayer_button_play_pause">Oynat/Duraklat</string>
