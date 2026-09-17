@@ -23,6 +23,7 @@ import app.n_zik.android.MainActivity
 import app.n_zik.android.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.ui.styling.colorPaletteOf
 import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import app.it.fast4x.rimusic.enums.ColorPaletteName
@@ -71,62 +72,66 @@ object NZikWidgetManager {
         duration: Long = 0,
         currentPosition: Long = 0
     ) {
-        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val (albumArt, palette) = withContext(NzikDispatchers.MEDIA) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
 
-        // Extract palette from ORIGINAL bitmap (before scaling) to match in-app colors
-        val palette = extractPalette(context, artworkBitmap)
+            // Extract palette from ORIGINAL bitmap (before scaling) to match in-app colors
+            val palette = extractPalette(context, artworkBitmap)
 
-        // Scale down the bitmap to prevent RemoteViews memory limit exception (TransactionTooLarge)
-        val albumArt: Bitmap? = artworkBitmap?.let {
-            if (it.width > 300 || it.height > 300) {
-                val size = minOf(it.width, it.height)
-                val scale = 300f / size
-                Bitmap.createScaledBitmap(it, (it.width * scale).toInt(), (it.height * scale).toInt(), true)
-            } else {
-                it
+            // Scale down the bitmap to prevent RemoteViews memory limit exception (TransactionTooLarge)
+            val albumArt: Bitmap? = artworkBitmap?.let {
+                if (it.width > 300 || it.height > 300) {
+                    val size = minOf(it.width, it.height)
+                    val scale = 300f / size
+                    Bitmap.createScaledBitmap(it, (it.width * scale).toInt(), (it.height * scale).toInt(), true)
+                } else {
+                    it
+                }
             }
-        }
-        
-        val circularAlbumArt: Bitmap? = albumArt?.let { getCircularBitmap(it) }
 
-        // Update main music player widgets
-        val componentName = ComponentName(context, MusicWidgetReceiver::class.java)
-        val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
-        if (widgetIds.isNotEmpty()) {
-            widgetIds.forEach { widgetId ->
-                val options = appWidgetManager.getAppWidgetOptions(widgetId)
-                val views = createRemoteViewsForSize(
+            val circularAlbumArt: Bitmap? = albumArt?.let { getCircularBitmap(it) }
+
+            // Update main music player widgets
+            val componentName = ComponentName(context, MusicWidgetReceiver::class.java)
+            val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
+            if (widgetIds.isNotEmpty()) {
+                widgetIds.forEach { widgetId ->
+                    val options = appWidgetManager.getAppWidgetOptions(widgetId)
+                    val views = createRemoteViewsForSize(
+                        context,
+                        options,
+                        title,
+                        artist,
+                        albumArt,
+                        isPlaying,
+                        isLiked,
+                        duration,
+                        currentPosition,
+                        palette
+                    )
+                    appWidgetManager.updateAppWidget(widgetId, views)
+                }
+            }
+
+            // Update turntable widgets
+            val turntableComponentName = ComponentName(context, TurntableWidgetReceiver::class.java)
+            val turntableWidgetIds = appWidgetManager.getAppWidgetIds(turntableComponentName)
+            if (turntableWidgetIds.isNotEmpty()) {
+                val turntableViews = createTurntableRemoteViews(
                     context,
-                    options,
-                    title,
-                    artist,
-                    albumArt,
+                    circularAlbumArt,
                     isPlaying,
                     isLiked,
                     duration,
                     currentPosition,
                     palette
                 )
-                appWidgetManager.updateAppWidget(widgetId, views)
+                turntableWidgetIds.forEach { widgetId ->
+                    appWidgetManager.updateAppWidget(widgetId, turntableViews)
+                }
             }
-        }
 
-        // Update turntable widgets
-        val turntableComponentName = ComponentName(context, TurntableWidgetReceiver::class.java)
-        val turntableWidgetIds = appWidgetManager.getAppWidgetIds(turntableComponentName)
-        if (turntableWidgetIds.isNotEmpty()) {
-            val turntableViews = createTurntableRemoteViews(
-                context,
-                circularAlbumArt,
-                isPlaying,
-                isLiked,
-                duration,
-                currentPosition,
-                palette
-            )
-            turntableWidgetIds.forEach { widgetId ->
-                appWidgetManager.updateAppWidget(widgetId, turntableViews)
-            }
+            albumArt to palette
         }
 
         PlaylistWidgetManager.updateWidgets(
@@ -604,7 +609,7 @@ object NZikWidgetManager {
         )
     }
 
-    private fun extractPalette(context: Context, albumArt: Bitmap?): ColorPalette {
+    internal fun extractPalette(context: Context, albumArt: Bitmap?): ColorPalette {
         val isSystemInDarkMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         val defaultPalette = colorPaletteOf(
             ColorPaletteName.Dynamic,

@@ -6,8 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import app.n_zik.android.playback.services.PlayerServiceModern
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MusicWidgetReceiver : AppWidgetProvider() {
@@ -18,7 +18,7 @@ class MusicWidgetReceiver : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.Main).launch {
+        CoroutineScope(NzikDispatchers.UI).launch {
             try {
                 NZikWidgetManager.updateIdleWidgets(context)
                 if (PlayerServiceModern.isRunning) {
@@ -45,7 +45,7 @@ class MusicWidgetReceiver : AppWidgetProvider() {
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
         val pendingResult = goAsync()
-        CoroutineScope(Dispatchers.Main).launch {
+        CoroutineScope(NzikDispatchers.UI).launch {
             try {
                 NZikWidgetManager.updateIdleWidgets(context)
                 if (PlayerServiceModern.isRunning) {

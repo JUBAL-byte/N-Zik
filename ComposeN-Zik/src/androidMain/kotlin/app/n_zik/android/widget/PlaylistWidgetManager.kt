@@ -32,8 +32,8 @@ import app.n_zik.android.core.database.Database
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import java.util.concurrent.ConcurrentHashMap
 import app.it.fast4x.rimusic.ui.styling.ColorPalette
 import app.it.fast4x.rimusic.cleanPrefix
@@ -104,7 +104,7 @@ object PlaylistWidgetManager {
         return bitmap
     }
 
-    private suspend fun buildQuickPicks(context: Context, accentArgb: Int): List<QuickPick> = withContext(Dispatchers.IO) {
+    private suspend fun buildQuickPicks(context: Context, accentArgb: Int): List<QuickPick> = withContext(NzikDispatchers.DATA) {
         val items = mutableListOf<QuickPick>()
 
         val likedIntent = Intent(context, MainActivity::class.java).apply {
@@ -200,22 +200,24 @@ object PlaylistWidgetManager {
             updateIdleWidgets(context)
             return
         }
-        val appWidgetManager = AppWidgetManager.getInstance(context)
-        val albumArt = state.artworkBitmap
-        val palette = extractPalette(context, albumArt)
-        val views = createRemoteViews(
-            context = context,
-            options = options,
-            title = state.title,
-            artist = state.artist,
-            albumArt = albumArt,
-            isPlaying = state.isPlaying,
-            isLiked = state.isLiked,
-            duration = state.duration,
-            currentPosition = state.currentPosition,
-            palette = palette,
-        )
-        appWidgetManager.updateAppWidget(appWidgetId, views)
+        withContext(NzikDispatchers.MEDIA) {
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val albumArt = state.artworkBitmap
+            val palette = extractPalette(context, albumArt)
+            val views = createRemoteViews(
+                context = context,
+                options = options,
+                title = state.title,
+                artist = state.artist,
+                albumArt = albumArt,
+                isPlaying = state.isPlaying,
+                isLiked = state.isLiked,
+                duration = state.duration,
+                currentPosition = state.currentPosition,
+                palette = palette,
+            )
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+        }
     }
 
     suspend fun updateWidgets(
@@ -244,27 +246,29 @@ object PlaylistWidgetManager {
         val widgetIds = appWidgetManager.getAppWidgetIds(componentName)
         if (widgetIds.isEmpty()) return
 
-        val resolvedPalette = palette ?: extractPalette(context, artworkBitmap)
+        withContext(NzikDispatchers.MEDIA) {
+            val resolvedPalette = palette ?: extractPalette(context, artworkBitmap)
 
-        widgetIds.forEach { widgetId ->
-            val options = appWidgetManager.getAppWidgetOptions(widgetId)
-            val views = createRemoteViews(
-                context = context,
-                options = options,
-                title = title,
-                artist = artist,
-                albumArt = artworkBitmap,
-                isPlaying = isPlaying,
-                isLiked = isLiked,
-                duration = duration,
-                currentPosition = currentPosition,
-                palette = resolvedPalette,
-            )
-            appWidgetManager.updateAppWidget(widgetId, views)
+            widgetIds.forEach { widgetId ->
+                val options = appWidgetManager.getAppWidgetOptions(widgetId)
+                val views = createRemoteViews(
+                    context = context,
+                    options = options,
+                    title = title,
+                    artist = artist,
+                    albumArt = artworkBitmap,
+                    isPlaying = isPlaying,
+                    isLiked = isLiked,
+                    duration = duration,
+                    currentPosition = currentPosition,
+                    palette = resolvedPalette,
+                )
+                appWidgetManager.updateAppWidget(widgetId, views)
+            }
         }
     }
 
-    private fun extractPalette(context: Context, bitmap: Bitmap?): ColorPalette {
+    internal fun extractPalette(context: Context, bitmap: Bitmap?): ColorPalette {
         val isSystemInDarkMode = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         val defaultPalette = colorPaletteOf(
             ColorPaletteName.Dynamic,
