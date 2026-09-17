@@ -35,8 +35,10 @@ object NzikDispatchers {
         Executors.newSingleThreadExecutor(namedThreadFactory("nzik-visualizer")).asCoroutineDispatcher()
     }
 
-    /** Thread 3b — CPU-bound media work: palette extraction, LRC/TTML parsing. Isolated from
-     *  VISUALIZER's continuous loop and from DATA. */
+    /** Thread 3b — CPU-bound media work: palette extraction, LRC/TTML parsing, bitmap circling
+     *  (`Icon.getCircledBitmap` in `NextVisualizer.kt`), and botguard challenge/integrity-token
+     *  JSON parsing (`PoTokenWebView.kt`). Isolated from VISUALIZER's continuous loop and from
+     *  DATA. */
     val MEDIA: CoroutineDispatcher by lazy {
         Executors.newFixedThreadPool(2, indexedThreadFactory("nzik-media")).asCoroutineDispatcher()
     }

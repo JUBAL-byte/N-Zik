@@ -54,9 +54,11 @@ import app.n_zik.android.core.database.Database
 import app.n_zik.android.thumbnailShape
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.typography
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import com.valentinilk.shimmer.shimmer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import app.n_zik.android.components.menu.lyrics.LyricsSettingsMenu
 import app.n_zik.android.components.dialog.player.ShowOffsetDialog
@@ -70,7 +72,6 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.animation.AnimatedVisibility
 import app.it.fast4x.rimusic.utils.getBitmapFromUrl
 import androidx.compose.animation.scaleIn
-import kotlinx.coroutines.Dispatchers
 import dev.rebelonion.translator.Language
 import java.util.Locale
 import android.graphics.Bitmap
@@ -223,7 +224,7 @@ fun LyricsScreen(
         var dominantColor by remember { mutableStateOf(android.graphics.Color.DKGRAY) }
 
         LaunchedEffect(mediaMetadata.artworkUri) {
-            kotlinx.coroutines.withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 bitmapCover = try {
                     getBitmapFromUrl(context, mediaMetadata.artworkUri.toString())
                 } catch (_: Exception) {
@@ -233,10 +234,12 @@ fun LyricsScreen(
             }
         }
         LaunchedEffect(bitmapCover, lightTheme) {
-            val palette = try {
-                bitmapCover?.let { dynamicColorPaletteOf(it, !lightTheme) }
-            } catch (_: Exception) {
-                null
+            val palette = withContext(NzikDispatchers.MEDIA) {
+                try {
+                    bitmapCover?.let { dynamicColorPaletteOf(it, !lightTheme) }
+                } catch (_: Exception) {
+                    null
+                }
             }
             dominantColor = palette?.accent?.toArgb() ?: android.graphics.Color.DKGRAY
         }

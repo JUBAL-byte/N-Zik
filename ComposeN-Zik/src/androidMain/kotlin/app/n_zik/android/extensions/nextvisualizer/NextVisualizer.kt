@@ -76,6 +76,7 @@ import utils.Preset
 import utils.VisualizerHelper
 import views.VisualizerView
 import app.n_zik.android.typography
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.ui.components.themed.IconButton
 import app.it.fast4x.rimusic.ui.components.themed.SecondaryTextButton
 import app.it.fast4x.rimusic.utils.DisposableListener
@@ -206,23 +207,25 @@ fun NextVisualizer() {
             val currentArtworkUri = binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
 
             LaunchedEffect(currentArtworkUri) {
-                withContext(Dispatchers.IO) {
+                withContext(NzikDispatchers.DATA) {
                     try {
                         val bitmap = getBitmapFromUrl(
                             context,
                             currentArtworkUri.toString().resize(1000, 1000)
                         ) ?: throw Exception("Bitmap is null")
-                        withContext(Dispatchers.Main) {
+                        val circled = withContext(NzikDispatchers.MEDIA) { Icon.getCircledBitmap(bitmap) }
+                        withContext(NzikDispatchers.UI) {
                             bitmapCover = bitmap
-                            circleBitmap = Icon.getCircledBitmap(bitmap)
+                            circleBitmap = circled
                         }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         Timber.tag("NextVisualizer").e("Failed to get bitmap in NextVisualizer ${e.stackTraceToString()}")
-                        withContext(Dispatchers.Main) {
+                        val circled = withContext(NzikDispatchers.MEDIA) { Icon.getCircledBitmap(APP_ICON_BITMAP) }
+                        withContext(NzikDispatchers.UI) {
                             bitmapCover = APP_ICON_BITMAP
-                            circleBitmap = Icon.getCircledBitmap(APP_ICON_BITMAP)
+                            circleBitmap = circled
                         }
                     }
                 }
@@ -231,23 +234,25 @@ fun NextVisualizer() {
             binder?.player?.DisposableListener {
                 object : Player.Listener {
                     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                        coroutineScope.launch(Dispatchers.IO) {
+                        coroutineScope.launch(NzikDispatchers.DATA) {
                             try {
                                 val bitmap = getBitmapFromUrl(
                                     context,
                                     mediaItem?.mediaMetadata?.artworkUri.toString()
                                         .resize(1000, 1000)
                                 ) ?: throw Exception("Bitmap is null")
-                                withContext(Dispatchers.Main) {
+                                val circled = withContext(NzikDispatchers.MEDIA) { Icon.getCircledBitmap(bitmap) }
+                                withContext(NzikDispatchers.UI) {
                                     bitmapCover = bitmap
-                                    circleBitmap = Icon.getCircledBitmap(bitmap)
+                                    circleBitmap = circled
                                 }
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                withContext(Dispatchers.Main) {
+                                val circled = withContext(NzikDispatchers.MEDIA) { Icon.getCircledBitmap(APP_ICON_BITMAP) }
+                                withContext(NzikDispatchers.UI) {
                                     bitmapCover = APP_ICON_BITMAP
-                                    circleBitmap = Icon.getCircledBitmap(APP_ICON_BITMAP)
+                                    circleBitmap = circled
                                 }
                                 Timber.tag("NextVisualizer").e("Failed to get bitmap in NextVisualizer ${e.stackTraceToString()}")
                             }

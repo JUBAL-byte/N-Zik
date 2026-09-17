@@ -12,6 +12,7 @@ import android.webkit.WebViewClient
 import androidx.annotation.MainThread
 import androidx.collection.ArrayMap
 import app.n_zik.android.BuildConfig
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
@@ -175,7 +176,7 @@ class PoTokenWebView private constructor(
             "https://www.youtube.com/api/jnn/v1/Create",
             "[ \"$REQUEST_KEY\" ]",
         ) { responseBody ->
-            val parsedChallengeData = parseChallengeData(responseBody)
+            val parsedChallengeData = withContext(NzikDispatchers.MEDIA) { parseChallengeData(responseBody) }
             webView.evaluateJavascript(
                 """try {
                     data = $parsedChallengeData
@@ -218,7 +219,9 @@ class PoTokenWebView private constructor(
         ) { responseBody ->
             Timber.tag(TAG).d("GenerateIT response: $responseBody")
             try {
-                val (integrityToken, expirationTimeInSeconds) = parseIntegrityTokenData(responseBody)
+                val (integrityToken, expirationTimeInSeconds) = withContext(NzikDispatchers.MEDIA) {
+                    parseIntegrityTokenData(responseBody)
+                }
                 Timber.tag(TAG).d("Parsed integrityToken (${integrityToken.take(50)}...), expires in $expirationTimeInSeconds sec")
 
                 // leave 10 minutes of margin just to be sure
@@ -245,6 +248,8 @@ class PoTokenWebView private constructor(
                     }""",
                     null
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to parse integrity token data: ${e.message}")
                 onInitializationErrorCloseAndCancel(PoTokenException("parseIntegrityTokenData failed: ${e.message}"))
@@ -376,7 +381,7 @@ class PoTokenWebView private constructor(
     private fun makeBotguardServiceRequest(
         url: String,
         data: String,
-        handleResponseBody: (String) -> Unit,
+        handleResponseBody: suspend (String) -> Unit,
     ) {
         scope.launch(exceptionHandler) {
             val requestBuilder = Request.Builder()
