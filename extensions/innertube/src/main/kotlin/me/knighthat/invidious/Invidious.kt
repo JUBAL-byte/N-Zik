@@ -3,8 +3,10 @@ package me.knighthat.invidious
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import it.fast4x.innertube.utils.InnertubeLogger
 import me.knighthat.common.HttpFetcher
@@ -33,6 +35,19 @@ object Invidious: PublicInstances() {
      */
     internal val DOMAIN_NO_PATH_REGEX = Regex( "\\(https?://([^)|\\s]+\\.[a-z]{2,})(?:/[^)]*)?\\)" )
 
+    /**
+     * Injection seam (issue #606): this module can't depend on the app's centralized
+     * NzikDispatchers (Gradle dependency direction is app -> this module, never the reverse).
+     * Defaults to Dispatchers.IO so the module works standalone (e.g. in its own unit tests);
+     * the app wires this to NzikDispatchers.DATA once at startup, same pattern as
+     * VisualizerHelper.snapshotProvider (which is @Volatile for the same single-write-at-startup,
+     * read-from-background-threads reason).
+     */
+    @Volatile
+    var backgroundDispatcher: CoroutineDispatcher = Dispatchers.IO
+
+    internal val scope = CoroutineScope( SupervisorJob() )
+
     var useUnofficialInstances: Boolean = true      // TODO: implement a setting toggle
         set(value) {
             if( field == value )
@@ -41,7 +56,7 @@ object Invidious: PublicInstances() {
                 field = value
 
             // Re-fetch instances when boolean is flipped
-            CoroutineScope( Dispatchers.IO ).launch {
+            scope.launch( backgroundDispatcher ) {
                 this@Invidious.fetchInstances()
             }
         }

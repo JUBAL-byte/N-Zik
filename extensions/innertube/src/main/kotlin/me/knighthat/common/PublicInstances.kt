@@ -2,6 +2,7 @@ package me.knighthat.common
 
 abstract class PublicInstances {
 
+    @Volatile
     protected lateinit var instances: Array<String>
     protected lateinit var unreachableInstances: MutableList<Regex>
 

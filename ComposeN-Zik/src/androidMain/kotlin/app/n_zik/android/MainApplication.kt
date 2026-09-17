@@ -48,6 +48,8 @@ import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import app.n_zik.android.core.network.client.Store
 import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import me.knighthat.invidious.Invidious
 import utils.VisualizerHelper
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.download.utils.MyDownloadHelper
@@ -133,6 +135,10 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         // be set before ANY VisualizerHelper.getFft()/getWave() call — nextvisualizer can't depend
         // on coroutines, so it exposes this plain function-type injection point instead.
         VisualizerHelper.snapshotProvider = VisualizerCaptureCoordinator::currentSnapshot
+
+        // Same seam pattern (issue #606, Goal D Lot 1): extensions/innertube is a pure kotlin("jvm")
+        // module and can't depend on NzikDispatchers either.
+        Invidious.backgroundDispatcher = NzikDispatchers.DATA
 
         migrateCredentialsToEncrypted()
         InnerTubeXPlayer.initialize(this)

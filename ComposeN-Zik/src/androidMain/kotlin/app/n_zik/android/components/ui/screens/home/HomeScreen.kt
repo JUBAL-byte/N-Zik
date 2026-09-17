@@ -35,7 +35,7 @@ import app.it.fast4x.rimusic.utils.indexNavigationTabKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -47,7 +47,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import app.n_zik.android.components.ui.screens.home.quickpicks.HomeQuickPicks
 import app.it.fast4x.rimusic.utils.homeTabsOrderKey
 import app.n_zik.android.components.dialog.settings.HomeTabsSettingsDialog
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
+// Shared scope for fire-and-forget background work started from this screen (issue #606):
+// a SupervisorJob so one failure doesn't cancel unrelated future launches on the same scope.
+internal val homeScreenScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
 
 @RequiresApi(Build.VERSION_CODES.O)
 @ExperimentalMaterial3Api
@@ -277,7 +281,7 @@ fun HomeScreen(
             confirmCount++
 
             // Reset confirmCount after 5s
-            CoroutineScope( Dispatchers.Default ).launch {
+            homeScreenScope.launch {
                 delay( 5000L )
                 confirmCount = 0
             }

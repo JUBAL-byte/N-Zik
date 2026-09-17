@@ -34,8 +34,10 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import com.arthenica.ffmpegkit.FFmpegKit
@@ -69,6 +71,11 @@ class ExportCacheDialog(
     var selectedLyricsType by mutableStateOf<String?>(null)
 
     companion object {
+        // Shared scope for this dialog's fire-and-forget export work (issue #606):
+        // a SupervisorJob so a failed export (onExport or batchExport) never prevents
+        // a later export from running on the same scope.
+        internal val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+
         @UnstableApi
         private fun onExport(
             uri: Uri,
@@ -76,7 +83,7 @@ class ExportCacheDialog(
             song: Song,
             isExporting: MutableState<Boolean>,
             showResultToast: Boolean = true
-        ) = CoroutineScope( Dispatchers.IO ).launch {
+        ) = scope.launch {
             kotlinx.coroutines.withContext(Dispatchers.Main) { isExporting.value = true }
             try {
                 Timber.tag("ExportCache").i("onExport triggered for song: ${song.title}")
@@ -405,7 +412,7 @@ class ExportCacheDialog(
             lyricsType: String? = null,
             onProgress: (current: Int, total: Int, songTitle: String) -> Unit,
             onComplete: (successCount: Int, failCount: Int) -> Unit
-        ) = CoroutineScope(Dispatchers.IO).launch {
+        ) = scope.launch {
             val cr = appContext().contentResolver
             var successCount = 0
             var failCount = 0

@@ -25,4 +25,12 @@ dependencies {
     api(libs.innertubex)
     implementation(libs.ksoup.html)
     implementation(libs.ksoup.entities)
+
+    testImplementation(libs.bundles.junit5)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testRuntimeOnly(libs.junit.platform)
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }

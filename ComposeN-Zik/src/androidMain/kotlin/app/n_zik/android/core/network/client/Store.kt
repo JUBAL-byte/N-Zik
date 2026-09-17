@@ -12,12 +12,14 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import it.fast4x.innertube.Innertube
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import java.io.IOException
 
 /**
@@ -31,6 +33,10 @@ object Store {
 
     private val fetchMutex = Mutex()
     private val visitorMutex = Mutex()
+
+    // Shared scope for prefetchCookie's fire-and-forget warmup (issue #606): a SupervisorJob
+    // so a failed prefetch never prevents a later call to prefetchCookie from running.
+    internal val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
 
     private var ghostResponseHeaders: Headers? = null
     private var ghostResponseBody: String? = null
@@ -250,7 +256,7 @@ object Store {
      * Call this once at app init (e.g. in MainApplication) so getCookie() has data ready.
      */
     fun prefetchCookie() {
-        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+        scope.launch {
             runCatching { fetchIfNeeded() }
                 .onSuccess { buildCookieFromHeaders() }
                 .onFailure { Timber.tag("Store").w(it, "prefetchCookie: failed") }
