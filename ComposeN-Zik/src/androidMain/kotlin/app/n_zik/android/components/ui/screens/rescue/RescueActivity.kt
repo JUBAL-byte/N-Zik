@@ -11,6 +11,7 @@ import timber.log.Timber
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.core.view.WindowCompat
+import app.n_zik.android.BuildConfig
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.setDefaultPalette
 import app.it.fast4x.rimusic.utils.getEnum
@@ -32,16 +33,12 @@ class RescueActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Plant a Timber tree for the :rescue process (MainApplication skips this)
-        if (Timber.forest().isEmpty()) {
+        // Plant a Timber tree for the :rescue process (MainApplication skips this). Debug builds
+        // only: release builds must not write to logcat from the process that handles credentials.
+        if (BuildConfig.DEBUG && Timber.forest().isEmpty()) {
             Timber.plant(Timber.DebugTree())
         }
-        Timber.tag("RescueActivity").i("Rescue Center started in process: %s",
-            android.app.ActivityManager.RunningAppProcessInfo().let { info ->
-                android.app.ActivityManager.getMyMemoryState(info)
-                android.os.Process.myPid().toString()
-            }
-        )
+        Timber.tag("RescueActivity").i("Rescue Center started in process %d", android.os.Process.myPid())
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(

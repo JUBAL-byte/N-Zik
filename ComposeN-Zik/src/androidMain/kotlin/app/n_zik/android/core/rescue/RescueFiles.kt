@@ -5,6 +5,32 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
+import app.it.fast4x.rimusic.utils.discordAvatarKey
+import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
+import app.it.fast4x.rimusic.utils.discordUsernameKey
+import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
+import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
+import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
+import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.it.fast4x.rimusic.utils.useYtLoginOnlyForBrowseKey
+import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
+import app.it.fast4x.rimusic.utils.ytAccountEmailKey
+import app.it.fast4x.rimusic.utils.ytAccountNameKey
+import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
+import app.it.fast4x.rimusic.utils.ytCookieKey
+import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
+import app.it.fast4x.rimusic.utils.ytVisitorDataKey
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
+import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
+import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import timber.log.Timber
 import java.io.File
 import java.io.FileInputStream
@@ -40,22 +66,23 @@ object RescueFiles {
     private const val PREFS_NAME = "preferences"
     private const val ENCRYPTED_PREFS_NAME = "secure_preferences"
 
-    // Well-known encrypted credential keys (same list as ExportSettingsDialog.buildCredentialEntries)
+    // Encrypted credential keys, built from the real constants so they cannot drift from
+    // ExportSettingsDialog.buildCredentialEntries (const vals are inlined: no app init needed).
     internal val YTB_KEYS = listOf(
-        "ytCookie", "ytVisitorData", "ytDataSyncId",
-        "ytAccountName", "ytAccountEmail", "ytAccountChannelHandle",
-        "ytAccountThumbnail", "enableYoutubeLogin", "enableYoutubeSync",
-        "useYtLoginOnlyForBrowse"
+        ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey,
+        ytAccountNameKey, ytAccountEmailKey, ytAccountChannelHandleKey,
+        ytAccountThumbnailKey, enableYouTubeLoginKey, enableYouTubeSyncKey,
+        useYtLoginOnlyForBrowseKey
     )
     internal val DISCORD_KEYS = listOf(
-        "DiscordPersonalAccessToken", "discord_avatar", "discord_username",
-        "isDiscordPresenceEnabled", "isDiscordBrowsingEnabled"
+        discordPersonalAccessTokenKey, discordAvatarKey, discordUsernameKey,
+        isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
     )
     internal val LASTFM_KEYS = listOf(
-        "lastfmSession", "lastfmUsername", "lastfmAvatarUrl",
-        "isLastfmScrobblingEnabled", "isLastfmNowPlayingEnabled",
-        "isLastfmScrobbleEnabled", "lastfmMinTrackDurationSeconds",
-        "lastfmScrobbleThresholdPercent", "lastfmMaxScrobbleDelaySeconds"
+        lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey,
+        isLastfmScrobblingEnabledKey, isLastfmNowPlayingEnabledKey,
+        isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
+        lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
     )
     internal val ALL_ENCRYPTED_KEYS = YTB_KEYS + DISCORD_KEYS + LASTFM_KEYS
 
@@ -187,10 +214,20 @@ object RescueFiles {
     // ──────────────────────────────────────────────────────────────────────
 
     /**
+     * Outcome of a settings export/import.
+     *
+     * @property encryptedSkipped true when encrypted credentials were requested (export) or
+     *   present in the file (import) but the encrypted store could not be opened, so only the
+     *   regular settings were processed. The UI must warn the user.
+     */
+    data class SettingsOutcome(val encryptedSkipped: Boolean)
+
+    /**
      * Exports settings to a CSV file at the given SAF URI.
      *
      * @param encryptedPrefsResult the Result of opening EncryptedSharedPreferences; if null
-     *   or failure, encrypted credentials are skipped with a warning.
+     *   or failure, encrypted credentials are skipped and [SettingsOutcome.encryptedSkipped]
+     *   is set.
      */
     fun exportSettings(
         context: Context,
@@ -199,7 +236,7 @@ object RescueFiles {
         includeYtb: Boolean = false,
         includeDiscord: Boolean = false,
         includeLastfm: Boolean = false
-    ): Result<Unit> = runCatching {
+    ): Result<SettingsOutcome> = runCatching {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val entries = mutableListOf<Triple<String, String, Any>>()
 
@@ -212,6 +249,7 @@ object RescueFiles {
         }
 
         // Encrypted credentials (optional, may fail)
+        var encryptedSkipped = false
         if (includeYtb || includeDiscord || includeLastfm) {
             val encPrefs = encryptedPrefsResult?.getOrNull()
             if (encPrefs != null) {
@@ -228,42 +266,38 @@ object RescueFiles {
                     }
                 }
             } else {
+                encryptedSkipped = true
                 Timber.tag(TAG).w("Cannot access encrypted preferences; exporting without credentials")
             }
         }
 
         Timber.tag(TAG).d("Exporting %d settings entries", entries.size)
-        writeSettingsCsv(context, uri, entries)
-    }
-
-    private fun writeSettingsCsv(
-        context: Context,
-        uri: Uri,
-        entries: List<Triple<String, String, Any>>
-    ) {
         context.contentResolver.openOutputStream(uri)?.use { outStream ->
-            outStream.bufferedWriter().use { writer ->
-                writer.write("Type,Key,Value")
-                writer.newLine()
-                entries.forEach { (type, key, value) ->
-                    // Escape CSV: double-quote values containing commas, quotes, or newlines
-                    val escapedValue = csvEscape(value.toString())
-                    val escapedKey = csvEscape(key)
-                    writer.write("$type,$escapedKey,$escapedValue")
-                    writer.newLine()
-                }
-            }
+            writeSettingsCsv(outStream, entries)
             Timber.tag(TAG).i("Settings exported: %d entries", entries.size)
         } ?: error("Failed to open output stream for settings export")
+
+        SettingsOutcome(encryptedSkipped)
     }
 
-    internal fun csvEscape(value: String): String {
-        return if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-            "\"${value.replace("\"", "\"\"")}\""
-        } else {
-            value
+    /**
+     * Writes settings as `Type,Key,Value` CSV using the same writer as the regular settings
+     * export, so values containing commas, quotes or line breaks round-trip through
+     * [readSettingsCsv].
+     */
+    internal fun writeSettingsCsv(outStream: OutputStream, entries: List<Triple<String, String, Any>>) {
+        csvWriter().open(outStream) {
+            writeRow("Type", "Key", "Value")
+            entries.forEach { (type, key, value) -> writeRow(type, key, value) }
         }
     }
+
+    /** Parses a `Type,Key,Value` CSV into (type, key, value) rows; rows missing a key are dropped. */
+    internal fun readSettingsCsv(inStream: InputStream): List<Triple<String, String, String>> =
+        csvReader().readAllWithHeader(inStream).mapNotNull { row ->
+            val key = row["Key"]?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            Triple(row["Type"].orEmpty(), key, row["Value"].orEmpty())
+        }
 
     // ──────────────────────────────────────────────────────────────────────
     // Import settings (CSV)
@@ -273,21 +307,19 @@ object RescueFiles {
      * Imports settings from a CSV file.
      *
      * Normal keys go to `"preferences"` SharedPreferences.
-     * Keys recognized as encrypted credentials go to [encryptedPrefsResult] if available.
+     * Keys recognized as encrypted credentials go to [encryptedPrefsResult] if available;
+     * otherwise they are skipped and [SettingsOutcome.encryptedSkipped] is set.
      */
     fun importSettings(
         context: Context,
         uri: Uri,
         encryptedPrefsResult: Result<SharedPreferences>? = null
-    ): Result<Unit> = runCatching {
-        val lines = context.contentResolver.openInputStream(uri)?.use { inStream ->
-            inStream.bufferedReader().readLines()
+    ): Result<SettingsOutcome> = runCatching {
+        val rows = context.contentResolver.openInputStream(uri)?.use { inStream ->
+            readSettingsCsv(inStream)
         } ?: error("Failed to open input stream for settings import")
 
-        if (lines.isEmpty()) error("Empty settings file")
-
-        // Skip header
-        val dataLines = if (lines.first().startsWith("Type")) lines.drop(1) else lines
+        if (rows.isEmpty()) error("Empty settings file")
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val editor = prefs.edit()
@@ -296,13 +328,7 @@ object RescueFiles {
         var importedCount = 0
         var encryptedSkipped = 0
 
-        dataLines.forEach { line ->
-            val parts = parseCsvLine(line)
-            if (parts.size < 3) return@forEach
-            val type = parts[0]
-            val key = parts[1]
-            val value = parts[2]
-
+        rows.forEach { (type, key, value) ->
             val isEncrypted = key in ALL_ENCRYPTED_KEYS
             val targetEditor = if (isEncrypted) {
                 if (encEditor == null) {
@@ -329,7 +355,8 @@ object RescueFiles {
                 }
                 importedCount++
             }.onFailure { e ->
-                Timber.tag(TAG).e(e, "Failed to import key '%s' (type=%s, value=%s)", key, type, value)
+                // Never log the value: it may be a credential (cookie, token).
+                Timber.tag(TAG).e(e, "Failed to import key '%s' (type=%s)", key, type)
             }
         }
 
@@ -339,35 +366,7 @@ object RescueFiles {
             "Settings imported: %d entries (%d encrypted keys skipped)",
             importedCount, encryptedSkipped
         )
-    }
-
-    /**
-     * Simple CSV line parser that handles quoted values.
-     * Returns a list of field values from a single CSV line.
-     */
-    internal fun parseCsvLine(line: String): List<String> {
-        val fields = mutableListOf<String>()
-        val current = StringBuilder()
-        var inQuotes = false
-        var i = 0
-        while (i < line.length) {
-            val c = line[i]
-            when {
-                c == '"' && inQuotes && i + 1 < line.length && line[i + 1] == '"' -> {
-                    current.append('"')
-                    i++ // skip escaped quote
-                }
-                c == '"' -> inQuotes = !inQuotes
-                c == ',' && !inQuotes -> {
-                    fields.add(current.toString())
-                    current.clear()
-                }
-                else -> current.append(c)
-            }
-            i++
-        }
-        fields.add(current.toString())
-        return fields
+        SettingsOutcome(encryptedSkipped > 0)
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -444,8 +443,13 @@ object RescueFiles {
      * the user can configure the cache location to either via [ExoPlayerCacheLocation].
      */
     fun clearCache(context: Context): Result<Int> = runCatching {
+        clearCacheDirs(context.cacheDir, context.filesDir, context.externalCacheDir)
+    }
+
+    /** File-based core of [clearCache], separated so it can be unit-tested with temp dirs. */
+    internal fun clearCacheDirs(cacheDir: File, filesDir: File, externalCacheDir: File?): Int {
         var deletedCount = 0
-        val bases = listOf(context.cacheDir, context.filesDir)
+        val bases = listOf(cacheDir, filesDir)
 
         bases.forEach { base ->
             // Streaming cache (exoplayer)
@@ -455,7 +459,7 @@ object RescueFiles {
         }
 
         // OkHttp cache in externalCacheDir
-        context.externalCacheDir?.let { extCache ->
+        externalCacheDir?.let { extCache ->
             // OkHttp uses the externalCacheDir directly; clear non-protected children
             extCache.listFiles()?.forEach { child ->
                 if (child.name != DOWNLOAD_CACHE_DIR && child.name != DOWNLOAD_DB_FILE) {
@@ -465,7 +469,7 @@ object RescueFiles {
         }
 
         // Temp files in cacheDir
-        context.cacheDir.listFiles()?.forEach { child ->
+        cacheDir.listFiles()?.forEach { child ->
             if (child.isFile && (child.name.startsWith("temp_") ||
                     child.name.startsWith("edit_meta_") ||
                     child.name == "widget_thumbnail.png" ||
@@ -476,7 +480,7 @@ object RescueFiles {
         }
 
         Timber.tag(TAG).i("Cache cleared: %d items deleted", deletedCount)
-        deletedCount
+        return deletedCount
     }
 
     private fun safeDeleteDir(dir: File): Int {
@@ -499,19 +503,30 @@ object RescueFiles {
      * Deletes all downloaded media files and the ExoPlayer download database.
      */
     fun deleteDownloads(context: Context): Result<Int> = runCatching {
-        var deletedCount = 0
-        val bases = listOfNotNull(context.cacheDir, context.filesDir, context.externalCacheDir)
+        deleteDownloadFiles(
+            mediaBases = listOfNotNull(context.cacheDir, context.filesDir, context.externalCacheDir),
+            // The download index lives in the databases dir (StandaloneDatabaseProvider), not in a
+            // cache dir: deleting only the media would leave the index claiming songs are downloaded.
+            downloadDatabase = context.getDatabasePath(DOWNLOAD_DB_FILE)
+        )
+    }
 
-        bases.forEach { base ->
+    /** File-based core of [deleteDownloads], separated so it can be unit-tested with temp dirs. */
+    internal fun deleteDownloadFiles(mediaBases: List<File>, downloadDatabase: File): Int {
+        var deletedCount = 0
+
+        mediaBases.forEach { base ->
             deletedCount += safeDeleteDir(File(base, DOWNLOAD_CACHE_DIR))
-            val dbFile = File(base, DOWNLOAD_DB_FILE)
-            if (dbFile.exists() && dbFile.delete()) {
-                deletedCount++
-            }
+        }
+
+        // SQLite side files too, so a stale journal cannot be replayed onto a fresh index.
+        listOf("", "-journal", "-wal", "-shm").forEach { suffix ->
+            val file = File(downloadDatabase.path + suffix)
+            if (file.exists() && file.delete()) deletedCount++
         }
 
         Timber.tag(TAG).i("Downloads deleted: %d items", deletedCount)
-        deletedCount
+        return deletedCount
     }
 
     // ──────────────────────────────────────────────────────────────────────

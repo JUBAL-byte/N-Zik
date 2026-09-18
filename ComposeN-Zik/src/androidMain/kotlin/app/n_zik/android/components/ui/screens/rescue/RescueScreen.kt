@@ -29,7 +29,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,7 +66,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.text.BasicText
 
 /**
@@ -94,20 +95,43 @@ fun RescueScreen() {
     var includeLastfm by remember { mutableStateOf(false) }
     var showCredentialToggles by remember { mutableStateOf(false) }
 
-    // Status message
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    // Which actions are available depends on files on disk (logs, backups). Read off the main
+    // thread and re-read after every action so the cards never stay stale.
+    var fileStateVersion by remember { mutableIntStateOf(0) }
+    var fileState by remember { mutableStateOf(RescueFileState()) }
+    LaunchedEffect(fileStateVersion) {
+        fileState = withContext(Dispatchers.IO) {
+            RescueFileState(
+                hasLogs = RescueFiles.hasLogs(context),
+                hasDatabaseBackup = RescueFiles.hasBackup(context),
+                hasSettingsBackup = RescueFiles.hasSettingsBackup(context)
+            )
+        }
+    }
 
     // Helper to show result
     fun showResult(result: Result<*>, successMsg: String? = null) {
+        fileStateVersion++
         result.onSuccess {
             val msg = successMsg ?: context.getString(R.string.rescue_success)
-            statusMessage = msg
             Toasty.success(context, msg, Toast.LENGTH_SHORT, true).show()
         }.onFailure { e ->
             val msg = context.getString(R.string.rescue_error, e.message ?: "Unknown")
-            statusMessage = msg
             Toasty.error(context, msg, Toast.LENGTH_LONG, true).show()
             Timber.tag("RescueScreen").e(e, "Action failed")
+        }
+    }
+
+    // Same as showResult, plus a warning when encrypted credentials could not be processed
+    fun showSettingsResult(result: Result<RescueFiles.SettingsOutcome>) {
+        showResult(result)
+        if (result.getOrNull()?.encryptedSkipped == true) {
+            Toasty.warning(
+                context,
+                context.getString(R.string.rescue_encrypted_unavailable_warning),
+                Toast.LENGTH_LONG,
+                true
+            ).show()
         }
     }
 
@@ -154,7 +178,7 @@ fun RescueScreen() {
                     includeYtb, includeDiscord, includeLastfm
                 )
             }
-            showResult(result)
+            showSettingsResult(result)
         }
     }
 
@@ -167,7 +191,7 @@ fun RescueScreen() {
                 val result = withContext(Dispatchers.IO) {
                     RescueFiles.importSettings(context, uri, encryptedPrefsResult)
                 }
-                showResult(result)
+                showSettingsResult(result)
             }
         }
     }
@@ -191,9 +215,9 @@ fun RescueScreen() {
     }
 
     // Confirmation dialog
-    if (confirmAction != null) {
+    confirmAction?.let { pending ->
         RescueConfirmationDialog(
-            text = stringResource(confirmAction!!.messageRes),
+            text = stringResource(pending.messageRes),
             onDismiss = { confirmAction = null },
             onConfirm = {
                 val action = confirmAction
@@ -386,7 +410,7 @@ fun RescueScreen() {
                 iconRes = R.drawable.bugs,
                 title = stringResource(R.string.rescue_export_logs),
                 description = stringResource(R.string.rescue_export_logs_description),
-                enabled = RescueFiles.hasLogs(context),
+                enabled = fileState.hasLogs,
                 disabledReason = stringResource(R.string.rescue_no_logs),
                 onClick = {
                     exportLogsLauncher.launch("${BuildConfig.APP_NAME} $date Logs.txt")
@@ -398,7 +422,7 @@ fun RescueScreen() {
                 iconRes = R.drawable.trash,
                 title = stringResource(R.string.rescue_delete_logs),
                 description = stringResource(R.string.rescue_delete_logs_description),
-                enabled = RescueFiles.hasLogs(context),
+                enabled = fileState.hasLogs,
                 disabledReason = stringResource(R.string.rescue_no_logs),
                 onClick = {
                     guardWrite {
@@ -457,7 +481,7 @@ fun RescueScreen() {
                 iconRes = R.drawable.trash,
                 title = stringResource(R.string.rescue_delete_backups),
                 description = stringResource(R.string.rescue_delete_backups_description),
-                enabled = RescueFiles.hasBackup(context) || RescueFiles.hasSettingsBackup(context),
+                enabled = fileState.hasDatabaseBackup || fileState.hasSettingsBackup,
                 disabledReason = stringResource(R.string.rescue_no_backups_to_delete),
                 onClick = {
                     guardWrite {
@@ -502,7 +526,7 @@ fun RescueScreen() {
                 iconRes = R.drawable.server,
                 title = stringResource(R.string.rescue_restore_database),
                 description = stringResource(R.string.rescue_restore_database_description),
-                enabled = RescueFiles.hasBackup(context),
+                enabled = fileState.hasDatabaseBackup,
                 disabledReason = stringResource(R.string.rescue_no_backup),
                 onClick = {
                     guardWrite {
@@ -542,7 +566,7 @@ fun RescueScreen() {
                 iconRes = R.drawable.settings,
                 title = stringResource(R.string.rescue_restore_settings),
                 description = stringResource(R.string.rescue_restore_settings_description),
-                enabled = RescueFiles.hasSettingsBackup(context),
+                enabled = fileState.hasSettingsBackup,
                 disabledReason = stringResource(R.string.rescue_no_settings_backup),
                 onClick = {
                     guardWrite {
@@ -643,6 +667,13 @@ private fun RescueActionCard(
 private data class ConfirmAction(
     val messageRes: Int,
     val onConfirm: () -> Unit
+)
+
+/** Availability of the actions that depend on files present on disk. */
+private data class RescueFileState(
+    val hasLogs: Boolean = false,
+    val hasDatabaseBackup: Boolean = false,
+    val hasSettingsBackup: Boolean = false
 )
 
 @Composable
