@@ -39,6 +39,13 @@
         <intent>
             <action android:name="android.intent.action.WEB_SEARCH" />
         </intent>
+        <!-- Required on API 30+ (package visibility) to resolve the default home launcher in
+             ShortcutIconSync.homeLauncherPackage — without this, resolveActivity() cannot see the
+             launcher and always returns null. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
     </queries>
 
     <application
@@ -143,8 +150,9 @@
             </intent-filter>
             <!-- NEW PLAYER SERVICE -->
 
-            <meta-data android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
+            <!-- App shortcuts (search/albums/artists/library) are registered dynamically at
+                 runtime by app.n_zik.android.shortcuts.registerAppShortcuts, not declared here as
+                 manifest shortcuts. See that file's KDoc for why. -->
         </activity>
 
         <receiver android:name=".widget.MusicWidgetReceiver"

@@ -106,9 +106,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.R
+import app.n_zik.android.shortcuts.registerAppShortcuts
 import android.graphics.Bitmap
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.ime
@@ -143,6 +145,7 @@ import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
 import app.it.fast4x.rimusic.extensions.pip.PipEventContainer
 import app.it.fast4x.rimusic.extensions.pip.PipModuleContainer
 import app.it.fast4x.rimusic.extensions.pip.PipModuleCover
+import app.n_zik.android.components.ui.screens.home.OPEN_SEARCH_SHORTCUT
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.playback.services.PlayerServiceModern
 import app.n_zik.android.utils.PlayerAwareInsetsTracker
@@ -321,6 +324,11 @@ class MainActivity :
     private var binder by mutableStateOf<PlayerServiceModern.Binder?>(null)
     private var intentUriData by mutableStateOf<Uri?>(null)
 
+    // Observable so a shortcut tap while the app is already running (delivered via onNewIntent,
+    // which never re-triggers onCreate) still recomposes the tab-navigation check below --
+    // reading `intent.action` directly only ever saw the launch-time intent.
+    private var shortcutIntentAction by mutableStateOf<String?>(null)
+
     override val persistMap = PersistMap()
 
     private var _monet: MonetCompat? by mutableStateOf(null)
@@ -384,6 +392,7 @@ class MainActivity :
         }
 
         checkIfAppIsRunningInBackground()
+        registerAppShortcuts(this)
         // Verify backup location exists
         lifecycleScope.launch(Dispatchers.IO) {
             BackupManager.verifyBackupLocation(this@MainActivity)
@@ -509,6 +518,7 @@ class MainActivity :
         Timber.tag("MainActivity").d("onCreate launchedFromNotification: $launchedFromNotification intent ${intent.action}")
 
         intentUriData = intent.data ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri()
+        shortcutIntentAction = intent.action
 
         with(preferences) {
             if (getBoolean(isKeepScreenOnEnabledKey, false)) {
@@ -1301,26 +1311,37 @@ class MainActivity :
                     derivedStateOf { insetsTracker.resolve(playerSheetState.value) }
                 }
 
-                var openTabFromShortcut = remember { -1 }
-                if (intent.action in arrayOf(
-                        action_songs,
-                        action_albums,
-                        actions_artists,
-                        action_library,
-                        action_search
-                    )
-                ) {
-                    openTabFromShortcut =
-                        when (intent?.action) {
-                            action_songs -> HomeScreenTabs.Songs.index
-                            action_albums -> HomeScreenTabs.Albums.index
-                            actions_artists -> HomeScreenTabs.Artists.index
-                            action_library -> HomeScreenTabs.Playlists.index
-                            action_search -> -2
-                                    else -> -1
-                                }
-                            intent.action = null
+                val openTabFromShortcut = when (shortcutIntentAction) {
+                    action_songs -> HomeScreenTabs.Songs.index
+                    action_albums -> HomeScreenTabs.Albums.index
+                    actions_artists -> HomeScreenTabs.Artists.index
+                    action_library -> HomeScreenTabs.Playlists.index
+                    action_search -> OPEN_SEARCH_SHORTCUT
+                    else -> -1
+                }
+                // Consuming (resetting) shortcutIntentAction synchronously during composition
+                // raced with HomeScreen's own LaunchedEffect(openTabFromShortcut): both the -1->X
+                // and the immediate X->-1 recompositions could settle before that effect ever got
+                // to run, silently dropping the navigation (verified on-device). Resetting from an
+                // effect instead -- same pattern as `intentUriData` below -- lets every consumer
+                // downstream observe the value for this composition pass before it's cleared.
+                //
+                // A shortcut tapped while some other screen (search, an album, ...) is on top of
+                // the back stack never reached HomeScreen at all -- it isn't part of the
+                // composition while a different destination is active, so its shortcut-handling
+                // effects never ran (verified on-device: a tab shortcut tapped from the search
+                // screen did nothing). Popping back to home first, and only clearing the sentinel
+                // once we've actually arrived there, gives HomeScreen a real chance to observe it.
+                val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+                LaunchedEffect(shortcutIntentAction, currentRoute) {
+                    if (shortcutIntentAction != null) {
+                        if (currentRoute?.startsWith(NavRoutes.home.name) == true) {
+                            shortcutIntentAction = null
+                        } else {
+                            navController.popBackStack(NavRoutes.home.name, inclusive = false)
                         }
+                    }
+                }
 
                         CrossfadeContainer(state = pipState.value) { isCurrentInPip ->
                             Timber.tag("MainActivity").d("pipState ${pipState.value} CrossfadeContainer isCurrentInPip $isCurrentInPip ")
@@ -1373,7 +1394,7 @@ class MainActivity :
                             )
 
                             val disableClosingPlayerSwipingDown by rememberPreference(disableClosingPlayerSwipingDownKey, false)
-                            checkIfAppIsRunningInBackground()
+        checkIfAppIsRunningInBackground()
 
                             // Reactive media-item presence: the sheet (including its
                             // collapsed hit target) must not be composed when the
@@ -1709,8 +1730,9 @@ class MainActivity :
     @UnstableApi
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         intentUriData = intent.data ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri()
-
+        shortcutIntentAction = intent.action
     }
 
     override fun onStop() {

@@ -6,4 +6,7 @@
     <!-- Widget Colors -->
     <color name="widget_text_primary">#FFFFFF</color>
     <color name="widget_text_secondary">#B3FFFFFF</color>
+
+    <!-- App shortcut icons: day/night qualifier picked from the launcher's resource context -->
+    <color name="shortcut_icon">#000000</color>
 </resources>
