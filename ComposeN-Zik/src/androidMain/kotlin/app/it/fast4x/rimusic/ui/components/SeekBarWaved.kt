@@ -234,14 +234,35 @@ private fun SeekBarContent(
     }
 }
 
+// gh-606 M11: sampling step for wavePath()'s Path reconstruction. Was hardcoded to 1px
+// (a sin()+lineTo() call per horizontal pixel, every animated frame while the Wavy seek bar
+// is visible); bumping it to 3px cuts that per-frame CPU cost by ~3x with no perceptible
+// visual change (the wave is a smooth low-frequency sine, not fine detail).
+internal const val WAVE_PATH_STEP_PX = 3f
+
+/**
+ * Pure (Compose-Path-free) sampling core of [wavePath], extracted so it can be unit-tested
+ * on the plain JVM: constructing an actual [Path] requires a real android.graphics.Path,
+ * which isn't available in a non-Robolectric unit test. Mirrors the exact x-coordinates
+ * [wavePath] used to loop over inline: starts at 0f, steps by [step] while strictly less
+ * than [width].
+ */
+internal fun waveSampleXs(width: Float, step: Float = WAVE_PATH_STEP_PX): List<Float> {
+    val xs = mutableListOf<Float>()
+    var currentX = 0f
+    while (currentX < width) {
+        xs += currentX
+        currentX += step
+    }
+    return xs
+}
+
 private fun wavePath(size: Size, progress: Float): Path {
     fun yFromX(x: Float) = (sin(x / 15f + progress * 2 * PI.toFloat()) + 1) * size.height / 2
     return Path().apply {
         moveTo(0f, yFromX(0f))
-        var currentX = 0f
-        while (currentX < size.width) {
+        for (currentX in waveSampleXs(size.width)) {
             lineTo(currentX, yFromX(currentX))
-            currentX += 1
         }
     }
 }
