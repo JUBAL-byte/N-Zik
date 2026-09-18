@@ -103,7 +103,6 @@ import app.it.fast4x.rimusic.utils.asSong
 import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
-import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
@@ -157,6 +156,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val ARTIST_INSIGHTS_ROUTE = "artistInsights"
@@ -411,9 +413,9 @@ fun ArtistOverview(
         scope.launch {
             isGlobalLoading = true
             try {
-                val allSongs = getSongs()
-                val mediaItems = allSongs.map(Song::asMediaItem)
-                binder?.player?.addNext(mediaItems, appContext())
+                val allSongs = getSongs().toList()
+                val mediaItems = withContext(NzikDispatchers.DATA) { allSongs.map(Song::asMediaItem) }
+                binder?.player?.addNextOffMain(mediaItems, appContext())
                 itemSelector.isActive = false
             } finally {
                 isGlobalLoading = false
@@ -424,9 +426,9 @@ fun ArtistOverview(
         scope.launch {
             isGlobalLoading = true
             try {
-                val allSongs = getSongs()
-                val mediaItems = allSongs.map(Song::asMediaItem)
-                binder?.player?.enqueue(mediaItems, appContext())
+                val allSongs = getSongs().toList()
+                val mediaItems = withContext(NzikDispatchers.DATA) { allSongs.map(Song::asMediaItem) }
+                binder?.player?.enqueueOffMain(mediaItems, appContext())
                 itemSelector.isActive = false
             } finally {
                 isGlobalLoading = false

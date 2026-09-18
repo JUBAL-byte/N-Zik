@@ -69,10 +69,14 @@ import app.it.fast4x.rimusic.utils.syncDirectionKey
 import app.it.fast4x.rimusic.utils.getSyncDirection
 import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.enums.SyncDirection
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
 import app.it.fast4x.rimusic.models.SongAlbumMap
 import app.it.fast4x.rimusic.ui.components.themed.Enqueue
 import app.it.fast4x.rimusic.ui.components.themed.PlayNext
@@ -468,7 +472,13 @@ class OnlineAlbumItemMenu private constructor(
             if (currentSongs == null) {
                 Toaster.w(R.string.opening_url)
             } else if (currentSongs.isNotEmpty()) {
-                binder?.player?.addNext(currentSongs.map { it.asMediaItem }, appContext())
+                // Launch on a scope independent of the popup menu's lifecycle: MenuComponent.kt hides the menu
+                // (cancelling its rememberCoroutineScope()) right after onShortClick() returns, so a scope owned
+                // by the popup could cancel this coroutine before the add ever runs, silently dropping the tap.
+                CoroutineScope(NzikDispatchers.UI).launch {
+                    val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
+                    binder?.player?.addNextOffMain(mediaItems, appContext())
+                }
                 menuState.hide()
             } else {
                 Toaster.e(R.string.no_song_found)
@@ -480,7 +490,10 @@ class OnlineAlbumItemMenu private constructor(
             if (currentSongs == null) {
                 Toaster.w(R.string.opening_url)
             } else if (currentSongs.isNotEmpty()) {
-                binder?.player?.enqueue(currentSongs.map { it.asMediaItem }, appContext())
+                CoroutineScope(NzikDispatchers.UI).launch {
+                    val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
+                    binder?.player?.enqueueOffMain(mediaItems, appContext())
+                }
                 menuState.hide()
             } else {
                 Toaster.e(R.string.no_song_found)

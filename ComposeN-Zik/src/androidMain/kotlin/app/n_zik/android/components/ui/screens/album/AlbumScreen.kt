@@ -121,7 +121,6 @@ import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.durationTextToMillis
-import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.formatAsTime
@@ -174,6 +173,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
 import timber.log.Timber
@@ -468,17 +470,19 @@ fun AlbumDetails(
     val radio = Radio(::getSongs)
     val locator = Locator(lazyListState, ::getSongs)
     val playNext = PlayNext {
-        getMediaItems().let {
-            binder?.player?.addNext(it, appContext())
-
-            itemSelector.isActive = false
+        val songsToAdd = getSongs().toList()
+        itemSelector.isActive = false
+        coroutineScope.launch {
+            val mediaItems = withContext(NzikDispatchers.DATA) { songsToAdd.map(Song::asMediaItem) }
+            binder?.player?.addNextOffMain(mediaItems, appContext())
         }
     }
     val enqueue = Enqueue {
-        getMediaItems().let {
-            binder?.player?.enqueue(it, appContext())
-
-            itemSelector.isActive = false
+        val songsToAdd = getSongs().toList()
+        itemSelector.isActive = false
+        coroutineScope.launch {
+            val mediaItems = withContext(NzikDispatchers.DATA) { songsToAdd.map(Song::asMediaItem) }
+            binder?.player?.enqueueOffMain(mediaItems, appContext())
         }
     }
     val addToPlaylist = PlaylistsMenu.init(

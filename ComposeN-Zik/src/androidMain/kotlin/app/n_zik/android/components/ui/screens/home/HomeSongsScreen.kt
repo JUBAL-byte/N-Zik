@@ -67,7 +67,10 @@ import app.n_zik.android.components.dialog.export.ExportSongsToCSVDialog
 import app.n_zik.android.components.dialog.export.ExportCacheDialog
 import app.n_zik.android.core.database.Database
 import app.n_zik.android.typography
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.utils.getAlbumVersionFromVideoGlobal
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.playlistPage
 import kotlinx.coroutines.*
@@ -411,12 +414,20 @@ fun HomeSongsScreen(navController: NavController ) {
         onToggleRecommendation = { isRecommendationEnabled = !isRecommendationEnabled }
     )
     val playNext = PlayNext {
-        binder?.player?.addNext( getMediaItems(), appContext() )
+        val songsToAdd = getSongs().toList()
         itemSelector.isActive = false
+        coroutineScope.launch {
+            val mediaItems = withContext( NzikDispatchers.DATA ) { songsToAdd.map( Song::asMediaItem ) }
+            binder?.player?.addNextOffMain( mediaItems, appContext() )
+        }
     }
     val enqueue = Enqueue {
-        binder?.player?.enqueue( getMediaItems(), appContext() )
+        val songsToAdd = getSongs().toList()
         itemSelector.isActive = false
+        coroutineScope.launch {
+            val mediaItems = withContext( NzikDispatchers.DATA ) { songsToAdd.map( Song::asMediaItem ) }
+            binder?.player?.enqueueOffMain( mediaItems, appContext() )
+        }
     }
     val addToFavorite = LikeComponent(::getSongs)
     val addToPlaylist = PlaylistsMenu.init(

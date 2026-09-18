@@ -38,11 +38,53 @@ import app.n_zik.android.uiRoundnessShape
 import app.it.fast4x.rimusic.utils.medium
 import app.it.fast4x.rimusic.utils.semiBold
 import app.kreate.android.me.knighthat.utils.Toaster
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 import app.n_zik.android.components.dialog.common.Dialog
+
+/**
+ * Reads the log text for the given export [option] from [logsDir]: 0 = debug log, 1 = crash log,
+ * 2 = both (each prefixed by a header, separated by a blank line). Returns null when no matching
+ * file exists or the option is unknown. Blocking file IO: callers must run it off the Main thread.
+ */
+internal fun readLogContent(logsDir: File, option: Int): String? {
+    val debugFile = File(logsDir, "N-Zik_log.txt")
+    val crashFile = File(logsDir, "N-Zik_crash_log.txt")
+
+    return when (option) {
+        0 -> {
+            if (debugFile.exists()) debugFile.readText() else null
+        }
+        1 -> {
+            if (crashFile.exists()) crashFile.readText() else null
+        }
+        2 -> {
+            val texts = mutableListOf<String>()
+            if (debugFile.exists()) {
+                texts.add("=== DEBUG LOG ===\n${debugFile.readText()}")
+            }
+            if (crashFile.exists()) {
+                texts.add("=== CRASH LOG ===\n${crashFile.readText()}")
+            }
+            if (texts.isNotEmpty()) texts.joinToString("\n\n") else null
+        }
+        else -> null
+    }
+}
+
+/**
+ * Runs [read] (blocking file IO) on [NzikDispatchers.DATA] so the log read never happens on the
+ * Main thread that delivers the click / activity-result callbacks. [read] is injectable so a test
+ * can observe the thread it runs on.
+ */
+internal suspend fun loadLogContent(
+    logsDir: File,
+    option: Int,
+    read: (File, Int) -> String? = ::readLogContent
+): String? = withContext(NzikDispatchers.DATA) { read(logsDir, option) }
 
 object CopyLogsDialog : Dialog {
 
@@ -62,48 +104,26 @@ object CopyLogsDialog : Dialog {
 
         val noLogAvailable = stringResource(R.string.no_log_available)
 
-        fun readLogContent(): String? {
-            val debugFile = File(context.filesDir.resolve("logs"), "N-Zik_log.txt")
-            val crashFile = File(context.filesDir.resolve("logs"), "N-Zik_crash_log.txt")
-
-            return when (currentOption) {
-                0 -> {
-                    if (debugFile.exists()) debugFile.readText() else null
-                }
-                1 -> {
-                    if (crashFile.exists()) crashFile.readText() else null
-                }
-                2 -> {
-                    val texts = mutableListOf<String>()
-                    if (debugFile.exists()) {
-                        texts.add("=== DEBUG LOG ===\n${debugFile.readText()}")
-                    }
-                    if (crashFile.exists()) {
-                        texts.add("=== CRASH LOG ===\n${crashFile.readText()}")
-                    }
-                    if (texts.isNotEmpty()) texts.joinToString("\n\n") else null
-                }
-                else -> null
-            }
-        }
-
         val launcher = rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("text/plain")
         ) { uri: Uri? ->
             uri ?: return@rememberLauncherForActivityResult
-            val content = readLogContent()
-            if (content == null) {
-                Toaster.w(noLogAvailable)
-                return@rememberLauncherForActivityResult
-            }
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    context.contentResolver.openOutputStream(uri)?.use { outStream ->
-                        outStream.write(content.toByteArray())
-                        Timber.tag("CopyLogsDialog").d("Logs exported successfully")
+            val option = currentOption
+            coroutineScope.launch {
+                val content = loadLogContent(context.filesDir.resolve("logs"), option)
+                if (content == null) {
+                    Toaster.w(noLogAvailable)
+                    return@launch
+                }
+                withContext(NzikDispatchers.DATA) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { outStream ->
+                            outStream.write(content.toByteArray())
+                            Timber.tag("CopyLogsDialog").d("Logs exported successfully")
+                        }
+                    } catch (e: Exception) {
+                        Timber.tag("CopyLogsDialog").e(e, "Failed to export logs")
                     }
-                } catch (e: Exception) {
-                    Timber.tag("CopyLogsDialog").e(e, "Failed to export logs")
                 }
             }
         }
@@ -179,11 +199,14 @@ object CopyLogsDialog : Dialog {
 
             Button(
                 onClick = {
-                    val content = readLogContent()
-                    if (content == null) {
-                        Toaster.w(noLogAvailable)
-                    } else {
-                        launcher.launch(getExportFileName())
+                    val option = currentOption
+                    coroutineScope.launch {
+                        val content = loadLogContent(context.filesDir.resolve("logs"), option)
+                        if (content == null) {
+                            Toaster.w(noLogAvailable)
+                        } else {
+                            launcher.launch(getExportFileName())
+                        }
                     }
                 },
                 modifier = Modifier

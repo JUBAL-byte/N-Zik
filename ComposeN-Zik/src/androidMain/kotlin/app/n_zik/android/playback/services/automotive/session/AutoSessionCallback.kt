@@ -53,6 +53,7 @@ import app.it.fast4x.rimusic.enums.SongSortBy
 import app.it.fast4x.rimusic.enums.SortOrder
 import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.download.utils.MyDownloadHelper
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.repository.QuickPicksRepository
 import kotlinx.coroutines.*
 import app.it.fast4x.rimusic.MONTHLY_PREFIX
@@ -255,13 +256,17 @@ class AutoSessionCallback(
         }?.let { LibraryResult.ofItem(it, null) } ?: LibraryResult.ofError(SessionError.ERROR_UNKNOWN)
     }
 
+    // Issue #606 (gh-606 G1): mapping songs via SessionMediaItemMapper decodes cover bitmaps
+    // synchronously, so the whole block runs on DATA instead of the Main-bound `scope` dispatcher.
+    // onSetMediaItemsInternal touches no Main-affine state (no binder.player; binder.cache is a
+    // thread-safe SimpleCache), and the returned future carries the result to Media3's own thread.
     override fun onSetMediaItems(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
         mediaItems: MutableList<MediaItem>,
         startIndex: Int,
         startPositionMs: Long,
-    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future {
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future(NzikDispatchers.DATA) {
         val result = onSetMediaItemsInternal(mediaSession, controller, mediaItems, startIndex, startPositionMs)
         val maxSongs = context.preferences.getEnum(maxSongsInQueueAndroidAutoKey, MaxSongs.Unlimited).toInt()
         
@@ -451,7 +456,8 @@ val allSongs = database.formatTable.sortAllWithSongs(sortBy, sortOrder).first().
         val settableFuture = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
         val defaultResult = MediaSession.MediaItemsWithStartPosition(emptyList(), 0, 0)
         if (!context.preferences.getBoolean(persistentQueueKey, false)) return Futures.immediateFuture(defaultResult)
-        scope.launch {
+        // Issue #606 (gh-606 G1): DATA, not Main -- the mapping below decodes cover bitmaps.
+        scope.launch(NzikDispatchers.DATA) {
             try {
                 database.queueTable.all().first().run {
                     val idx = indexOfFirst { it.position != null }.coerceAtLeast(0)

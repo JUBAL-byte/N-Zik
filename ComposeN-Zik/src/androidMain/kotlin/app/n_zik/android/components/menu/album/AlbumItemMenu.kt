@@ -73,10 +73,8 @@ import app.it.fast4x.rimusic.ui.components.themed.Enqueue
 
 import app.it.fast4x.rimusic.ui.components.themed.PlayNext
 import app.it.fast4x.rimusic.ui.components.themed.PlaylistsMenu
-import app.it.fast4x.rimusic.utils.addNext
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.conditional
-import app.it.fast4x.rimusic.utils.enqueue
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
@@ -87,6 +85,10 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.components.menu.GridMenu
 import app.it.fast4x.rimusic.ui.components.themed.HeaderIconButton
@@ -458,10 +460,21 @@ class AlbumItemMenu private constructor(
         val deleteAll = DeleteAllDownloadedSongsDialog { songs }
         // Initialize buttons
         val playNext = PlayNext {
-            binder?.player?.addNext(songs.map { it.asMediaItem }, appContext())
+            val currentSongs = songs
+            // Launch on a scope independent of the popup menu's lifecycle: MenuComponent.kt hides the menu
+            // (cancelling its rememberCoroutineScope()) right after onShortClick() returns, so a scope owned
+            // by the popup could cancel this coroutine before the add ever runs, silently dropping the tap.
+            CoroutineScope(NzikDispatchers.UI).launch {
+                val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
+                binder?.player?.addNextOffMain(mediaItems, appContext())
+            }
         }
         val enqueue = Enqueue {
-            binder?.player?.enqueue(songs.map { it.asMediaItem }, appContext())
+            val currentSongs = songs
+            CoroutineScope(NzikDispatchers.UI).launch {
+                val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
+                binder?.player?.enqueueOffMain(mediaItems, appContext())
+            }
         }
         val addToPlaylist = PlaylistsMenu.init(
             navController = navController,
