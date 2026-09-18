@@ -190,6 +190,10 @@ import android.media.AudioManager
 import android.os.Build
 import org.json.JSONArray
 import android.content.Context
+import android.graphics.Bitmap
+import app.it.fast4x.rimusic.ui.styling.ColorPalette
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.withContext
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -373,7 +377,9 @@ fun MiniPlayer(
                 context,
                 imageUrl
             ) ?: throw Exception("Bitmap is null")
-            dynamicColorPalette = dynamicColorPaletteOf(bitmap, !lightTheme) ?: color
+            dynamicColorPalette = withContext(NzikDispatchers.MEDIA) {
+                computeMiniPlayerPalette(bitmap, !lightTheme)
+            } ?: color
         } catch (e: Exception) {
             dynamicColorPalette = color
         }
@@ -1040,5 +1046,17 @@ private fun MiniPlayerSlotButton(
         else -> {}
     }
 }
+
+/**
+ * Issue #606 H10 -- `MiniPlayer`'s `LaunchedEffect(mediaItem.mediaId)` used to run
+ * `dynamicColorPaletteOf` (CPU-bound `Palette` extraction, `app.it.fast4x.rimusic.ui.styling
+ * .ColorPalette.kt`, legacy read-only) inline on whatever dispatcher that `LaunchedEffect` resumes
+ * on -- Main, since it follows `getBitmapFromUrl`'s suspension. Extracted here, unchanged, so the
+ * composable can dispatch it via `withContext(NzikDispatchers.MEDIA)` and so it is unit-testable
+ * without instantiating the composable. `internal` (not `private`) purely so
+ * `MiniPlayerPaletteOffMainTest` can call it directly -- it adds no new public legacy API.
+ */
+internal suspend fun computeMiniPlayerPalette(bitmap: Bitmap, dark: Boolean): ColorPalette? =
+    dynamicColorPaletteOf(bitmap, dark)
 
 

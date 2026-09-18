@@ -41,6 +41,8 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.BrowseResult
 import it.fast4x.innertube.requests.browseCategory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.LocalPlayerAwareWindowInsets
 import app.n_zik.android.colorPalette
 import app.it.fast4x.rimusic.enums.NavRoutes
@@ -119,7 +121,9 @@ fun MoodList(
     var moodPage by persist<Result<BrowseResult>>("moods/$browseId${mood.params?.let { "/$it" } ?: ""}")
 
     LaunchedEffect(Unit) {
-        moodPage = Innertube.browseCategory(browseId = browseId, params = mood.params)
+        moodPage = withContext(NzikDispatchers.DATA) {
+            Innertube.browseCategory(browseId = browseId, params = mood.params)
+        }
     }
 
     val thumbnailSizeDp = Dimensions.thumbnails.album

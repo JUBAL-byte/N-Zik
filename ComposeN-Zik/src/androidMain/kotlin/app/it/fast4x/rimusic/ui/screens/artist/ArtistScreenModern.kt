@@ -29,6 +29,8 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 import app.kreate.android.me.knighthat.utils.PropUtils
 import androidx.compose.ui.res.stringResource
@@ -75,8 +77,9 @@ fun ArtistScreenModern(
     var artistPage: ArtistPage? by remember { mutableStateOf( null ) }
 
     LaunchedEffect( Unit ) {
-        YtMusic.getArtistPage( browseId.removePrefix(MODIFIED_PREFIX) )
-               .onSuccess { online ->
+        withContext(NzikDispatchers.DATA) {
+            YtMusic.getArtistPage( browseId.removePrefix(MODIFIED_PREFIX) )
+        }.onSuccess { online ->
                    artistPage = online
 
                     Database.asyncTransaction {
@@ -117,7 +120,9 @@ fun ArtistScreenModern(
                        .distinct()
 
                    if (itemsToFetch.isNotEmpty()) {
-                                               Innertube.queue(videoIds = itemsToFetch)?.onSuccess { queueItems ->
+                       withContext(NzikDispatchers.DATA) {
+                           Innertube.queue(videoIds = itemsToFetch)
+                       }?.onSuccess { queueItems ->
                            val durationsMap = queueItems?.associate { it.key to it.durationText } ?: emptyMap()
                            artistPage = artistPage?.withUpdatedVideoDurations(durationsMap)
                        }

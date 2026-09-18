@@ -56,7 +56,74 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import android.net.Uri
+import app.n_zik.android.playback.services.PlayerServiceModern
 import timber.log.Timber
+
+/**
+ * Issue #606 M12 -- `GoToLink`'s deep-link resolution used to run entirely inside
+ * `coroutineScope.launch(Dispatchers.Main)`, blocking Main with 2 network calls
+ * (`Innertube.playlistPage`, `Innertube.song`) before ever reaching `navController.navigate`/
+ * `forcePlay`. Extracted here, unchanged, so the composable can launch this on
+ * `NzikDispatchers.DATA` while each `navController.navigate`/`forcePlay` call stays individually
+ * wrapped in `withContext(NzikDispatchers.UI)`, and so it is unit-testable without instantiating
+ * the composable. `internal` (not `private`) purely so `GoToLinkResolveOffMainTest` can call it
+ * directly -- it adds no new public legacy API.
+ */
+internal suspend fun resolveGoToLink(
+    uri: Uri,
+    navController: NavController,
+    binder: PlayerServiceModern.Binder?,
+) {
+    Timber.tag("GoToLink").d("channelId: ${uri.pathSegments}")
+    when (val path = uri.pathSegments.firstOrNull()) {
+        "playlist" -> uri.getQueryParameter("list")?.let { playlistId ->
+            val browseId = "VL$playlistId"
+
+            if (playlistId.startsWith("OLAK5uy_")) {
+                Innertube.playlistPage(browseId = browseId)
+                    ?.getOrNull()?.let {
+                        it.songsPage?.items?.firstOrNull()?.album?.endpoint?.browseId?.let { browseId ->
+                            //albumRoute.ensureGlobal(browseId)
+                            withContext(NzikDispatchers.UI) {
+                                navController.navigate(route = "${NavRoutes.album.name}/$browseId")
+                            }
+                        }
+                    }
+            } else {
+                withContext(NzikDispatchers.UI) {
+                    navController.navigate(route = "${NavRoutes.playlist.name}/$browseId")
+                }
+            }
+        }
+
+        "channel", "c" -> uri.lastPathSegment?.let { channelId ->
+            withContext(NzikDispatchers.UI) {
+                navController.navigate(route = "${NavRoutes.artist.name}/$channelId")
+            }
+        }
+
+        "search" -> uri.getQueryParameter("q")?.let { query ->
+                withContext(NzikDispatchers.UI) {
+                    navController.navigate(route = "${NavRoutes.searchResults.name}/$query")
+                }
+        }
+
+        else -> when {
+            path == "watch" -> uri.getQueryParameter("v")
+            uri.host == "youtu.be" -> path
+            else -> null
+        }?.let { videoId ->
+            Innertube.song(videoId)?.getOrNull()?.let { song ->
+                val resolvedBinder = snapshotFlow { binder }.filterNotNull().first()
+                withContext(NzikDispatchers.UI) {
+                    resolvedBinder.player.forcePlay(song.asMediaItem)
+                }
+            }
+        }
+    }
+}
 
 @ExperimentalTextApi
 @SuppressLint("SuspiciousIndentation")
@@ -185,56 +252,9 @@ fun GoToLink(
                     val uri = textLink.toUri()
 
                     LaunchedEffect(Unit) {
-                        coroutineScope.launch(Dispatchers.Main) {
-                            Timber.tag("GoToLink").d("channelId: ${uri.pathSegments}")
-                            when (val path = uri.pathSegments.firstOrNull()) {
-                                "playlist" -> uri.getQueryParameter("list")?.let { playlistId ->
-                                    val browseId = "VL$playlistId"
-
-                                    if (playlistId.startsWith("OLAK5uy_")) {
-                                        Innertube.playlistPage(browseId = browseId)
-                                            ?.getOrNull()?.let {
-                                                it.songsPage?.items?.firstOrNull()?.album?.endpoint?.browseId?.let { browseId ->
-                                                    //albumRoute.ensureGlobal(browseId)
-                                                    navController.navigate(route = "${NavRoutes.album.name}/$browseId")
-                                                }
-                                            }
-                                    } else {
-                                        navController.navigate(route = "${NavRoutes.playlist.name}/$browseId")
-                                    }
-                                }
-
-                                "channel", "c" -> uri.lastPathSegment?.let { channelId ->
-                                    navController.navigate(route = "${NavRoutes.artist.name}/$channelId")
-                                }
-
-                                "search" -> uri.getQueryParameter("q")?.let { query ->
-                                        navController.navigate(route = "${NavRoutes.searchResults.name}/$query")
-                                }
-
-                                else -> when {
-                                    path == "watch" -> uri.getQueryParameter("v")
-                                    uri.host == "youtu.be" -> path
-                                    else -> null
-                                }?.let { videoId ->
-                                    Innertube.song(videoId)?.getOrNull()?.let { song ->
-                                        val binder = snapshotFlow { binder }.filterNotNull().first()
-                                        withContext(Dispatchers.Main) {
-                                            binder.player.forcePlay(song.asMediaItem)
-                                        }
-                                    }
-                                }
-                            }
-/*
-                            if (uri.pathSegments.firstOrNull()?.startsWith("@") == true)
-                                uri.pathSegments.firstOrNull()?.let { channelId ->
-                                    navController.navigate(route = "${NavRoutes.artist.name}/${channelId.removePrefix("@")}")
-                                }
-
- */
-
+                        coroutineScope.launch(NzikDispatchers.DATA) {
+                            resolveGoToLink(uri, navController, binder)
                         }
-
                     }
                 }
 

@@ -158,6 +158,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.utils.ExternalUris
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
@@ -330,8 +331,10 @@ fun PlaylistSongList(
 
     if (showYoutubeLikeConfirmDialog) {
         LaunchedEffect(playlistSongs) {
-            playlistNotLikedSongs = playlistSongs.filter {
-                Database.songTable.isLiked( it.asSong.id ).first()
+            playlistNotLikedSongs = withContext(NzikDispatchers.DATA) {
+                playlistSongs.filter {
+                    Database.songTable.isLiked( it.asSong.id ).first()
+                }
             }
             totalMinutesToLike = formatAsDuration(playlistNotLikedSongs.size.toLong()*1000)
         }

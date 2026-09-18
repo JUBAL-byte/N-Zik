@@ -83,6 +83,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.tab.Search
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -204,7 +205,7 @@ fun HistoryList(
     LaunchedEffect(historyType) {
         if (historyType == HistoryType.YTMHistory && isYouTubeSyncEnabled()) {
             isYTMLoading = true
-            historyPage = YtMusic.getHistory(setLogin = true)
+            historyPage = withContext(NzikDispatchers.DATA) { YtMusic.getHistory(setLogin = true) }
             isYTMLoading = false
         }
     }

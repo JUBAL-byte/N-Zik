@@ -49,6 +49,8 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showSearchTabKey
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.withContext
 
 @ExperimentalTextApi
 @UnstableApi
@@ -61,7 +63,7 @@ fun NewAlbums(
 ) {
     var discoverPage by persist<Result<Innertube.DiscoverPage>>("newreleases/albums/pageResult")
     LaunchedEffect(Unit) {
-        discoverPage = Innertube.discoverPage()
+        discoverPage = withContext(NzikDispatchers.DATA) { Innertube.discoverPage() }
     }
 
     val thumbnailSizeDp = Dimensions.thumbnails.album + 24.dp

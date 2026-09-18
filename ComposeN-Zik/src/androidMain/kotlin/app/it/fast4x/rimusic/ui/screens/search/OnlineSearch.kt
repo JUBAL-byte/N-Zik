@@ -107,6 +107,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 @UnstableApi
 @ExperimentalFoundationApi
@@ -145,8 +147,9 @@ fun OnlineSearch(
     LaunchedEffect(textFieldValue.text) {
         if (textFieldValue.text.isNotEmpty()) {
             delay(200)
-            suggestionsResult =
+            suggestionsResult = withContext(NzikDispatchers.DATA) {
                 Innertube.searchSuggestionsWithItems(input = textFieldValue.text)
+            }
         }
     }
 

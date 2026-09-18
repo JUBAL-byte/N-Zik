@@ -31,12 +31,115 @@ import it.fast4x.innertube.requests.searchPage
 import it.fast4x.innertube.requests.songInfo
 import it.fast4x.innertube.utils.from
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.it.fast4x.rimusic.models.Artist
 import app.it.fast4x.rimusic.models.SongArtistMap
 import app.it.fast4x.rimusic.utils.splitArtistNames
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.compose.ui.text.font.FontStyle
+
+/**
+ * Issue #606 M12+M13 -- result bundle for [loadVideoOrSongInfo], mirroring the two Compose state
+ * variables (`info`, `finalArtists`) that `VideoOrSongInfoScreen`'s `LaunchedEffect(videoId)` used
+ * to assign as it went, interleaved with every network/DB call below.
+ */
+internal data class VideoOrSongInfoResult(
+    val info: VideoOrSongInfo?,
+    val finalArtists: List<Pair<String, String>>,
+)
+
+/**
+ * Issue #606 M12 (`Innertube.songInfo`, `Innertube.searchPage`) + M13
+ * (`Database.artistTable.findBySongId`/`findByName` inside a loop) -- `VideoOrSongInfoScreen`'s
+ * `LaunchedEffect(videoId)` used to run this entire sequential network+DB block inline, on whatever
+ * dispatcher that effect resumes on (Main). Extracted here verbatim (only the two former Compose
+ * `var`s become local `var`s so the function has a single entry/exit point) so the composable can
+ * dispatch it in one `withContext(NzikDispatchers.DATA)` call and so it is unit-testable without
+ * instantiating the composable. `internal` (not `private`) purely so
+ * `VideoOrSongInfoScreenLoadOffMainTest` can call it directly -- it adds no new public legacy API.
+ */
+internal suspend fun loadVideoOrSongInfo(videoId: String, songArtist: String): VideoOrSongInfoResult {
+    var info: VideoOrSongInfo? = null
+    var finalArtists: List<Pair<String, String>> = emptyList()
+
+    try {
+        val result = Innertube.songInfo(videoId)
+        if (result != null && result.isSuccess) {
+            info = result.getOrNull()
+        }
+    } catch (e: Exception) {
+        Timber.tag("VideoOrSongInfoScreen").e(e, "exception")
+    }
+
+    // Fetch artists from database
+    try {
+        val dbArtists = Database.artistTable.findBySongId(videoId).first()
+        if (dbArtists.isNotEmpty()) {
+            finalArtists = dbArtists.map { it.id to (it.name ?: "") }
+        } else if (songArtist.isNotBlank()) {
+            // Parse songArtist - handle "," and "&" separators, then deduplicate
+            val parsed = songArtist
+                .splitArtistNames()
+                .distinctBy { it.lowercase() }
+            val artistsWithIds = mutableListOf<Pair<String, String>>()
+            for (name in parsed) {
+                // Try database first
+                var artistId = try {
+                    Database.artistTable.findByName(name).first()?.id
+                } catch (e: Exception) { null }
+
+                // If not in database, search online
+                if (artistId == null) {
+                    try {
+                        val searchResult = Innertube.searchPage<Innertube.ArtistItem>(
+                            query = name, params = Innertube.SearchFilter.Artist.value,
+                            fromMusicShelfRendererContent = { content -> Innertube.ArtistItem.from(content) }
+                        )?.getOrNull()
+                        val foundArtist = searchResult?.items?.firstOrNull()
+                        if (foundArtist != null) {
+                            artistId = foundArtist.key
+                            // Save to database
+                            Database.artistTable.insertIgnore(
+                                Artist(id = artistId, name = foundArtist.info?.name ?: name)
+                            )
+                            Database.songArtistMapTable.insertIgnore(
+                                SongArtistMap(songId = videoId, artistId = artistId)
+                            )
+                        }
+                    } catch (e: Exception) { /* Silently fail */ }
+                }
+
+                artistsWithIds.add((artistId ?: "") to name)
+            }
+            finalArtists = artistsWithIds
+        } else {
+            val apiAuthor = info?.author?.takeIf { it.isNotBlank() }
+            val apiAuthorId = info?.authorId
+            if (apiAuthor != null && apiAuthorId != null) {
+                finalArtists = listOf(apiAuthorId to apiAuthor)
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback
+        val apiAuthor = info?.author?.takeIf { it.isNotBlank() }
+        val apiAuthorId = info?.authorId
+        if (apiAuthor != null && apiAuthorId != null) {
+            finalArtists = listOf(apiAuthorId to apiAuthor)
+        }
+    }
+
+    // Final deduplication by artist name (case-insensitive)
+    // Keep the entry with a non-empty ID if possible
+    finalArtists = finalArtists
+        .groupBy { it.second.lowercase() }
+        .map { (_, group) ->
+            group.firstOrNull { it.first.isNotBlank() } ?: group.first()
+        }
+
+    return VideoOrSongInfoResult(info, finalArtists)
+}
 
 @Composable
 fun VideoOrSongInfoScreen(
@@ -59,80 +162,11 @@ fun VideoOrSongInfoScreen(
 
     LaunchedEffect(videoId) {
         isLoading = true
-        try {
-            val result = Innertube.songInfo(videoId)
-            if (result != null && result.isSuccess) {
-                info = result.getOrNull()
-            }
-        } catch (e: Exception) {
-            Timber.tag("VideoOrSongInfoScreen").e(e, "exception")
+        val result = withContext(NzikDispatchers.DATA) {
+            loadVideoOrSongInfo(videoId, songArtist)
         }
-        
-        // Fetch artists from database
-        try {
-            val dbArtists = Database.artistTable.findBySongId(videoId).first()
-            if (dbArtists.isNotEmpty()) {
-                finalArtists = dbArtists.map { it.id to (it.name ?: "") }
-            } else if (songArtist.isNotBlank()) {
-                // Parse songArtist - handle "," and "&" separators, then deduplicate
-                val parsed = songArtist
-                    .splitArtistNames()
-                    .distinctBy { it.lowercase() }
-                val artistsWithIds = mutableListOf<Pair<String, String>>()
-                for (name in parsed) {
-                    // Try database first
-                    var artistId = try {
-                        Database.artistTable.findByName(name).first()?.id
-                    } catch (e: Exception) { null }
-                    
-                    // If not in database, search online
-                    if (artistId == null) {
-                        try {
-                            val searchResult = Innertube.searchPage<Innertube.ArtistItem>(
-                                query = name, params = Innertube.SearchFilter.Artist.value,
-                                fromMusicShelfRendererContent = { content -> Innertube.ArtistItem.from(content) }
-                            )?.getOrNull()
-                            val foundArtist = searchResult?.items?.firstOrNull()
-                            if (foundArtist != null) {
-                                artistId = foundArtist.key
-                                // Save to database
-                                Database.artistTable.insertIgnore(
-                                    Artist(id = artistId, name = foundArtist.info?.name ?: name)
-                                )
-                                Database.songArtistMapTable.insertIgnore(
-                                    SongArtistMap(songId = videoId, artistId = artistId)
-                                )
-                            }
-                        } catch (e: Exception) { /* Silently fail */ }
-                    }
-                    
-                    artistsWithIds.add((artistId ?: "") to name)
-                }
-                finalArtists = artistsWithIds
-            } else {
-                val apiAuthor = info?.author?.takeIf { it.isNotBlank() }
-                val apiAuthorId = info?.authorId
-                if (apiAuthor != null && apiAuthorId != null) {
-                    finalArtists = listOf(apiAuthorId to apiAuthor)
-                }
-            }
-        } catch (e: Exception) {
-            // Fallback
-            val apiAuthor = info?.author?.takeIf { it.isNotBlank() }
-            val apiAuthorId = info?.authorId
-            if (apiAuthor != null && apiAuthorId != null) {
-                finalArtists = listOf(apiAuthorId to apiAuthor)
-            }
-        }
-        
-        // Final deduplication by artist name (case-insensitive)
-        // Keep the entry with a non-empty ID if possible
-        finalArtists = finalArtists
-            .groupBy { it.second.lowercase() }
-            .map { (_, group) ->
-                group.firstOrNull { it.first.isNotBlank() } ?: group.first()
-            }
-        
+        info = result.info
+        finalArtists = result.finalArtists
         isLoading = false
     }
 

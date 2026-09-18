@@ -49,6 +49,8 @@ import app.it.fast4x.rimusic.ui.components.themed.Loader
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.secondary
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.withContext
 
 @ExperimentalFoundationApi
 @ExperimentalAnimationApi
@@ -60,7 +62,7 @@ fun MoodsPage(
 
     var discoverPage by persist<Result<Innertube.DiscoverPage>>("moods/discovery/pageResult")
     LaunchedEffect(Unit) {
-        discoverPage = Innertube.discoverPage()
+        discoverPage = withContext(NzikDispatchers.DATA) { Innertube.discoverPage() }
     }
     val thumbnailSizeDp = Dimensions.thumbnails.album + 24.dp
 

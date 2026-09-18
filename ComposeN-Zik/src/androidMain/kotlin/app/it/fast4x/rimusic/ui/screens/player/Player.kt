@@ -280,6 +280,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import android.graphics.Bitmap
+import app.it.fast4x.rimusic.ui.styling.ColorPalette
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.player.BlurAdjuster
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
@@ -302,6 +306,50 @@ import androidx.compose.ui.layout.layout
 import kotlinx.coroutines.CoroutineScope
 import app.kreate.android.me.knighthat.sync.YouTubeSync
 
+/**
+ * Issue #606 H10 -- result bundle for [computePlayerDynamicPalette], mirroring the 8 Compose state
+ * variables (`dynamicColorPalette`, `dominant`, `vibrant`, `lightVibrant`, `darkVibrant`, `muted`,
+ * `lightMuted`, `darkMuted`) that `Player`'s `LaunchedEffect(currentSwipedMediaItem.mediaId,
+ * updateBrush)` used to assign one-by-one, inline, on whatever dispatcher that effect resumes on.
+ */
+internal data class PlayerDynamicPaletteResult(
+    val palette: ColorPalette,
+    val dominant: Int,
+    val vibrant: Int,
+    val lightVibrant: Int,
+    val darkVibrant: Int,
+    val muted: Int,
+    val lightMuted: Int,
+    val darkMuted: Int,
+)
+
+/**
+ * Issue #606 H10 -- `Player`'s cover-swipe `LaunchedEffect` used to run `dynamicColorPaletteOf`
+ * (CPU-bound `Palette` extraction) and `Palette.from(bitmap).generate()` plus 6
+ * `Palette.get*Color` calls inline, on whatever dispatcher the effect resumes on -- Main, since it
+ * follows `getBitmapFromUrl`'s suspension. Extracted here, unchanged, so the composable can
+ * dispatch the whole CPU-bound sequence via `withContext(NzikDispatchers.MEDIA)` in one call and so
+ * it is unit-testable without instantiating the composable. `internal` (not `private`) purely so
+ * `PlayerDynamicPaletteOffMainTest` can call it directly -- it adds no new public legacy API.
+ */
+internal suspend fun computePlayerDynamicPalette(
+    bitmap: Bitmap,
+    isDark: Boolean,
+    fallbackColor: ColorPalette,
+): PlayerDynamicPaletteResult {
+    val palette = dynamicColorPaletteOf(bitmap, isDark) ?: fallbackColor
+    val swatchPalette = Palette.from(bitmap).generate()
+    return PlayerDynamicPaletteResult(
+        palette = palette,
+        dominant = swatchPalette.getDominantColor(palette.accent.toArgb()),
+        vibrant = swatchPalette.getVibrantColor(palette.accent.toArgb()),
+        lightVibrant = swatchPalette.getLightVibrantColor(palette.accent.toArgb()),
+        darkVibrant = swatchPalette.getDarkVibrantColor(palette.accent.toArgb()),
+        muted = swatchPalette.getMutedColor(palette.accent.toArgb()),
+        lightMuted = swatchPalette.getLightMutedColor(palette.accent.toArgb()),
+        darkMuted = swatchPalette.getDarkMutedColor(palette.accent.toArgb()),
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalTextApi
@@ -725,21 +773,18 @@ fun Player(
                     imageUrl
                 ) ?: throw Exception("Bitmap is null")
 
-                dynamicColorPalette = dynamicColorPaletteOf(
-                    bitmap,
-                    !lightTheme
-                ) ?: color
-        
+                val paletteResult = withContext(NzikDispatchers.MEDIA) {
+                    computePlayerDynamicPalette(bitmap, !lightTheme, color)
+                }
 
-                val palette = Palette.from(bitmap).generate()
-
-                dominant = palette.getDominantColor(dynamicColorPalette.accent.toArgb())
-                vibrant = palette.getVibrantColor(dynamicColorPalette.accent.toArgb())
-                lightVibrant = palette.getLightVibrantColor(dynamicColorPalette.accent.toArgb())
-                darkVibrant = palette.getDarkVibrantColor(dynamicColorPalette.accent.toArgb())
-                muted = palette.getMutedColor(dynamicColorPalette.accent.toArgb())
-                lightMuted = palette.getLightMutedColor(dynamicColorPalette.accent.toArgb())
-                darkMuted = palette.getDarkMutedColor(dynamicColorPalette.accent.toArgb())
+                dynamicColorPalette = paletteResult.palette
+                dominant = paletteResult.dominant
+                vibrant = paletteResult.vibrant
+                lightVibrant = paletteResult.lightVibrant
+                darkVibrant = paletteResult.darkVibrant
+                muted = paletteResult.muted
+                lightMuted = paletteResult.lightMuted
+                darkMuted = paletteResult.darkMuted
 
             } catch (e: Exception) {
                 dynamicColorPalette = dynamicColorPaletteOf(Color(0.54509807f, 0.36078432f, 0.9647059f), !lightTheme)
