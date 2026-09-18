@@ -28,7 +28,7 @@ data class SongPlaylistMap(
     @ColumnInfo(index = true) val playlistId: Long,
     val position: Int,
     val setVideoId: String? = null,
-    val dateAdded: Long? = null
+    @ColumnInfo(defaultValue = "NULL") val dateAdded: Long? = null
 ){
     fun default(): SongPlaylistMap {
         return copy(

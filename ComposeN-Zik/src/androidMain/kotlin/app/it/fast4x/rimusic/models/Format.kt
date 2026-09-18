@@ -1,6 +1,7 @@
 package app.it.fast4x.rimusic.models
 
 import androidx.compose.runtime.Immutable
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -24,11 +25,11 @@ data class Format(
     val contentLength: Long? = null,
     val lastModified: Long? = null,
     val loudnessDb: Float? = null,
-    val codecs: String? = null,
-    val sampleRate: Int? = null,
-    val perceptualLoudnessDb: Float? = null,
-    val audioChannels: Int? = null,
-    val playbackUrl: String? = null
+    @ColumnInfo(defaultValue = "NULL") val codecs: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val sampleRate: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val perceptualLoudnessDb: Float? = null,
+    @ColumnInfo(defaultValue = "NULL") val audioChannels: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val playbackUrl: String? = null
 )
 
 

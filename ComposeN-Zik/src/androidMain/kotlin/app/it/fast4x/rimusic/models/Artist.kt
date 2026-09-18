@@ -1,6 +1,7 @@
 package app.it.fast4x.rimusic.models
 
 import androidx.compose.runtime.Immutable
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import app.it.fast4x.rimusic.cleanPrefix
@@ -15,25 +16,25 @@ data class Artist(
     val thumbnailUrl: String? = null,
     val timestamp: Long? = null,
     val bookmarkedAt: Long? = null,
-    val isYoutubeArtist: Boolean = false,
-    val position: Int = -1,
-    val lastFetch: Long? = null,
-    val dislikedAt: Long? = null,
-    val genres: List<String>? = null,
-    val artistType: String? = null,
-    val countryCode: String? = null,
-    val beginYear: Int? = null,
-    val tags: List<String>? = null,
-    val rating: Float? = null,
-    val ratingVotes: Int? = null,
-    val wikipediaUrl: String? = null,
-    val wikipediaBio: String? = null,
-    val description: String? = null,
-    val disambiguation: String? = null,
-    val links: List<ExternalLink>? = null,
-    val mbId: String? = null,
-    val youtubeChannelId: String? = null,
-    val mbLastFetch: Long? = null
+    @ColumnInfo(defaultValue = "0") val isYoutubeArtist: Boolean = false,
+    @ColumnInfo(defaultValue = "-1") val position: Int = -1,
+    @ColumnInfo(defaultValue = "NULL") val lastFetch: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val dislikedAt: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val genres: List<String>? = null,
+    @ColumnInfo(defaultValue = "NULL") val artistType: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val countryCode: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val beginYear: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val tags: List<String>? = null,
+    @ColumnInfo(defaultValue = "NULL") val rating: Float? = null,
+    @ColumnInfo(defaultValue = "NULL") val ratingVotes: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val wikipediaUrl: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val wikipediaBio: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val description: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val disambiguation: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val links: List<ExternalLink>? = null,
+    @ColumnInfo(defaultValue = "NULL") val mbId: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val youtubeChannelId: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val mbLastFetch: Long? = null
 ) {
     fun cleanName() = cleanPrefix( this.name ?: "" )
 

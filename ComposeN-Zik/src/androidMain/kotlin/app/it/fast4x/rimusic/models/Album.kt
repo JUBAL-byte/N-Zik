@@ -1,6 +1,7 @@
 package app.it.fast4x.rimusic.models
 
 import androidx.compose.runtime.Immutable
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import app.it.fast4x.rimusic.cleanPrefix
@@ -17,23 +18,23 @@ data class Album(
     val shareUrl: String? = null,
     val timestamp: Long? = null,
     val bookmarkedAt: Long? = null,
-    val isYoutubeAlbum: Boolean = false,
-    val position: Int = -1,
-    val lastFetch: Long? = null,
-    val dislikedAt: Long? = null,
-    val genres: List<String>? = null,
-    val originalYear: Int? = null,
-    val albumType: String? = null,
-    val tags: List<String>? = null,
-    val rating: Float? = null,
-    val ratingVotes: Int? = null,
-    val wikipediaUrl: String? = null,
-    val wikipediaInfo: String? = null,
-    val description: String? = null,
-    val links: List<ExternalLink>? = null,
-    val mbId: String? = null,
-    val youtubeAlbumId: String? = null,
-    val mbLastFetch: Long? = null
+    @ColumnInfo(defaultValue = "0") val isYoutubeAlbum: Boolean = false,
+    @ColumnInfo(defaultValue = "-1") val position: Int = -1,
+    @ColumnInfo(defaultValue = "NULL") val lastFetch: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val dislikedAt: Long? = null,
+    @ColumnInfo(defaultValue = "NULL") val genres: List<String>? = null,
+    @ColumnInfo(defaultValue = "NULL") val originalYear: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val albumType: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val tags: List<String>? = null,
+    @ColumnInfo(defaultValue = "NULL") val rating: Float? = null,
+    @ColumnInfo(defaultValue = "NULL") val ratingVotes: Int? = null,
+    @ColumnInfo(defaultValue = "NULL") val wikipediaUrl: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val wikipediaInfo: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val description: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val links: List<ExternalLink>? = null,
+    @ColumnInfo(defaultValue = "NULL") val mbId: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val youtubeAlbumId: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val mbLastFetch: Long? = null
 ) {
     fun toggleBookmark(): Album {
         return copy(
