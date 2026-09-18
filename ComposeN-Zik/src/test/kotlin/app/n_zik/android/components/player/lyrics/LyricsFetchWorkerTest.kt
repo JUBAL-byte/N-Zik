@@ -429,6 +429,47 @@ class LyricsFetchWorkerTest {
     }
 
     @Test
+    fun `fresh word-timed karaoke row is not re-fetched when only a Synced sibling is missing`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val fresh = Lyrics(
+            songId = "song1",
+            type = LyricsType.Karaoke.name,
+            data = "[00:00.00]Fresh\n<Fresh:0.0:1.0>",
+            lastFetchedAt = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000
+        )
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(fresh))
+        lrcLibLyricsResult = Result.success(LrcLib.Lyrics("[00:01.00]synced from LrcLib"))
+
+        fetch(worker(testScheduler), LyricsType.Auto)
+
+        // BetterLyrics would rewrite and re-stamp the fresh Karaoke row: it must stay untouched.
+        coVerify(exactly = 0) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
+        assertEquals(1, lrcLibLyricsCalls)
+        assertTrue(upserts.none { it.type == LyricsType.Karaoke.name })
+        assertEquals(listOf(LyricsType.Synced.name), upserts.map { it.type })
+    }
+
+    @Test
+    fun `only the Unsynced check runs when karaoke and synced rows are fresh and unsynced is missing`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val freshStamp = System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000
+        val karaoke = Lyrics("song1", LyricsType.Karaoke.name, "[00:00.00]K\n<K:0.0:1.0>", lastFetchedAt = freshStamp)
+        val synced = Lyrics("song1", LyricsType.Synced.name, "[00:00.00]S\n<S:0.0:1.0>", lastFetchedAt = freshStamp)
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(karaoke, synced))
+        lrcLibLyricsUnsyncedResult = Result.success(LrcLib.Lyrics("[00:01.00]plain lyrics text")) // plainText comes from timestamped lines
+
+        fetch(worker(testScheduler), LyricsType.Auto)
+
+        coVerify(exactly = 0) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
+        assertEquals(0, lrcLibLyricsCalls)
+        assertEquals(0, kuGouLyricsCalls)
+        assertEquals(1, lrcLibLyricsUnsyncedCalls)
+        assertEquals(listOf(LyricsType.Unsynced.name), upserts.map { it.type })
+    }
+
+    @Test
     fun `empty LrcLib result does not wipe an existing non-empty unsynced row`() = runTest {
         setupMocks()
         resetGlobals()

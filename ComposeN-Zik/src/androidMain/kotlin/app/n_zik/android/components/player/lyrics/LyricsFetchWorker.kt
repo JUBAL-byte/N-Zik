@@ -203,7 +203,11 @@ class LyricsFetchWorker(
                         )
                     }
                 } else {
-                    if (wantKaraoke) {
+                    // BetterLyrics is the Karaoke check's source: in Auto/Karaoke it rewrites and
+                    // re-stamps the Karaoke row, so it only runs when that check is needed (a fresh
+                    // word-timed row must not be refetched). Synced mode keeps it as the first source
+                    // of its Synced check; it never writes a Karaoke row there.
+                    if (wantKaraoke && (needKaraokeFetch || lyricsType == LyricsType.Synced)) {
                         fetchBetterLyrics(
                             context = context,
                             mediaId = mediaId,
@@ -238,7 +242,7 @@ class LyricsFetchWorker(
                                 )
                             }
                         )
-                    } else {
+                    } else if (needSyncedFetch) {
                         fetchLrcLibAndKugou(
                             context = context,
                             mediaId = mediaId,
@@ -254,6 +258,23 @@ class LyricsFetchWorker(
                             onCheckedKugouUpdated = onCheckedKugouUpdated,
                             onCheckedInnertubeUpdated = onCheckedInnertubeUpdated,
                             onLyricsUpdated = onLyricsUpdated
+                        )
+                    } else {
+                        // Only the Unsynced check is needed: run its own LrcLib -> YouTube chain.
+                        tryLrcLibUnsyncedThenYouTube(
+                            context = context,
+                            mediaId = mediaId,
+                            artistName = artistName,
+                            title = title,
+                            mediaMetadata = mediaMetadata,
+                            duration = duration,
+                            playerEnableLyricsPopupMessage = playerEnableLyricsPopupMessage,
+                            currentLyrics = currentLyrics,
+                            onErrorUpdated = onErrorUpdated,
+                            onCheckedLrcUpdated = onCheckedLrcUpdated,
+                            onCheckedInnertubeUpdated = onCheckedInnertubeUpdated,
+                            onLyricsUpdated = onLyricsUpdated,
+                            toastOnFailure = false
                         )
                     }
                 }

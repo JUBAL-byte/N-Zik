@@ -91,6 +91,34 @@ class From40To41MigrationTest {
     }
 
     @Test
+    fun `SortedSongPlaylistMap view is recreated and still works after the SongPlaylistMap rebuild`() {
+        // Since SQLite 3.26 a RENAME fails with "error in view" while a view points at a dropped
+        // table; Robolectric may run an older SQLite, in which case this pragma is a no-op.
+        db.execSQL("PRAGMA legacy_alter_table=OFF")
+        db.execSQL("INSERT INTO Song (id, title, totalPlayTimeMs, position, isYoutubeSong) VALUES ('s1', 't1', 0, 0, 0), ('s2', 't2', 0, 1, 0)")
+        db.execSQL("INSERT INTO Playlist (id, name, isEditable, isYoutubePlaylist, isAutoSync, position) VALUES (1, 'p', 1, 0, 0, -1)")
+        db.execSQL("INSERT INTO SongPlaylistMap (songId, playlistId, position) VALUES ('s1', 1, 1), ('s2', 1, 0)")
+
+        From40To41Migration.migrate(db)
+
+        db.query("SELECT sql FROM sqlite_master WHERE type = 'view' AND name = 'SortedSongPlaylistMap'").use { c ->
+            assertEquals(1, c.count)
+            c.moveToFirst()
+            assertEquals(
+                "CREATE VIEW `SortedSongPlaylistMap` AS SELECT * FROM SongPlaylistMap ORDER BY position",
+                c.getString(0)
+            )
+        }
+        db.query("SELECT songId FROM SortedSongPlaylistMap").use { c ->
+            assertEquals(2, c.count)
+            c.moveToNext()
+            assertEquals("s2", c.getString(0))
+            c.moveToNext()
+            assertEquals("s1", c.getString(0))
+        }
+    }
+
+    @Test
     fun `lastFetchedAt column is a nullable INTEGER without default`() {
         From40To41Migration.migrate(db)
 
