@@ -113,6 +113,28 @@ class LyricsTableTest {
     }
 
     @Test
+    fun `lastFetchedAt defaults to null and survives a round trip`() = runBlocking {
+        val mediaId = "song_123"
+        insertSong(mediaId)
+
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Karaoke.name, data = "fetched"))
+        val unstamped = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Karaoke.name).first()
+        assertNull(unstamped?.lastFetchedAt)
+
+        val stamp = 1_700_000_000_000L
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Karaoke.name, data = "refetched", lastFetchedAt = stamp))
+        val stamped = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Karaoke.name).first()
+        assertEquals(stamp, stamped?.lastFetchedAt)
+        assertEquals("refetched", stamped?.data)
+
+        // The "fetch lyrics again" reset rewrites the row without a stamp.
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Karaoke.name, data = null))
+        val reset = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Karaoke.name).first()
+        assertNull(reset?.lastFetchedAt)
+        assertNull(reset?.data)
+    }
+
+    @Test
     fun `findAllBySongId does not return lyrics for other songs`() = runBlocking {
         insertSong("song_A")
         insertSong("song_B")

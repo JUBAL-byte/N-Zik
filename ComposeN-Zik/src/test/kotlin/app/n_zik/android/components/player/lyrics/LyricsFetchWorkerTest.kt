@@ -309,13 +309,14 @@ class LyricsFetchWorkerTest {
     }
 
     @Test
-    fun `edited lyrics already stored trigger no network call and no write`() = runTest {
+    fun `edited lyrics already stored trigger no network call and no write in their own mode`() = runTest {
         setupMocks()
         resetGlobals()
         val edited = Lyrics("song1", LyricsType.Unsynced.name, "my own text", isEdited = true)
         every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(edited))
 
-        fetch(worker(testScheduler), LyricsType.Auto)
+        // Only the Unsynced check is active in this mode, and the edited row's own check is off.
+        fetch(worker(testScheduler), LyricsType.Unsynced)
 
         assertEquals(0, lrcLibLyricsCalls)
         assertEquals(0, lrcLibLyricsUnsyncedCalls)
@@ -324,6 +325,136 @@ class LyricsFetchWorkerTest {
         coVerify(exactly = 0) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
         assertEquals(0, upserts.size)
         assertEquals(edited, lyricsUpdates.last())
+    }
+
+    @Test
+    fun `edited row with expired TTL triggers no fetch and no write`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val edited = Lyrics(
+            songId = "song1",
+            type = LyricsType.Karaoke.name,
+            data = "[00:01.00]Hello\n<Hello:1.0:1.5|world:1.5:2.0>",
+            isEdited = true,
+            lastFetchedAt = System.currentTimeMillis() - 31L * 24 * 60 * 60 * 1000
+        )
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(edited))
+
+        fetch(worker(testScheduler), LyricsType.Karaoke)
+
+        coVerify(exactly = 0) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
+        assertEquals(0, lrcLibLyricsCalls)
+        assertEquals(0, upserts.size)
+        assertEquals(edited, lyricsUpdates.last())
+    }
+
+    @Test
+    fun `fetch stamps lastFetchedAt on the written row`() = runTest {
+        setupMocks()
+        resetGlobals()
+        lrcLibLyricsUnsyncedResult = Result.success(LrcLib.Lyrics("plain lyrics text"))
+
+        val before = System.currentTimeMillis()
+        fetch(worker(testScheduler), LyricsType.Unsynced)
+        val after = System.currentTimeMillis()
+
+        assertEquals(1, upserts.size)
+        val stamp = checkNotNull(upserts.first().lastFetchedAt) { "expected lastFetchedAt to be stamped on the written row" }
+        assertTrue(stamp >= before && stamp <= after)
+    }
+
+    @Test
+    fun `expired word-timed row is re-fetched and overwritten with a fresh stamp`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val expired = Lyrics(
+            songId = "song1",
+            type = LyricsType.Karaoke.name,
+            data = "[00:00.00]Old\n<Old:0.0:1.0>",
+            lastFetchedAt = System.currentTimeMillis() - 31L * 24 * 60 * 60 * 1000
+        )
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(expired))
+
+        val parsedLines = listOf(
+            TTMLParser.ParsedLine(
+                text = "Hello world",
+                startTime = 1.0,
+                words = listOf(
+                    TTMLParser.ParsedWord("Hello", 1.0, 1.5),
+                    TTMLParser.ParsedWord("world", 1.5, 2.0)
+                )
+            )
+        )
+        mockkObject(TTMLParser)
+        every { TTMLParser.parseTTML(any()) } returns parsedLines
+        every { TTMLParser.toLRC(any()) } returns "[00:01.00]Hello world\n<Hello:1.0:1.5|world:1.5:2.0>\n"
+        coEvery { BetterLyrics.fetchTTML(any(), any(), any(), any()) } returns "<tt></tt>"
+
+        val before = System.currentTimeMillis()
+        fetch(worker(testScheduler), LyricsType.Karaoke)
+        val after = System.currentTimeMillis()
+
+        assertEquals(1, upserts.size)
+        assertEquals(LyricsType.Karaoke.name, upserts.first().type)
+        assertTrue(upserts.first().data.orEmpty().contains("Hello world"))
+        val stamp = checkNotNull(upserts.first().lastFetchedAt) { "expected lastFetchedAt to be stamped on the overwritten row" }
+        assertTrue(stamp >= before && stamp <= after)
+    }
+
+    @Test
+    fun `expired word-timed row keeps its data and stamp when every source fails`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val expired = Lyrics(
+            songId = "song1",
+            type = LyricsType.Karaoke.name,
+            data = "[00:00.00]Old\n<Old:0.0:1.0>",
+            lastFetchedAt = System.currentTimeMillis() - 31L * 24 * 60 * 60 * 1000
+        )
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(expired))
+        // Every source fails, like a network outage.
+        lrcLibLyricsResult = Result.failure(Exception("network down"))
+        lrcLibLyricsUnsyncedResult = Result.failure(Exception("network down"))
+        kuGouLyricsResult = Result.failure(Exception("network down"))
+        innertubeLyricsResult = Result.failure(Exception("network down"))
+
+        fetch(worker(testScheduler), LyricsType.Auto)
+
+        assertTrue(upserts.isEmpty()) // nothing written: stored row and its stamp are untouched
+        coVerify(exactly = 1) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
+        assertEquals(1, lrcLibLyricsCalls) // the whole fallback chain was attempted
+        assertEquals(1, kuGouLyricsCalls)
+        assertEquals(1, lrcLibLyricsUnsyncedCalls)
+        assertEquals(1, innertubeLyricsCalls)
+    }
+
+    @Test
+    fun `empty LrcLib result does not wipe an existing non-empty unsynced row`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val stored = Lyrics("song1", LyricsType.Unsynced.name, "my stored lyrics") // unstamped, not edited
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(stored))
+        every { lyricsDao.findBySongIdAndType("song1", LyricsType.Unsynced.name) } returns flowOf(stored)
+        lrcLibLyricsUnsyncedResult = Result.success(null) // no lyrics at the source
+
+        fetch(worker(testScheduler), LyricsType.Unsynced)
+
+        assertTrue(upserts.isEmpty()) // the empty result must not clear the stored row
+        assertEquals(1, lrcLibLyricsUnsyncedCalls)
+    }
+
+    @Test
+    fun `empty LrcLib synced result does not wipe an existing non-empty synced row`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val stored = Lyrics("song1", LyricsType.Synced.name, "synced lines") // unstamped, not edited
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(stored))
+        every { lyricsDao.findBySongIdAndType("song1", LyricsType.Synced.name) } returns flowOf(stored)
+        // BetterLyrics (default null) and LrcLib synced (default null) both come back empty.
+
+        fetch(worker(testScheduler), LyricsType.Synced)
+
+        assertTrue(upserts.isEmpty()) // the empty result must not clear the stored row
     }
 
     @Test

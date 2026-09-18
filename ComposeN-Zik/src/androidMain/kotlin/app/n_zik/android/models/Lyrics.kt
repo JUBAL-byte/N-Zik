@@ -26,6 +26,12 @@ class Lyrics(
     /** `true` when [data] was written by the user, which automatic fetches must never replace (gh-765). */
     @ColumnInfo(defaultValue = "0")
     val isEdited: Boolean = false,
+    /**
+     * Epoch millis of the last fetch that wrote [data]; `null` for rows stored before the column
+     * existed or after a manual "fetch lyrics again" reset. Drives the 30-day refetch TTL.
+     */
+    @ColumnInfo
+    val lastFetchedAt: Long? = null,
 )
 
 

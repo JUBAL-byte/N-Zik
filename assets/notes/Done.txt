@@ -945,3 +945,12 @@ fix(rescue): use dynamic theme color for rescue shortcut icon (issue https://git
 
 
 
+feat(lyrics): 30-day refetch TTL with per-row timestamp and protected stored data
+  - Lyrics.kt: new nullable lastFetchedAt: Long? column stamped on every fetch write
+  - LyricsDecisionMaker.kt: unified per-row rule (absent/empty -> dedup-gated fetch, non-empty edited -> never, word-timed -> 30-day TTL with null stamp = expired, no word timings -> Karaoke/Synced dedup hunt or Unsynced TTL), injected 
+ow: Long clock with clock-skew guard
+  - LyricsFetchWorker.kt: upsertUnlessEdited stamps lastFetchedAt and refuses to clear an existing non-empty row with an empty fetch result
+  - From40To41Migration.kt: adds lastFetchedAt to Lyrics and rebuilds Song/Playlist/Album/Artist/Format/SongPlaylistMap to apply the entity-declared column defaults that the deployed v40 schema never had (Room post-migration verification compares defaults; SQLite cannot set a default via ALTER TABLE) - parents rebuilt before children, SongPlaylistMap indexes recreated
+  - Root cause of the 2026-09-18 crash: commit 86ba201acd added ~48 @ColumnInfo(defaultValue=...) to legacy entities after v40 shipped, so the 40 -> 41 upgrade would have failed Room verification for every user; fixed by the rebuild migration (annotations kept per maintainer decision, dev-DB and production-DB upgrade paths both covered)
+  - Database.kt: version 41 + From40To41Migration registered in the inline migration list
+  - Tests: LyricsDecisionMakerTest (19: full mode matrix, clock skew, per-mode active sets on empty DB), LyricsFetchWorkerTest (16: stamp on write, empty-result guard, all-sources-fail keeps data), LyricsTableTest (5: round-trip), From40To41MigrationTest (2: full v40 fixture, rows survive the rebuild), DatabaseUpgrade40To41Test (2: real Room builder upgrade from production v40 without defaults and from dev v40 with defaults - the state behind the 2026-09-18 crash log)

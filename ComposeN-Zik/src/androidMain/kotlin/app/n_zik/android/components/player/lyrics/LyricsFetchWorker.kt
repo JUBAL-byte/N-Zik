@@ -121,13 +121,15 @@ class LyricsFetchWorker(
         onCheckedInnertubeUpdated: (Boolean) -> Unit,
         onFetchingStateChanged: (Boolean) -> Unit
     ) {
+        val now = System.currentTimeMillis()
         val fetchNeeds = LyricsDecisionMaker.evaluateFetchNeeds(
             mediaId = mediaId,
             lyricsType = lyricsType,
             allLyrics = allLyrics,
             globalLastKaraokeAttemptMediaId = globalLastKaraokeAttemptMediaId,
             globalLastSyncedAttemptMediaId = globalLastSyncedAttemptMediaId,
-            globalLastUnSyncedAttemptMediaId = globalLastUnSyncedAttemptMediaId
+            globalLastUnSyncedAttemptMediaId = globalLastUnSyncedAttemptMediaId,
+            now = now
         )
 
         val isAuto = lyricsType == LyricsType.Auto
@@ -771,9 +773,11 @@ class LyricsFetchWorker(
 
     /**
      * Writes fetched [lyrics] unless the stored row with the same key is a non-empty user edit
-     * (gh-765): the edit may have landed while the network fetch was in flight.
+     * (gh-765): the edit may have landed while the network fetch was in flight. An empty fetch
+     * result never clears an existing non-empty row (a source with no lyrics must not wipe stored
+     * data). Stamps [Lyrics.lastFetchedAt] with the write time to feed the per-row refetch TTL.
      *
-     * @return `false` when the write was skipped because of a user edit
+     * @return `false` when the write was skipped (user edit or empty result over existing data)
      */
     private suspend fun upsertUnlessEdited(lyrics: Lyrics): Boolean {
         val stored = Database.lyricsTable.findBySongIdAndType(lyrics.songId, lyrics.type).firstOrNull()
@@ -781,7 +785,19 @@ class LyricsFetchWorker(
             Timber.tag(TAG).d("Skipping fetched ${lyrics.type} lyrics for ${lyrics.songId}: user-edited lyrics are kept")
             return false
         }
-        Database.lyricsTable.upsert(lyrics)
+        if (lyrics.data.isNullOrEmpty() && !stored?.data.isNullOrEmpty()) {
+            Timber.tag(TAG).d("Skipping empty fetched ${lyrics.type} lyrics for ${lyrics.songId}: existing lyrics are kept")
+            return false
+        }
+        Database.lyricsTable.upsert(
+            Lyrics(
+                songId = lyrics.songId,
+                type = lyrics.type,
+                data = lyrics.data,
+                isEdited = lyrics.isEdited,
+                lastFetchedAt = System.currentTimeMillis()
+            )
+        )
         return true
     }
 
