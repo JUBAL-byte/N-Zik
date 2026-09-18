@@ -392,7 +392,8 @@ class MainActivity :
         }
 
         checkIfAppIsRunningInBackground()
-        registerAppShortcuts(this)
+        // App shortcuts are now registered in MainApplication.onCreate (before Dependencies.init)
+        // so they survive initialization crashes. See ShortcutIconSync.kt.
         // Verify backup location exists
         lifecycleScope.launch(Dispatchers.IO) {
             BackupManager.verifyBackupLocation(this@MainActivity)

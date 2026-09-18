@@ -208,6 +208,7 @@ fun DefaultGeneralSettings(context: Context) {
     jumpPrevious = "3"
     var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
     notificationType = NotificationType.Default
+    app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.reset(context)
 }
 
 @ExperimentalAnimationApi
@@ -1411,6 +1412,29 @@ if (search.inputValue.isBlank() || stringResource(R.string.max_songs_in_queue_an
                  }
              )
          }
+
+        // App Shortcuts Section
+        app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.Render()
+        val searchCtx_Shortcuts = search.inputValue.isBlank() || stringResource(R.string.app_shortcuts_settings).contains(search.inputValue, true)
+        AnimatedVisibility(
+            visible = searchCtx_Shortcuts,
+            enter = fadeIn(animationSpec = tween(1050)) + scaleIn(animationSpec = tween(1050), initialScale = 0.9f)
+        ) {
+            SettingsSectionCard(
+                title = stringResource(R.string.app_shortcuts_settings),
+                icon = R.drawable.shortcut_rescue,
+                content = {
+                    if (search.inputValue.isBlank() || stringResource(R.string.app_shortcuts_settings).contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = stringResource(R.string.app_shortcuts_settings),
+                            text = stringResource(R.string.app_shortcuts_settings_description),
+                            icon = R.drawable.shortcut_rescue,
+                            onClick = { app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.showDialog() }
+                        )
+                    }
+                }
+            )
+        }
 
         // Settings Reset Section
         val searchCtx_Reset = search.inputValue.isBlank() || stringResource(R.string.settings_reset).contains(search.inputValue, true) || stringResource(R.string.settings_restore_default_settings).contains(search.inputValue, true)

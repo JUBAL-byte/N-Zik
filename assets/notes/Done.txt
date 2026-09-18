@@ -926,3 +926,6 @@ improve(ui): finger-linked header/navbar scroll animation
   - `MainActivity.kt`: Removed accumulated scroll tracking (`accumulatedDownScroll`/`accumulatedUpScroll`) — no longer needed
   - Behavior: scroll down → header slides up with finger, scroll up → header slides down with finger, release → snaps to nearest position, scroll to top → bars reappear
 
+fix(rescue): synchronize rescue center colors with main app theme and fix app shortcuts dialog (issue https://github.com/N-Zik-Group/N-Zik/issues/811)
+  - `RescueActivity.kt`: Reverted hardcoded background color and initialized MonetCompat to fetch dynamic palettes to perfectly match the main app's theme
+  - `AppShortcutsSettingsDialog.kt`: Fixed shortcut dialog to properly lock and gray out disabled entries

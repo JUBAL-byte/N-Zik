@@ -7,6 +7,8 @@ import android.graphics.drawable.ShapeDrawable
 import android.graphics.drawable.shapes.RectShape
 import app.n_zik.android.MainActivity
 import app.n_zik.android.R
+import app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog
+import app.n_zik.android.components.dialog.settings.defaultShortcutsOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -39,15 +41,91 @@ class ShortcutIconSyncTest {
      */
     @Test
     fun `each shortcut id maps to its own action and distinct resources`() {
-        val specs = SHORTCUT_IDS.associateWith { shortcutSpec(it) }
+        val specs = ALL_SHORTCUT_IDS.associateWith { shortcutSpec(it) }
 
         assertEquals(SHORTCUT_SEARCH_ID to MainActivity.action_search, SHORTCUT_SEARCH_ID to specs.getValue(SHORTCUT_SEARCH_ID).third)
         assertEquals(SHORTCUT_ALBUMS_ID to MainActivity.action_albums, SHORTCUT_ALBUMS_ID to specs.getValue(SHORTCUT_ALBUMS_ID).third)
         assertEquals(SHORTCUT_ARTISTS_ID to MainActivity.actions_artists, SHORTCUT_ARTISTS_ID to specs.getValue(SHORTCUT_ARTISTS_ID).third)
         assertEquals(SHORTCUT_LIBRARY_ID to MainActivity.action_library, SHORTCUT_LIBRARY_ID to specs.getValue(SHORTCUT_LIBRARY_ID).third)
+        assertEquals(SHORTCUT_RESCUE_ID to ACTION_RESCUE, SHORTCUT_RESCUE_ID to specs.getValue(SHORTCUT_RESCUE_ID).third)
         // Every id gets its own label and its own drawable -- no two shortcuts silently share one.
-        assertEquals(SHORTCUT_IDS.size, specs.values.map { it.first }.distinct().size)
-        assertEquals(SHORTCUT_IDS.size, specs.values.map { it.second }.distinct().size)
+        assertEquals(ALL_SHORTCUT_IDS.size, specs.values.map { it.first }.distinct().size)
+        assertEquals(ALL_SHORTCUT_IDS.size, specs.values.map { it.second }.distinct().size)
+    }
+
+    @Test
+    fun `5 shortcut IDs are available`() {
+        assertEquals(5, ALL_SHORTCUT_IDS.size)
+        assertTrue(SHORTCUT_RESCUE_ID in ALL_SHORTCUT_IDS)
+        assertTrue(SHORTCUT_SEARCH_ID in ALL_SHORTCUT_IDS)
+    }
+
+    @Test
+    fun `default active shortcuts has 4 entries and includes rescue`() {
+        assertEquals(MAX_ACTIVE_SHORTCUTS, DEFAULT_ACTIVE_SHORTCUT_IDS.size)
+        assertTrue(SHORTCUT_RESCUE_ID in DEFAULT_ACTIVE_SHORTCUT_IDS)
+        assertFalse(SHORTCUT_SEARCH_ID in DEFAULT_ACTIVE_SHORTCUT_IDS)
+    }
+
+    @Test
+    fun `rescue shortcut uses ACTION_RESCUE intent action`() {
+        val (_, _, action) = shortcutSpec(SHORTCUT_RESCUE_ID)
+        assertEquals(ACTION_RESCUE, action)
+        assertEquals("app.n_zik.android.action.rescue", action)
+    }
+
+    @Test
+    fun `rescue shortcut uses rescue icon drawable`() {
+        val (_, drawableRes, _) = shortcutSpec(SHORTCUT_RESCUE_ID)
+        assertEquals(R.drawable.shortcut_rescue, drawableRes)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // AppShortcutsSettingsDialog order/enabled parsing
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `parseOrder with empty string returns default order`() {
+        val order = AppShortcutsSettingsDialog.parseOrder("")
+        assertEquals(defaultShortcutsOrder, order)
+    }
+
+    @Test
+    fun `parseOrder with valid string preserves order and adds missing`() {
+        val order = AppShortcutsSettingsDialog.parseOrder("rescue,albums")
+        assertEquals("rescue", order[0])
+        assertEquals("albums", order[1])
+        // The remaining IDs are appended
+        assertTrue(order.containsAll(ALL_SHORTCUT_IDS))
+        assertEquals(ALL_SHORTCUT_IDS.size, order.size)
+    }
+
+    @Test
+    fun `parseOrder ignores unknown IDs`() {
+        val order = AppShortcutsSettingsDialog.parseOrder("rescue,nonexistent,albums")
+        assertFalse("nonexistent" in order)
+        assertEquals(ALL_SHORTCUT_IDS.size, order.size)
+    }
+
+    @Test
+    fun `parseEnabled with empty string returns defaults`() {
+        val enabled = AppShortcutsSettingsDialog.parseEnabled("")
+        assertEquals(DEFAULT_ACTIVE_SHORTCUT_IDS.toSet(), enabled)
+    }
+
+    @Test
+    fun `parseEnabled always includes rescue even if not in string`() {
+        val enabled = AppShortcutsSettingsDialog.parseEnabled("search,albums")
+        assertTrue(SHORTCUT_RESCUE_ID in enabled)
+    }
+
+    @Test
+    fun `parseEnabled with valid string includes specified IDs plus rescue`() {
+        val enabled = AppShortcutsSettingsDialog.parseEnabled("search,albums")
+        assertTrue(SHORTCUT_SEARCH_ID in enabled)
+        assertTrue(SHORTCUT_ALBUMS_ID in enabled)
+        assertTrue(SHORTCUT_RESCUE_ID in enabled) // always included
+        assertFalse(SHORTCUT_ARTISTS_ID in enabled)
     }
 }
 

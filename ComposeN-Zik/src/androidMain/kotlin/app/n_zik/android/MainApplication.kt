@@ -83,9 +83,13 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
 
-        // CrashActivity runs in a separate process. Starting the full app there can make that
-        // process claim WebView's data directory and crash the next main-process WebView.
+        // RescueActivity runs in the :rescue process. Starting the full app there can make
+        // that process claim WebView's data directory and crash the next main-process WebView.
         if (!isMainProcess()) return
+
+        // Register app shortcuts early, BEFORE Dependencies.init, so that the Rescue
+        // shortcut exists even if initialization crashes below.
+        app.n_zik.android.shortcuts.registerAppShortcuts(this)
 
         Dependencies.init(this)
 

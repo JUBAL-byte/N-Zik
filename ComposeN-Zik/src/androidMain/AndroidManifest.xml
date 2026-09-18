@@ -150,9 +150,26 @@
             </intent-filter>
             <!-- NEW PLAYER SERVICE -->
 
-            <!-- App shortcuts (search/albums/artists/library) are registered dynamically at
-                 runtime by app.n_zik.android.shortcuts.registerAppShortcuts, not declared here as
-                 manifest shortcuts. See that file's KDoc for why. -->
+            <!-- App shortcuts (search/albums/artists/library/rescue) are registered dynamically
+                 at runtime by app.n_zik.android.shortcuts.registerAppShortcuts from
+                 MainApplication.onCreate. The Rescue shortcut targets RescueActivity which
+                 runs in the :rescue process; the others target MainActivity. -->
+        </activity>
+
+        <!-- Rescue Center: runs in a separate process so it works even when the main
+             app crashes at startup (Room migration failure, init bug, etc.).
+             MainApplication.onCreate returns early for non-main processes, so none of
+             the heavy init (DI, Room, player, crash handler) runs here. -->
+        <activity
+            android:name=".components.ui.screens.rescue.RescueActivity"
+            android:process=":rescue"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.RiMusic">
+            <intent-filter>
+                <action android:name="app.n_zik.android.action.rescue" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <receiver android:name=".widget.MusicWidgetReceiver"

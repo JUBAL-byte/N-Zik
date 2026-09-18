@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import app.n_zik.android.MainActivity
 import app.n_zik.android.R
+import app.n_zik.android.components.ui.screens.rescue.RescueActivity
 import timber.log.Timber
 
 internal const val GOOGLE_LAUNCHER_PACKAGE = "com.google.android.apps.nexuslauncher"
@@ -23,7 +24,27 @@ internal const val SHORTCUT_SEARCH_ID = "search"
 internal const val SHORTCUT_ALBUMS_ID = "albums"
 internal const val SHORTCUT_ARTISTS_ID = "artists"
 internal const val SHORTCUT_LIBRARY_ID = "library"
+internal const val SHORTCUT_RESCUE_ID = "rescue"
 
+/** All available shortcut IDs. */
+internal val ALL_SHORTCUT_IDS =
+    listOf(SHORTCUT_SEARCH_ID, SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID, SHORTCUT_RESCUE_ID)
+
+/** Maximum number of active shortcuts (launcher display limit). */
+internal const val MAX_ACTIVE_SHORTCUTS = 4
+
+/** Default active shortcuts when no preference has been set. */
+internal val DEFAULT_ACTIVE_SHORTCUT_IDS =
+    listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID, SHORTCUT_RESCUE_ID)
+
+// Preference keys for shortcut order/enabled state (stored in "preferences")
+const val appShortcutsOrderKey = "appShortcutsOrder"
+const val appShortcutsEnabledKey = "appShortcutsEnabled"
+
+/**
+ * @deprecated Use [ALL_SHORTCUT_IDS] instead. Kept for test backward compatibility.
+ */
+@Deprecated("Use ALL_SHORTCUT_IDS", replaceWith = ReplaceWith("ALL_SHORTCUT_IDS"))
 internal val SHORTCUT_IDS =
     listOf(SHORTCUT_SEARCH_ID, SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID)
 
@@ -52,21 +73,48 @@ internal fun homeLauncherPackage(packageManager: PackageManager): String? =
     }.getOrNull()?.activityInfo?.packageName
 
 /**
- * Registers the app's 4 launcher shortcuts as dynamic shortcuts (search, albums, artists,
- * library), with an icon appropriate to the active home launcher.
+ * Resolves the active shortcut IDs from user preferences.
  *
- * These are *not* declared as manifest (static) shortcuts: a manifest shortcut is immutable at
- * the platform level (Android's `ShortcutService` throws `IllegalArgumentException: Manifest
- * shortcut ID=... may not be manipulated via APIs` from `setDynamicShortcuts`, `updateShortcuts`,
- * `disableShortcuts` -- every mutation, verified on-device/emulator), so there is no way to swap
- * a manifest shortcut's icon per launcher at runtime; a dynamic shortcut has no such restriction.
- * The trade-off is that these shortcuts only exist once the app has been launched at least once
- * after install (dynamic shortcuts are registered from [MainActivity.onCreate], unlike manifest
- * ones which are available immediately).
+ * Reads the order from [appShortcutsOrderKey] (comma-separated string) and the enabled
+ * set from [appShortcutsEnabledKey] (comma-separated string). Unknown IDs are ignored.
+ * Rescue is always included (locked). At most [MAX_ACTIVE_SHORTCUTS] are returned.
  *
- * On the Google (Pixel) launcher the 4 shortcuts get a fixed black bitmap icon. On any other
- * launcher they get the theme-adaptive `shortcut_*` drawables (resolved by the launcher's own
- * day/night configuration, exactly as a manifest shortcut's icon would be).
+ * If no preferences exist, returns [DEFAULT_ACTIVE_SHORTCUT_IDS].
+ */
+internal fun resolveActiveShortcutIds(context: Context): List<String> {
+    val prefs = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
+    val orderStr = prefs.getString(appShortcutsOrderKey, null)
+    val enabledStr = prefs.getString(appShortcutsEnabledKey, null)
+
+    // No preferences yet: use defaults
+    if (orderStr == null && enabledStr == null) {
+        return DEFAULT_ACTIVE_SHORTCUT_IDS
+    }
+
+    val order = orderStr?.split(",")
+        ?.filter { it in ALL_SHORTCUT_IDS }
+        ?: ALL_SHORTCUT_IDS
+    val enabled = enabledStr?.split(",")
+        ?.filter { it in ALL_SHORTCUT_IDS }
+        ?.toMutableSet()
+        ?: DEFAULT_ACTIVE_SHORTCUT_IDS.toMutableSet()
+
+    // Rescue is always enabled (locked)
+    enabled.add(SHORTCUT_RESCUE_ID)
+
+    // Filter and cap at max
+    return order.filter { it in enabled }.take(MAX_ACTIVE_SHORTCUTS)
+}
+
+/**
+ * Registers the active launcher shortcuts as dynamic shortcuts, with an icon appropriate
+ * to the active home launcher.
+ *
+ * The shortcuts are read from user preferences (order + enabled set). Rescue is always
+ * included. At most [MAX_ACTIVE_SHORTCUTS] are registered.
+ *
+ * This is called from [app.n_zik.android.MainApplication.onCreate] early (before
+ * `Dependencies.init`) so that the Rescue shortcut exists even if initialization fails.
  */
 internal fun registerAppShortcuts(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) return
@@ -74,11 +122,14 @@ internal fun registerAppShortcuts(context: Context) {
         runCatching { context.getSystemService(ShortcutManager::class.java) }.getOrNull() ?: return
 
     runCatching {
+        val activeIds = resolveActiveShortcutIds(context)
         val blackIcons = isGoogleLauncher(homeLauncherPackage(context.packageManager))
-        shortcutManager.setDynamicShortcuts(SHORTCUT_IDS.map { buildShortcut(context, it, blackIcons) })
+        shortcutManager.setDynamicShortcuts(activeIds.map { buildShortcut(context, it, blackIcons) })
         Timber.tag("ShortcutIconSync").i(
-            if (blackIcons) "Google launcher: registered shortcuts with fixed black icons"
-            else "Registered shortcuts with theme-adaptive icons"
+            "Registered %d shortcuts (%s)%s",
+            activeIds.size,
+            activeIds.joinToString(","),
+            if (blackIcons) " (Google launcher: black icons)" else ""
         )
     }.onFailure {
         Timber.tag("ShortcutIconSync").e(it, "Failed to register shortcuts")
@@ -98,15 +149,27 @@ internal fun shortcutSpec(shortcutId: String): Triple<Int, Int, String> = when (
     SHORTCUT_ALBUMS_ID -> Triple(R.string.albums, R.drawable.shortcut_albums, MainActivity.action_albums)
     SHORTCUT_ARTISTS_ID -> Triple(R.string.artists, R.drawable.shortcut_artists, MainActivity.actions_artists)
     SHORTCUT_LIBRARY_ID -> Triple(R.string.playlists, R.drawable.shortcut_library, MainActivity.action_library)
+    SHORTCUT_RESCUE_ID -> Triple(R.string.rescue_center, R.drawable.shortcut_rescue, ACTION_RESCUE)
     else -> error("Unknown shortcut id $shortcutId")
 }
 
+/** Intent action for the Rescue Center shortcut. Must match the manifest intent-filter. */
+const val ACTION_RESCUE = "app.n_zik.android.action.rescue"
+
 private fun buildShortcut(context: Context, shortcutId: String, blackIcon: Boolean): ShortcutInfo {
     val (labelRes, drawableRes, action) = shortcutSpec(shortcutId)
+
+    // Rescue targets RescueActivity; all others target MainActivity
+    val targetClass = if (shortcutId == SHORTCUT_RESCUE_ID) {
+        RescueActivity::class.java
+    } else {
+        MainActivity::class.java
+    }
+
     return ShortcutInfo.Builder(context, shortcutId)
         .setShortLabel(context.getString(labelRes))
         .setIcon(shortcutIcon(context, drawableRes, blackIcon))
-        .setIntent(Intent(context, MainActivity::class.java).setAction(action))
+        .setIntent(Intent(context, targetClass).setAction(action))
         .build()
 }
 
