@@ -36,6 +36,17 @@ object LyricsDecisionMaker {
             LyricsType.Unsynced -> allLyrics.find { it.type == LyricsType.Unsynced.name }
         }
 
+        // User-edited lyrics are never replaced by an automatic fetch (gh-765). An emptied edit
+        // is treated as "no lyrics", so fetching stays allowed in that case.
+        if (currentLyrics?.isEdited == true && !currentLyrics.data.isNullOrEmpty()) {
+            return FetchNeeds(
+                currentLyrics = currentLyrics,
+                needKaraokeFetch = false,
+                needSyncedFetch = false,
+                needUnsyncedFetch = false
+            )
+        }
+
         val hasWordTimings = currentLyrics?.data?.lines()?.any { it.trim().startsWith("<") && it.contains(":") && it.contains(">") } == true
 
         val needKaraokeFetch = (lyricsType == LyricsType.Karaoke || lyricsType == LyricsType.Synced || lyricsType == LyricsType.Auto) && 

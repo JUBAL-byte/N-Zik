@@ -84,4 +84,71 @@ class LyricsDecisionMakerTest {
         assertNull(needs.currentLyrics)
     }
 
+    private fun needsFor(lyricsType: LyricsType, allLyrics: List<Lyrics>) =
+        LyricsDecisionMaker.evaluateFetchNeeds(
+            mediaId = "song1",
+            lyricsType = lyricsType,
+            allLyrics = allLyrics,
+            globalLastKaraokeAttemptMediaId = "otherSong",
+            globalLastSyncedAttemptMediaId = "otherSong",
+            globalLastUnSyncedAttemptMediaId = "otherSong"
+        )
+
+    @Test
+    fun `edited lyrics are protected from every fetch in every mode`() {
+        // gh-765: globals only remember the last mediaId, so another song was played in between.
+        val cases = mapOf(
+            LyricsType.Auto to LyricsType.Unsynced,
+            LyricsType.Karaoke to LyricsType.Karaoke,
+            LyricsType.Synced to LyricsType.Synced,
+            LyricsType.Unsynced to LyricsType.Unsynced
+        )
+        cases.forEach { (mode, storedType) ->
+            val edited = Lyrics("song1", storedType.name, "my own text", isEdited = true)
+
+            val needs = needsFor(mode, listOf(edited))
+
+            assertFalse(needs.needKaraokeFetch, "karaoke fetch in $mode")
+            assertFalse(needs.needSyncedFetch, "synced fetch in $mode")
+            assertFalse(needs.needUnsyncedFetch, "unsynced fetch in $mode")
+            assertSame(edited, needs.currentLyrics)
+        }
+    }
+
+    @Test
+    fun `edited karaoke row displayed as Synced fallback is protected`() {
+        val edited = Lyrics("song1", LyricsType.Karaoke.name, "[00:10.00] mine", isEdited = true)
+
+        val needs = needsFor(LyricsType.Synced, listOf(edited))
+
+        assertFalse(needs.needKaraokeFetch)
+        assertFalse(needs.needSyncedFetch)
+        assertSame(edited, needs.currentLyrics)
+    }
+
+    @Test
+    fun `not edited lyrics keep the upgrade behaviour`() {
+        val stored = Lyrics("song1", LyricsType.Unsynced.name, "plain text")
+
+        val needs = needsFor(LyricsType.Auto, listOf(stored))
+
+        assertTrue(needs.needKaraokeFetch)
+        assertTrue(needs.needSyncedFetch)
+        assertFalse(needs.needUnsyncedFetch)
+        assertSame(stored, needs.currentLyrics)
+    }
+
+    @Test
+    fun `emptied edit is treated as no lyrics and allows fetching again`() {
+        listOf<String?>("", null).forEach { emptied ->
+            val edited = Lyrics("song1", LyricsType.Unsynced.name, emptied, isEdited = true)
+
+            val needs = needsFor(LyricsType.Auto, listOf(edited))
+
+            assertTrue(needs.needKaraokeFetch)
+            assertTrue(needs.needSyncedFetch)
+            assertTrue(needs.needUnsyncedFetch)
+        }
+    }
+
 }

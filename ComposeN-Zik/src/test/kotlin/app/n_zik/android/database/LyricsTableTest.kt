@@ -93,6 +93,26 @@ class LyricsTableTest {
     }
 
     @Test
+    fun `isEdited defaults to false and survives a round trip`() = runBlocking {
+        val mediaId = "song_123"
+        insertSong(mediaId)
+
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Karaoke.name, data = "fetched"))
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Synced.name, data = "mine", isEdited = true))
+
+        val karaoke = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Karaoke.name).first()
+        val synced = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Synced.name).first()
+        assertEquals(false, karaoke?.isEdited)
+        assertEquals(true, synced?.isEdited)
+
+        // The "fetch lyrics again" action rewrites the row with the default flag.
+        lyricsDao.upsert(Lyrics(songId = mediaId, type = LyricsType.Synced.name, data = null))
+        val reset = lyricsDao.findBySongIdAndType(mediaId, LyricsType.Synced.name).first()
+        assertEquals(false, reset?.isEdited)
+        assertNull(reset?.data)
+    }
+
+    @Test
     fun `findAllBySongId does not return lyrics for other songs`() = runBlocking {
         insertSong("song_A")
         insertSong("song_B")

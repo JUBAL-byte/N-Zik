@@ -769,9 +769,25 @@ class LyricsFetchWorker(
         }
     }
 
+    /**
+     * Writes fetched [lyrics] unless the stored row with the same key is a non-empty user edit
+     * (gh-765): the edit may have landed while the network fetch was in flight.
+     *
+     * @return `false` when the write was skipped because of a user edit
+     */
+    private suspend fun upsertUnlessEdited(lyrics: Lyrics): Boolean {
+        val stored = Database.lyricsTable.findBySongIdAndType(lyrics.songId, lyrics.type).firstOrNull()
+        if (stored?.isEdited == true && !stored.data.isNullOrEmpty()) {
+            Timber.tag(TAG).d("Skipping fetched ${lyrics.type} lyrics for ${lyrics.songId}: user-edited lyrics are kept")
+            return false
+        }
+        Database.lyricsTable.upsert(lyrics)
+        return true
+    }
+
     private suspend fun saveLyricsSafe(lyrics: Lyrics) {
         runCatching {
-            Database.lyricsTable.upsert(lyrics)
+            upsertUnlessEdited(lyrics)
         }.onFailure { e ->
             when (e) {
                 is CancellationException -> throw e
@@ -779,7 +795,7 @@ class LyricsFetchWorker(
                     Timber.tag(TAG).w("Foreign key constraint failed for songId ${lyrics.songId}. Retrying in 5 seconds...")
                     delay(5000)
                     runCatching {
-                        Database.lyricsTable.upsert(lyrics)
+                        upsertUnlessEdited(lyrics)
                     }.onFailure { e2 ->
                         if (e2 !is CancellationException) {
                             Timber.tag(TAG).e("Failed to save lyrics even after delay: ${e2.message}")

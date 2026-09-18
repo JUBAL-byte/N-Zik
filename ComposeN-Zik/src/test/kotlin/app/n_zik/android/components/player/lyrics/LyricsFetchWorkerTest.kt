@@ -81,6 +81,7 @@ class LyricsFetchWorkerTest {
         every { Database.lyricsTable } returns lyricsDao
         every { Database.albumTable } returns albumDao
         every { lyricsDao.findAllBySongId(any()) } returns flowOf(emptyList())
+        every { lyricsDao.findBySongIdAndType(any(), any()) } returns flowOf(null)
         every { lyricsDao.upsert(any()) } answers {
             upserts += firstArg<Lyrics>()
             1L
@@ -305,5 +306,53 @@ class LyricsFetchWorkerTest {
         assertEquals(LyricsType.Synced.name, upserts.first().type)
         assertEquals(kugouText, upserts.first().data)
         assertEquals(0, innertubeLyricsCalls)
+    }
+
+    @Test
+    fun `edited lyrics already stored trigger no network call and no write`() = runTest {
+        setupMocks()
+        resetGlobals()
+        val edited = Lyrics("song1", LyricsType.Unsynced.name, "my own text", isEdited = true)
+        every { lyricsDao.findAllBySongId(any()) } returns flowOf(listOf(edited))
+
+        fetch(worker(testScheduler), LyricsType.Auto)
+
+        assertEquals(0, lrcLibLyricsCalls)
+        assertEquals(0, lrcLibLyricsUnsyncedCalls)
+        assertEquals(0, kuGouLyricsCalls)
+        assertEquals(0, innertubeLyricsCalls)
+        coVerify(exactly = 0) { BetterLyrics.fetchTTML(any(), any(), any(), any()) }
+        assertEquals(0, upserts.size)
+        assertEquals(edited, lyricsUpdates.last())
+    }
+
+    @Test
+    fun `fetched lyrics do not overwrite an edit saved while the fetch was in flight`() = runTest {
+        setupMocks()
+        resetGlobals()
+        lrcLibLyricsUnsyncedResult = Result.success(LrcLib.Lyrics("fetched text"))
+        // The emission the fetch decided on held no lyrics; the edit lands before the write.
+        every { lyricsDao.findBySongIdAndType("song1", LyricsType.Unsynced.name) } returns
+            flowOf(Lyrics("song1", LyricsType.Unsynced.name, "my own text", isEdited = true))
+
+        fetch(worker(testScheduler), LyricsType.Unsynced)
+
+        assertEquals(1, lrcLibLyricsUnsyncedCalls)
+        assertEquals(0, upserts.size)
+    }
+
+    @Test
+    fun `fetched lyrics replace a stored row that is edited but emptied`() = runTest {
+        setupMocks()
+        resetGlobals()
+        lrcLibLyricsUnsyncedResult = Result.success(LrcLib.Lyrics("fetched text"))
+        every { lyricsDao.findBySongIdAndType("song1", LyricsType.Unsynced.name) } returns
+            flowOf(Lyrics("song1", LyricsType.Unsynced.name, "", isEdited = true))
+
+        fetch(worker(testScheduler), LyricsType.Unsynced)
+
+        assertEquals(1, upserts.size)
+        assertEquals("fetched text", upserts.first().data)
+        assertEquals(false, upserts.first().isEdited)
     }
 }

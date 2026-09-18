@@ -35,6 +35,15 @@ class EditLyricsDialog private constructor(
 ) : TextInputDialog(InputDialogConstraints.ALL) {
 
     companion object {
+        /** Row saved when the user confirms an edit; always flagged so automatic fetches keep it (gh-765). */
+        internal fun editedLyrics(mediaId: String, lyricsType: LyricsType, newValue: String): Lyrics =
+            Lyrics(
+                songId = mediaId,
+                type = lyricsType.name,
+                data = newValue,
+                isEdited = true
+            )
+
         @Composable
         operator fun invoke(
             mediaId: String,
@@ -99,13 +108,7 @@ class EditLyricsDialog private constructor(
         val lyrics = getLyrics()
         Database.asyncTransaction {
             ensureSongInserted()
-            Database.lyricsTable.upsert(
-                Lyrics(
-                    songId = mediaId,
-                    type = lyricsType.name,
-                    data = newValue
-                )
-            )
+            Database.lyricsTable.upsert(editedLyrics(mediaId, lyricsType, newValue))
         }
         hideDialog()
     }
