@@ -162,9 +162,9 @@ body:
     attributes:
       label: 📜 Logs
       description: |
-        To get your logs, go to Settings > Misc (at the bottom), enable Debug Mode, then restart the app.
-        Reproduce the action or crash you're reporting, then reopen the app, go back to Settings > Misc, and copy the logs from there (operation logs and/or crash logs).
-        **If you answered "Yes" above, crash logs are mandatory**: enable the "reproduce logs" option, reproduce the crash, then come back and copy the crash logs.
+        To get your logs, go to Settings > Misc (at the bottom), enable Debug Mode, then restart the app and reproduce the issue.
+        You can export the logs from Settings > Misc, or by using the **Rescue Center** (accessible via the app shortcuts on your launcher) and tapping "Export logs".
+        **If you answered "Yes" above, crash logs are mandatory**: enable the "reproduce logs" option, reproduce the crash, then use the Rescue Center to export the crash logs.
         If the logs are too large to paste directly, attach them as a file, or upload them to https://pastebin.com/ and share the link.
       placeholder: |
         Paste your logs here (operation logs and/or crash logs), or a file/Pastebin link if too large
@@ -181,10 +181,11 @@ body:
     attributes:
       label: 🗄️ Database & Settings export (Optional)
       description: |
-        If relevant to the bug, you can attach a database and/or settings export (Settings > Backup > Export) to help us reproduce the issue.
+        If relevant to the bug, you can attach a database and/or settings export to help us reproduce the issue.
+        You can do this from Settings > Backup, or by using the **Rescue Center** (accessible via the app shortcuts on your launcher).
 
         > [!CAUTION]
-        > When exporting, **DO NOT check the option that includes your YouTube/Discord account credentials**. Leave it unchecked, otherwise your credentials/tokens will be included in the export and leaked if attached here.
+        > When exporting settings, **DO NOT check the options that include your YouTube/Discord/LastFM account credentials**. Leave them unchecked, otherwise your credentials/tokens will be leaked if attached here.
       placeholder: |
         Attach the exported .sqlite/.csv file(s) here, or a Pastebin/file-hosting link
     validations:
