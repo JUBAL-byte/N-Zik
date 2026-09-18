@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import app.n_zik.android.R
@@ -26,9 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Context
 import android.net.Uri
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.it.fast4x.rimusic.utils.saveImageToInternalStorage
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.foundation.BorderStroke
@@ -36,6 +39,9 @@ import app.n_zik.android.uiRoundnessShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import app.n_zik.android.colorPalette
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class ChangeCoverDialog private constructor(
@@ -54,6 +60,19 @@ class ChangeCoverDialog private constructor(
                 },
                 getSong
             )
+
+        /**
+         * Issue #606 H9 -- deletes the previously cached cover (if any) and decodes/scales/
+         * compresses the newly picked image into internal storage. Both are blocking file/bitmap
+         * work; extracted so the `launcher` callback in [DialogBody] can dispatch it via
+         * `withContext(NzikDispatchers.DATA)` instead of running synchronously on Main (the thread
+         * an `ActivityResultLauncher` callback resumes on), and so it is unit-testable without
+         * instantiating the dialog.
+         */
+        internal fun saveCoverArt(context: Context, uri: Uri, oldFile: File, dirPath: String, fileName: String): Uri? {
+            if (oldFile.exists()) oldFile.delete()
+            return saveImageToInternalStorage(context, uri, dirPath, fileName)
+        }
     }
 
     override val keyboardOption: KeyboardOptions = KeyboardOptions.Default
@@ -92,26 +111,34 @@ class ChangeCoverDialog private constructor(
             super.DialogBody()
             
             val context = LocalContext.current
+            val coroutineScope = rememberCoroutineScope()
+            // Issue #606 review fix: cancel any still-in-flight save before starting a new one, so
+            // two rapid picks can't complete out of order and have the slower one overwrite `value`
+            // (and the Coil cache-clear) with a stale result.
+            val saveCoverJob = remember { mutableStateOf<Job?>(null) }
             val launcher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent()
             ) { uri: Uri? ->
                 if (uri != null) {
                     val songId = getSong()?.id ?: return@rememberLauncherForActivityResult
-                    // Delete old cached file before saving new one
                     val oldFile = File(context.filesDir, "app_covers/cover_$songId.jpg")
                     val oldUrl = oldFile.absolutePath
-                    if (oldFile.exists()) oldFile.delete()
 
-                    val savedUri = saveImageToInternalStorage(context, uri, "app_covers", "cover_$songId.jpg")
-                    if (savedUri != null) {
-                        // Clear Coil cache for this specific file URL only
-                        val fileUrl = savedUri.toString()
-                        ImageCacheFactory.clearCacheForKey(fileUrl, ImageCacheFactory.NetworkQuality.HIGH)
-                        ImageCacheFactory.clearCacheForKey(fileUrl, ImageCacheFactory.NetworkQuality.LOW)
-                        // Also clear with the absolute path format
-                        ImageCacheFactory.clearCacheForKey(oldUrl, ImageCacheFactory.NetworkQuality.HIGH)
-                        ImageCacheFactory.clearCacheForKey(oldUrl, ImageCacheFactory.NetworkQuality.LOW)
-                        value = TextFieldValue(fileUrl)
+                    saveCoverJob.value?.cancel()
+                    saveCoverJob.value = coroutineScope.launch {
+                        val savedUri = withContext(NzikDispatchers.DATA) {
+                            saveCoverArt(context, uri, oldFile, "app_covers", "cover_$songId.jpg")
+                        }
+                        if (savedUri != null) {
+                            // Clear Coil cache for this specific file URL only
+                            val fileUrl = savedUri.toString()
+                            ImageCacheFactory.clearCacheForKey(fileUrl, ImageCacheFactory.NetworkQuality.HIGH)
+                            ImageCacheFactory.clearCacheForKey(fileUrl, ImageCacheFactory.NetworkQuality.LOW)
+                            // Also clear with the absolute path format
+                            ImageCacheFactory.clearCacheForKey(oldUrl, ImageCacheFactory.NetworkQuality.HIGH)
+                            ImageCacheFactory.clearCacheForKey(oldUrl, ImageCacheFactory.NetworkQuality.LOW)
+                            value = TextFieldValue(fileUrl)
+                        }
                     }
                 }
             }

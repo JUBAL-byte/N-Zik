@@ -159,8 +159,9 @@ import app.it.fast4x.rimusic.models.SongAlbumMap
 import app.it.fast4x.rimusic.ui.styling.onOverlay
 import app.it.fast4x.rimusic.ui.styling.overlay
 import app.it.fast4x.rimusic.utils.asMediaItem
-import app.it.fast4x.rimusic.utils.addNext
-import app.it.fast4x.rimusic.utils.enqueue
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.appContext
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.ui.components.themed.Enqueue
@@ -254,15 +255,15 @@ fun HomeAlbums(
     val shuffle = SongShuffler { selectedSongs }
     val playNext = PlayNext {
         scope.launch {
-            val mediaItems = withContext(Dispatchers.IO) { getSelectedSongs().map { it.asMediaItem } }
-            binder?.player?.addNext( mediaItems, appContext() )
+            val mediaItems = withContext(NzikDispatchers.DATA) { getSelectedSongs().map { it.asMediaItem } }
+            binder?.player?.addNextOffMain( mediaItems, appContext() )
             itemSelector.isActive = false
         }
     }
     val enqueue = Enqueue {
         scope.launch {
-            val mediaItems = withContext(Dispatchers.IO) { getSelectedSongs().map { it.asMediaItem } }
-            binder?.player?.enqueue( mediaItems, appContext() )
+            val mediaItems = withContext(NzikDispatchers.DATA) { getSelectedSongs().map { it.asMediaItem } }
+            binder?.player?.enqueueOffMain( mediaItems, appContext() )
             itemSelector.isActive = false
         }
     }

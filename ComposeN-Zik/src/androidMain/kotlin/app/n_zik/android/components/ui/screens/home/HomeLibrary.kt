@@ -163,8 +163,9 @@ import app.it.fast4x.rimusic.ui.components.themed.Enqueue
 import app.it.fast4x.rimusic.ui.components.themed.PlayNext
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.models.Song
-import app.it.fast4x.rimusic.utils.addNext
-import app.it.fast4x.rimusic.utils.enqueue
+import app.n_zik.android.utils.player.addNextOffMain
+import app.n_zik.android.utils.player.enqueueOffMain
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.utils.preferences
 import app.n_zik.android.components.dialog.media.YouTubeLinkImportDialog
 import app.n_zik.android.components.tab.ImportPlaylistsMenu
@@ -310,15 +311,15 @@ fun HomeLibrary(
 
     val playNext = PlayNext {
         coroutineScope.launch {
-            val mediaItems = withContext(Dispatchers.IO) { getSelectedSongs().map { it.asMediaItem } }
-            binder?.player?.addNext( mediaItems, appContext() )
+            val mediaItems = withContext(NzikDispatchers.DATA) { getSelectedSongs().map { it.asMediaItem } }
+            binder?.player?.addNextOffMain( mediaItems, appContext() )
             itemSelector.isActive = false
         }
     }
     val enqueue = Enqueue {
         coroutineScope.launch {
-            val mediaItems = withContext(Dispatchers.IO) { getSelectedSongs().map { it.asMediaItem } }
-            binder?.player?.enqueue( mediaItems, appContext() )
+            val mediaItems = withContext(NzikDispatchers.DATA) { getSelectedSongs().map { it.asMediaItem } }
+            binder?.player?.enqueueOffMain( mediaItems, appContext() )
             itemSelector.isActive = false
         }
     }

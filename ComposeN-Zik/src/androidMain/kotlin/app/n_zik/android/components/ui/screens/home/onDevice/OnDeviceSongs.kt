@@ -68,7 +68,9 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFoldersOnDeviceKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.AppPullToRefreshBox
 import app.n_zik.android.components.FolderItem
 import app.n_zik.android.components.SongItem
@@ -154,6 +156,7 @@ fun OnDeviceSong(
         if( !isPermissionGranted ) return@LaunchedEffect
 
         context.getLocalSongs( odSort.sortBy, odSort.sortOrder )
+               .flowOn( NzikDispatchers.DATA )
                .distinctUntilChanged()
                .onEach { lazyListState.scrollToItem( 0, 0 ) }
                .collect {

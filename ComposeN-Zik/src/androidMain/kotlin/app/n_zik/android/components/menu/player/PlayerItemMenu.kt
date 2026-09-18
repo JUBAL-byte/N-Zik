@@ -88,6 +88,8 @@ import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.enums.DislikeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.SongItem
 import app.n_zik.android.components.menu.GridMenu
 import app.n_zik.android.components.menu.ListMenu
@@ -507,7 +509,12 @@ class PlayerItemMenu private constructor(
                             navController = navController,
                             onNavigateUp = { menuState.pop() },
                             onClose = { menuState.hide() },
-                            onPlay = { binder.player.forcePlay(song.asMediaItem) }
+                            onPlay = {
+                                coroutineScope.launch {
+                                    val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
+                                    binder.player.forcePlay(mediaItem)
+                                }
+                            }
                         )
                     }
                 }
@@ -812,7 +819,7 @@ class PlayerItemMenu private constructor(
                                     else -> colorPalette().favoritesIcon
                                 },
                             onClick = {
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     if (showDisliked.isEnabled) {
                                         YouTubeSync.rotateSongLikeState( mContext, song.asMediaItem )
                                     } else {

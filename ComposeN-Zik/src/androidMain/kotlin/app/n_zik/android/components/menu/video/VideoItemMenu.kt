@@ -75,9 +75,11 @@ import app.it.fast4x.rimusic.ui.components.themed.PlayNext
 import app.it.fast4x.rimusic.ui.components.themed.PlaylistsMenu
 import app.it.fast4x.rimusic.ui.components.themed.ListenOnDialog
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
-import app.it.fast4x.rimusic.utils.addNext
+import app.n_zik.android.utils.player.addNextOffMain
 import app.it.fast4x.rimusic.utils.asMediaItem
-import app.it.fast4x.rimusic.utils.enqueue
+import app.n_zik.android.utils.player.enqueueOffMain
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
@@ -88,6 +90,7 @@ import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.LastFmActions
 import app.n_zik.android.playback.services.isLocal
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -289,10 +292,20 @@ class VideoItemMenu private constructor(
         val changeCover = ChangeCoverDialog{ song }
         val startRadio = Radio { listOf(song) }
         val playNext = PlayNext {
-            binder?.player?.addNext( listOf(song.asMediaItem), appContext() )
+            // Issue #606 review fix: launch on a scope independent of the popup menu's lifecycle.
+            // MenuComponent.kt hides the menu (cancelling its rememberCoroutineScope()) right after
+            // onShortClick() returns, so a coroutineScope.launch here could be cancelled mid-flight
+            // before player.addNextOffMain ever runs, silently dropping the tap.
+            CoroutineScope(NzikDispatchers.UI).launch {
+                val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
+                binder?.player?.addNextOffMain( listOf(mediaItem), appContext() )
+            }
         }
         val enqueue = Enqueue {
-            binder?.player?.enqueue( listOf(song.asMediaItem), appContext() )
+            CoroutineScope(NzikDispatchers.UI).launch {
+                val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
+                binder?.player?.enqueueOffMain( listOf(mediaItem), appContext() )
+            }
         }
         val addToPlaylist = PlaylistsMenu.init(
             navController = navController,
@@ -327,7 +340,12 @@ class VideoItemMenu private constructor(
                             navController = navController,
                             onNavigateUp = { menuState.pop() },
                             onClose = { menuState.hide() },
-                            onPlay = { binder?.player?.forcePlay(song.asMediaItem) }
+                            onPlay = {
+                                coroutineScope.launch {
+                                    val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
+                                    binder?.player?.forcePlay(mediaItem)
+                                }
+                            }
                         )
                     }
                 }
@@ -535,7 +553,7 @@ class VideoItemMenu private constructor(
                                     else -> colorPalette().favoritesIcon
                                 },
                                 onClick = {
-                                    coroutineScope.launch( Dispatchers.IO ) {
+                                    coroutineScope.launch( NzikDispatchers.DATA ) {
                                         YouTubeSync.rotateSongLikeState( context, song.asMediaItem )
                                     }
                                 },
