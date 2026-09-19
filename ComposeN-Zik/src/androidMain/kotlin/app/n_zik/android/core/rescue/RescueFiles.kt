@@ -124,6 +124,13 @@ object RescueFiles {
     // ──────────────────────────────────────────────────────────────────────
 
     /**
+     * The database could not be checkpointed because another connection (typically the main app
+     * process) is using it. The export is refused rather than producing a file that silently
+     * lacks the transactions still in the WAL; the UI tells the user to close the app.
+     */
+    class DatabaseBusyException(message: String) : IllegalStateException(message)
+
+    /**
      * Exports the database to the given SAF URI.
      *
      * Opens it as raw SQLite (no Room, no migration) to fold the WAL into `data.db`, then copies
@@ -153,7 +160,7 @@ object RescueFiles {
      * "disk I/O error" on a WAL database). It uses [keepCorruptDatabase] because the default
      * error handler DELETES the database file when SQLite reports corruption at open time.
      */
-    private fun checkpointWal(dbFile: File) {
+    internal fun checkpointWal(dbFile: File) {
         SQLiteDatabase.openDatabase(
             dbFile.absolutePath,
             null,
@@ -164,7 +171,7 @@ object RescueFiles {
                 if (cursor.moveToFirst()) {
                     val busy = cursor.getInt(0)
                     Timber.tag(TAG).d("WAL checkpoint busy flag: %d", busy)
-                    check(busy == 0) { "Database is busy: its WAL could not be merged" }
+                    if (busy != 0) throw DatabaseBusyException("Database is busy: its WAL could not be merged")
                 }
             }
         }
@@ -195,6 +202,8 @@ object RescueFiles {
         val dbFile = context.getDatabasePath(DB_FILE_NAME)
         dbFile.parentFile?.mkdirs()
         val tempFile = File(dbFile.parentFile, "$DB_FILE_NAME.import")
+        // A killed earlier import may have left the temporary copy, or its -wal/-shm, behind.
+        deleteWithSideFiles(tempFile)
 
         try {
             // Copy to temp file first
@@ -234,13 +243,20 @@ object RescueFiles {
             replaceDatabaseFile(tempFile, dbFile)
             Timber.tag(TAG).i("Database imported successfully")
         } finally {
-            tempFile.delete()
+            // Validation opens the copy: a WAL-mode file makes SQLite create -wal/-shm next to it.
+            deleteWithSideFiles(tempFile)
         }
+    }
+
+    /** Deletes [dbFile] and its `-wal`, `-shm` and `-journal` files, whichever exist. */
+    internal fun deleteWithSideFiles(dbFile: File) {
+        DB_FILE_SUFFIXES.forEach { suffix -> File(dbFile.path + suffix).delete() }
     }
 
     /**
      * Puts [newDb] in place of [dbFile]. The side files of the old database are removed first:
-     * a stale `-wal` must never be replayed onto a different database.
+     * a stale `-wal` must never be replayed onto a different database. The rename itself is atomic,
+     * but a failure between removing the side files and renaming loses the old `-wal`.
      */
     internal fun replaceDatabaseFile(newDb: File, dbFile: File) {
         DB_FILE_SUFFIXES.drop(1).forEach { suffix ->
@@ -366,11 +382,16 @@ object RescueFiles {
         val encEditor = encryptedPrefsResult?.getOrNull()?.edit()
 
         val stats = applySettingRows(rows, editor, encEditor)
+        // A file holding only credentials, with the keystore unavailable: nothing to write, but
+        // the user must be told the credentials were skipped (a warning, not a generic error).
+        if (stats.imported == 0 && stats.encryptedSkipped > 0) {
+            return@runCatching SettingsOutcome(encryptedSkipped = true)
+        }
         // Nothing is written until commit(), so failing here leaves the settings untouched.
         check(stats.imported > 0) { "No setting could be imported" }
 
-        editor.commit()
-        encEditor?.commit()
+        check(editor.commit()) { "Could not save the settings" }
+        check(encEditor?.commit() ?: true) { "Could not save the credentials" }
         Timber.tag(TAG).i(
             "Settings imported: %d entries (%d encrypted keys skipped)",
             stats.imported, stats.encryptedSkipped
@@ -617,8 +638,9 @@ object RescueFiles {
 
     /**
      * Moves a SQLite database and its side files (`-wal`, `-shm`, `-journal`) from [from] to [to].
-     * Stale side files at [to] are removed first; the move fails loudly instead of leaving a
-     * half-moved database behind.
+     * Stale side files at [to] are removed first, so a previous backup at [to] is replaced.
+     * Files are renamed one after the other: an I/O failure part-way throws, but there is no
+     * rollback, so the set can be left half-moved.
      */
     internal fun moveDatabaseFiles(from: File, to: File) {
         DB_FILE_SUFFIXES.forEach { suffix ->
@@ -659,8 +681,9 @@ object RescueFiles {
 
     /**
      * Swaps the live database with the backup, side files included. The live one is parked first
-     * and only then replaced, so no step ever removes the last good copy; if bringing the backup
-     * back fails, the parked database is put back.
+     * and only then replaced, so the normal path never removes the last good copy. On a failure the
+     * parked database is put back only while the live one is still absent: a failure part-way
+     * through bringing the backup in can leave the parked files under `data.db.swap`.
      */
     internal fun swapDatabaseFiles(dbFile: File, backupDb: File) {
         val parkedDb = File(backupDb.parentFile, "$DB_FILE_NAME.swap")

@@ -1,5 +1,7 @@
 package app.n_zik.android.shortcuts
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Icon
@@ -10,6 +12,8 @@ import app.n_zik.android.R
 import app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog
 import app.n_zik.android.components.dialog.settings.defaultShortcutsOrder
 import app.n_zik.android.components.ui.screens.rescue.RescueActivity
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -192,14 +196,44 @@ class ShortcutIconSyncTest {
         assertEquals(defaults, resolveActiveShortcutIds(",,", ","))
     }
 
-    @Test
-    fun `the dialog and the registration parse the same way`() {
-        val order = "library,search"
-        val enabled = "library"
-        val config = parseShortcutConfig(order, enabled)
+    private fun prefsHolding(order: String?, enabled: String?): SharedPreferences = mockk {
+        every { getString(appShortcutsOrderKey, null) } returns order
+        every { getString(appShortcutsEnabledKey, null) } returns enabled
+    }
 
-        assertEquals(config.order, AppShortcutsSettingsDialog.parseOrder(order))
-        assertEquals(config.enabled, AppShortcutsSettingsDialog.parseEnabled(enabled))
+    private fun prefsWithWrongType(): SharedPreferences = mockk {
+        every { getString(any(), any()) } throws ClassCastException()
+    }
+
+    @Test
+    fun `the dialog shows exactly the shortcuts the launcher registers, cap included`() {
+        val (order, toggles) = AppShortcutsSettingsDialog.loadPrefs(prefsHolding(everyId, everyId))
+        val shown = order.filterIndexed { index, _ -> toggles[index] }
+
+        assertEquals(MAX_ACTIVE_SHORTCUTS, shown.size)
+        assertTrue(SHORTCUT_RESCUE_ID in shown)
+        assertEquals(resolveActiveShortcutIds(everyId, everyId).toSet(), shown.toSet())
+    }
+
+    @Test
+    fun `the dialog falls back to the defaults when the stored values have the wrong type`() {
+        val (order, toggles) = AppShortcutsSettingsDialog.loadPrefs(prefsWithWrongType())
+        val shown = order.filterIndexed { index, _ -> toggles[index] }
+
+        assertEquals(ALL_SHORTCUT_IDS.toSet(), order.toSet())
+        assertEquals(DEFAULT_ACTIVE_SHORTCUT_IDS.toSet(), shown.toSet())
+    }
+
+    @Test
+    fun `registration falls back to the defaults when the stored values have the wrong type`() {
+        val context = mockk<Context> {
+            every { getSharedPreferences("preferences", Context.MODE_PRIVATE) } returns prefsWithWrongType()
+        }
+
+        assertEquals(
+            listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID, SHORTCUT_RESCUE_ID),
+            resolveActiveShortcutIds(context)
+        )
     }
 
     // ──────────────────────────────────────────────────────────────────────

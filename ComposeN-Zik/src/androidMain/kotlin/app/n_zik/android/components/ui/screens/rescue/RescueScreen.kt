@@ -2,6 +2,8 @@ package app.n_zik.android.components.ui.screens.rescue
 
 import android.app.Activity
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,6 +45,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.it.fast4x.rimusic.utils.getEncryptedSharedPreferencesResult
@@ -52,7 +55,6 @@ import app.n_zik.android.core.rescue.RescueFiles
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -106,6 +108,9 @@ fun RescueScreen() {
     var includeLastfm by remember { mutableStateOf(false) }
     var showCredentialToggles by remember { mutableStateOf(false) }
 
+    // Set once restored settings are waiting for this process to end: no other write may run.
+    var exitPending by remember { mutableStateOf(false) }
+
     // Which actions are available depends on files on disk (logs, backups). Read off the main
     // thread and re-read after every action so the cards never stay stale.
     var fileStateVersion by remember { mutableIntStateOf(0) }
@@ -127,7 +132,11 @@ fun RescueScreen() {
             val msg = successMsg ?: context.getString(R.string.rescue_success)
             Toasty.success(context, msg, Toast.LENGTH_SHORT, true).show()
         }.onFailure { e ->
-            val msg = context.getString(R.string.rescue_error, e.message ?: "Unknown")
+            val msg = if (e is RescueFiles.DatabaseBusyException) {
+                context.getString(R.string.rescue_error_database_busy)
+            } else {
+                context.getString(R.string.rescue_error, e.message ?: "Unknown")
+            }
             Toasty.error(context, msg, Toast.LENGTH_LONG, true).show()
             Timber.tag("RescueScreen").e(e, "Action failed")
         }
@@ -148,6 +157,8 @@ fun RescueScreen() {
 
     // Helper to check main process before write actions
     fun guardWrite(action: () -> Unit) {
+        // A write now would commit this process's stale in-memory preferences over the restored files.
+        if (exitPending) return
         if (RescueFiles.isMainProcessRunning(context)) {
             Toasty.warning(context, context.getString(R.string.rescue_main_process_running), Toast.LENGTH_LONG, true).show()
         } else {
@@ -512,7 +523,13 @@ fun RescueScreen() {
                 description = stringResource(R.string.rescue_reset_settings_description),
                 onClick = {
                     guardWrite {
-                        confirmAction = ConfirmAction(R.string.rescue_confirm_reset_settings) {
+                        // A second reset would overwrite the backup with already-cleared settings.
+                        val message = if (fileState.hasSettingsBackup) {
+                            R.string.rescue_confirm_reset_settings_replace_backup
+                        } else {
+                            R.string.rescue_confirm_reset_settings
+                        }
+                        confirmAction = ConfirmAction(message) {
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
                                     RescueFiles.resetSettings(context, encryptedPrefs.await())
@@ -542,10 +559,14 @@ fun RescueScreen() {
                                 if (result.isSuccess) {
                                     // The XML files were swapped behind this process's in-memory
                                     // SharedPreferences: a later commit() would write the stale map
-                                    // back over them. End the :rescue process so nothing does.
-                                    delay(PROCESS_EXIT_DELAY_MS)
-                                    (context as? Activity)?.finishAndRemoveTask()
-                                    Process.killProcess(Process.myPid())
+                                    // back over them. End the :rescue process so nothing does. Armed
+                                    // on the main looper, not in the composition scope: leaving the
+                                    // screen or recreating the activity cannot cancel it.
+                                    exitPending = true
+                                    Handler(Looper.getMainLooper()).postDelayed({
+                                        (context as? Activity)?.finishAndRemoveTask()
+                                        Process.killProcess(Process.myPid())
+                                    }, PROCESS_EXIT_DELAY_MS)
                                 }
                             }
                         }
@@ -604,7 +625,13 @@ private fun RescueActionCard(
         // Still tappable (it explains why it is unavailable), but announced as disabled.
         modifier = Modifier
             .fillMaxWidth()
-            .semantics { if (!enabled) disabled() },
+            .semantics {
+                if (!enabled) {
+                    disabled()
+                    // The reason is otherwise only shown by a toast when the card is tapped.
+                    disabledReason?.let { stateDescription = it }
+                }
+            },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (enabled)
