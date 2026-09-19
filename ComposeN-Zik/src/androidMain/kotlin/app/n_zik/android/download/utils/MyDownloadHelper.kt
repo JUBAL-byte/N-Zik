@@ -554,5 +554,21 @@ object MyDownloadHelper {
     }
 }
 
+/**
+ * Off-Main initialization of the shared download manager (issue #606 N1).
+ *
+ * Callers must dispatch this on [NzikDispatchers.DATA] — it performs disk I/O (temp dir, cache,
+ * database). Initialization failures are logged, never propagated: the composition must not
+ * crash over a failed one-time init, and the `downloads` map simply stays unpopulated until a
+ * later init attempt succeeds.
+ */
+internal suspend fun initDownloadManagerOffMain(context: Context) {
+    runCatching {
+        MyDownloadHelper.getDownloadManager(context)
+    }.onFailure { e ->
+        Timber.tag("MyDownloadHelper").e(e, "Download manager init failed")
+    }
+}
+
 
 

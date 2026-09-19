@@ -604,8 +604,12 @@ fun UpdateScreen(navController: NavController) {
                                             R.string.update_cache_cleared
                                         ) {
                                             showMenu = false
-                                            UpdateDownloadManager.clearCache(context)
-                                            Toaster.s(R.string.update_cache_cleared)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                clearUpdateCache(context)
+                                                withContext(NzikDispatchers.UI) {
+                                                    Toaster.s(R.string.update_cache_cleared)
+                                                }
+                                            }
                                         }
                                     )
                                     menu.Draw()
@@ -949,6 +953,14 @@ internal fun readLocalReleaseNotes(context: Context = appContext()): String =
             .bufferedReader(Charsets.UTF_8)
             .readText()
     } catch (e: Exception) { "" }
+
+/**
+ * Purges the downloaded update APKs (issue #606 N3). Dispatched on [NzikDispatchers.DATA] from
+ * the update menu click; the caller shows its toast afterwards on [NzikDispatchers.UI].
+ */
+internal suspend fun clearUpdateCache(context: Context) {
+    UpdateDownloadManager.clearCache(context)
+}
 
 fun parseChangelogText(text: String): List<Pair<String, List<String>>> {
     val sections = mutableListOf<Pair<String, List<String>>>()

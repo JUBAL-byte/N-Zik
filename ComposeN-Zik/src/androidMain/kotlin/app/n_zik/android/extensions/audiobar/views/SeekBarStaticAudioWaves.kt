@@ -34,7 +34,10 @@ import app.n_zik.android.colorPalette
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
 import app.n_zik.android.extensions.audiobar.utils.WaveformResult
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import kotlin.math.abs
 import java.util.Random
 
@@ -52,11 +55,26 @@ fun SeekBarStaticAudioWaves(
 ) {
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
-    val caches = remember { 
-        listOfNotNull(
-            binder?.downloadCache ?: MyDownloadHelper.getDownloadCache(context),
-            binder?.cache
+    var caches by remember {
+        mutableStateOf(
+            listOfNotNull(
+                binder?.downloadCache,
+                binder?.cache
+            )
         )
+    }
+
+    LaunchedEffect(Unit) {
+        if (binder?.downloadCache == null) {
+            runCatching {
+                val helperCache = withContext(NzikDispatchers.DATA) {
+                    MyDownloadHelper.getDownloadCache(context)
+                }
+                caches = listOfNotNull(helperCache, binder?.cache)
+            }.onFailure { e ->
+                Timber.tag("SeekBarStaticAudioWaves").e(e, "Download cache init failed")
+            }
+        }
     }
     
     var amplitudes by remember { mutableStateOf<List<Int>?>(null) }

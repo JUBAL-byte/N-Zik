@@ -316,12 +316,24 @@ object UpdateDownloadManager {
                 context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
                 "nzik_updates"
             )
-            if (downloadDir.exists()) {
-                downloadDir.listFiles()?.forEach { it.delete() }
-            }
+            cleanupUpdateDir(downloadDir)
         } catch (e: Exception) {
             Timber.tag("UpdateDownloadManager").e(e, "Failed to cleanup temp files")
         }
+    }
+
+    /** File-based core of [cleanupTempFiles], separated so it can be unit-tested with temp dirs. */
+    internal fun cleanupUpdateDir(downloadDir: File): Int {
+        if (!downloadDir.exists()) return 0
+        var deleted = 0
+        downloadDir.listFiles()?.forEach { file ->
+            if (file.delete()) {
+                deleted++
+            } else {
+                Timber.tag("UpdateDownloadManager").w("Could not delete update file ${file.name}")
+            }
+        }
+        return deleted
     }
 }
 

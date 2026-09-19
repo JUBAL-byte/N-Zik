@@ -7,6 +7,7 @@ import app.n_zik.android.core.database.*
 import app.n_zik.android.core.network.utils.isNetworkAvailable
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -18,10 +19,13 @@ import app.n_zik.android.core.database.Database
 import app.n_zik.android.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.DownloadedStateMedia
 import app.n_zik.android.download.utils.MyDownloadHelper
+import app.n_zik.android.download.utils.initDownloadManagerOffMain
 import app.n_zik.android.playback.services.LOCAL_KEY_PREFIX
 import app.n_zik.android.playback.services.PlayerServiceModern
 import app.n_zik.android.playback.services.isLocal
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.dp
 import android.content.Context
 
@@ -33,8 +37,11 @@ const val DOWNLOAD_INDICATOR_STROKE_WIDTH = 2
 @Composable
 fun InitDownloader() {
     val context = LocalContext.current
-    MyDownloadHelper.getDownloadManager(context)
-    MyDownloadHelper.getDownloads()
+    LaunchedEffect(Unit) {
+        withContext(NzikDispatchers.DATA) {
+            initDownloadManagerOffMain(context)
+        }
+    }
 }
 
 
