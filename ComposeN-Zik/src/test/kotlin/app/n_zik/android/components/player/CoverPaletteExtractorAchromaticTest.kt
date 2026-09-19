@@ -100,7 +100,7 @@ class CoverPaletteExtractorAchromaticTest {
             "pure light gray" to android.graphics.Color.rgb(160, 160, 160),
             "dark gray (type Angels)" to android.graphics.Color.rgb(58, 56, 54),
             "off-white" to android.graphics.Color.rgb(235, 233, 228),
-            "warm-tinted gray" to android.graphics.Color.rgb(168, 161, 152),
+            "warm-tinted gray" to android.graphics.Color.rgb(168, 159, 152),
             "cool-tinted gray" to android.graphics.Color.rgb(152, 159, 168),
             "dark gray tinted rose" to android.graphics.Color.rgb(58, 52, 54),
         )
