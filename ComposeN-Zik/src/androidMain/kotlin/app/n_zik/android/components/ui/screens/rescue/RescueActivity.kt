@@ -1,20 +1,33 @@
 package app.n_zik.android.components.ui.screens.rescue
 
+import android.graphics.Color as AndroidColor
 import android.os.Bundle
+import android.os.Process
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.ui.graphics.toArgb
-import timber.log.Timber
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.SystemBarStyle
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.core.view.WindowCompat
-import app.n_zik.android.BuildConfig
+import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.it.fast4x.rimusic.enums.ColorPaletteName
+import app.it.fast4x.rimusic.ui.styling.colorPaletteOf
+import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
+import app.it.fast4x.rimusic.utils.colorPaletteModeKey
+import app.it.fast4x.rimusic.utils.colorPaletteNameKey
+import app.it.fast4x.rimusic.utils.customColorKey
+import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.setDefaultPalette
-import app.it.fast4x.rimusic.utils.getEnum
+import app.n_zik.android.BuildConfig
+import com.kieronquinn.monetcompat.core.MonetCompat
+import timber.log.Timber
 
 /**
  * Lightweight Activity that runs in the `:rescue` process.
@@ -24,95 +37,104 @@ import app.it.fast4x.rimusic.utils.getEnum
  * no Room, no Koin/Hilt, no `Dependencies`, no `appContext()`, no player.
  * This Activity uses only [android.content.Context] and raw files.
  *
- * Timber is NOT planted in the `:rescue` process (the tree is set up in
- * MainApplication which skips init for non-main processes), so we plant a
- * minimal DebugTree here for logging.
+ * Timber is NOT planted in the `:rescue` process (the tree is set up in MainApplication, which
+ * skips init for non-main processes), so debug builds plant a DebugTree here. Release builds
+ * stay silent on purpose: this process handles credentials.
  */
 class RescueActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Plant a Timber tree for the :rescue process (MainApplication skips this). Debug builds
-        // only: release builds must not write to logcat from the process that handles credentials.
         if (BuildConfig.DEBUG && Timber.forest().isEmpty()) {
             Timber.plant(Timber.DebugTree())
         }
-        Timber.tag("RescueActivity").i("Rescue Center started in process %d", android.os.Process.myPid())
+        Timber.tag(TAG).i("Rescue Center started in process %d", Process.myPid())
 
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(
-                scrim = android.graphics.Color.TRANSPARENT,
-            ),
-            navigationBarStyle = SystemBarStyle.dark(
-                scrim = android.graphics.Color.TRANSPARENT,
-            )
+            statusBarStyle = SystemBarStyle.dark(scrim = AndroidColor.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(scrim = AndroidColor.TRANSPARENT)
         )
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
-        val prefs = this.preferences
-
         setContent {
-            val colorPaletteName = prefs.getEnum(app.it.fast4x.rimusic.utils.colorPaletteNameKey, app.it.fast4x.rimusic.enums.ColorPaletteName.Dynamic)
-            val colorPaletteMode = prefs.getEnum(app.it.fast4x.rimusic.utils.colorPaletteModeKey, app.it.fast4x.rimusic.enums.ColorPaletteMode.Dark)
-            val customColor = prefs.getInt(app.it.fast4x.rimusic.utils.customColorKey, androidx.compose.ui.graphics.Color.Green.hashCode())
-            
-            val isDarkTheme = isSystemInDarkTheme()
-            val lightTheme = colorPaletteMode == app.it.fast4x.rimusic.enums.ColorPaletteMode.Light || 
-                             (colorPaletteMode == app.it.fast4x.rimusic.enums.ColorPaletteMode.System && !isDarkTheme)
+            val systemDark = isSystemInDarkTheme()
+            // Resolved once per system theme, never on recomposition: it reads preferences and may
+            // set up MonetCompat.
+            val colorScheme = remember(systemDark) { resolveColorScheme(systemDark) }
 
-            var colorPalette = app.it.fast4x.rimusic.ui.styling.colorPaletteOf(colorPaletteName, colorPaletteMode, !lightTheme)
-
-            // Setup MonetCompat if MaterialYou is used (best effort in :rescue process)
-            if (colorPaletteName == app.it.fast4x.rimusic.enums.ColorPaletteName.MaterialYou) {
-                try {
-                    com.kieronquinn.monetcompat.core.MonetCompat.enablePaletteCompat()
-                    com.kieronquinn.monetcompat.core.MonetCompat.setup(this@RescueActivity)
-                    val monet = com.kieronquinn.monetcompat.core.MonetCompat.getInstance()
-                    monet.setDefaultPalette()
-                    colorPalette = app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf(
-                        androidx.compose.ui.graphics.Color(monet.getAccentColor(this@RescueActivity)),
-                        !lightTheme
-                    )
-                } catch (e: Exception) {
-                    Timber.e(e, "MonetCompat not ready")
-                }
-            } else if (colorPaletteName == app.it.fast4x.rimusic.enums.ColorPaletteName.CustomColor) {
-                colorPalette = app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf(
-                    androidx.compose.ui.graphics.Color(customColor),
-                    !lightTheme
-                )
-            }
-
-            val nzikScheme = if (lightTheme) {
-                androidx.compose.material3.lightColorScheme(
-                    background = colorPalette.background0,
-                    surface = colorPalette.background1,
-                    surfaceVariant = colorPalette.background2,
-                    onSurface = colorPalette.text,
-                    onSurfaceVariant = colorPalette.textSecondary,
-                    primaryContainer = colorPalette.background2,
-                    onPrimaryContainer = androidx.compose.ui.graphics.Color.Black,
-                    primary = colorPalette.accent
-                )
-            } else {
-                androidx.compose.material3.darkColorScheme(
-                    background = colorPalette.background0,
-                    surface = colorPalette.background1,
-                    surfaceVariant = colorPalette.background2,
-                    onSurface = colorPalette.text,
-                    onSurfaceVariant = colorPalette.textSecondary,
-                    primaryContainer = colorPalette.background2,
-                    onPrimaryContainer = androidx.compose.ui.graphics.Color.White,
-                    primary = colorPalette.accent
-                )
-            }
-
-            MaterialTheme(
-                colorScheme = nzikScheme
-            ) {
+            MaterialTheme(colorScheme = colorScheme) {
                 RescueScreen()
             }
         }
+    }
+
+    /**
+     * The Rescue Center colors: the app palette when it can be resolved, a plain Material3 scheme
+     * otherwise. Any failure (corrupt preferences, MonetCompat not ready, ...) must not take the
+     * recovery screen down with it: it exists precisely for when the app is in a bad state.
+     */
+    private fun resolveColorScheme(systemDark: Boolean): ColorScheme =
+        runCatching { appColorScheme(systemDark) }
+            .onFailure { Timber.tag(TAG).e("App palette unavailable, using fallback: %s", it.javaClass.simpleName) }
+            .getOrElse { if (systemDark) darkColorScheme() else lightColorScheme() }
+
+    private fun appColorScheme(systemDark: Boolean): ColorScheme {
+        val prefs = preferences
+        val paletteName = prefs.getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
+        val paletteMode = prefs.getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
+        val customColor = prefs.getInt(customColorKey, Color.Green.hashCode())
+
+        val lightTheme = paletteMode == ColorPaletteMode.Light ||
+            (paletteMode == ColorPaletteMode.System && !systemDark)
+
+        var palette = colorPaletteOf(paletteName, paletteMode, !lightTheme)
+
+        when (paletteName) {
+            // Best effort in the :rescue process
+            ColorPaletteName.MaterialYou -> runCatching {
+                MonetCompat.enablePaletteCompat()
+                MonetCompat.setup(this)
+                val monet = MonetCompat.getInstance()
+                monet.setDefaultPalette()
+                dynamicColorPaletteOf(Color(monet.getAccentColor(this)), !lightTheme)
+            }.onSuccess {
+                palette = it
+            }.onFailure {
+                Timber.tag(TAG).e("MonetCompat not ready: %s", it.javaClass.simpleName)
+            }
+
+            ColorPaletteName.CustomColor -> palette = dynamicColorPaletteOf(Color(customColor), !lightTheme)
+
+            else -> Unit
+        }
+
+        return if (lightTheme) {
+            lightColorScheme(
+                background = palette.background0,
+                surface = palette.background1,
+                surfaceVariant = palette.background2,
+                onSurface = palette.text,
+                onSurfaceVariant = palette.textSecondary,
+                primaryContainer = palette.background2,
+                onPrimaryContainer = Color.Black,
+                primary = palette.accent
+            )
+        } else {
+            darkColorScheme(
+                background = palette.background0,
+                surface = palette.background1,
+                surfaceVariant = palette.background2,
+                onSurface = palette.text,
+                onSurfaceVariant = palette.textSecondary,
+                primaryContainer = palette.background2,
+                onPrimaryContainer = Color.White,
+                primary = palette.accent
+            )
+        }
+    }
+
+    private companion object {
+        const val TAG = "RescueActivity"
     }
 }

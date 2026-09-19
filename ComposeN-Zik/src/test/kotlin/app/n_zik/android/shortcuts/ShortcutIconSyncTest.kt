@@ -9,6 +9,7 @@ import app.n_zik.android.MainActivity
 import app.n_zik.android.R
 import app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog
 import app.n_zik.android.components.dialog.settings.defaultShortcutsOrder
+import app.n_zik.android.components.ui.screens.rescue.RescueActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -126,6 +127,92 @@ class ShortcutIconSyncTest {
         assertTrue(SHORTCUT_ALBUMS_ID in enabled)
         assertTrue(SHORTCUT_RESCUE_ID in enabled) // always included
         assertFalse(SHORTCUT_ARTISTS_ID in enabled)
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // resolveActiveShortcutIds: the pure function that decides what gets registered
+    // ──────────────────────────────────────────────────────────────────────
+
+    private val everyId = ALL_SHORTCUT_IDS.joinToString(",")
+
+    @Test
+    fun `resolve with nothing stored gives the defaults in order`() {
+        assertEquals(
+            listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID, SHORTCUT_RESCUE_ID),
+            resolveActiveShortcutIds(null, null)
+        )
+    }
+
+    @Test
+    fun `resolve caps at the maximum and gives way to rescue, not the other way round`() {
+        val active = resolveActiveShortcutIds(everyId, everyId)
+
+        assertEquals(MAX_ACTIVE_SHORTCUTS, active.size)
+        assertTrue(SHORTCUT_RESCUE_ID in active)
+        // Survivors keep their stored order; the shortcut that gives way is the last non-rescue one.
+        assertEquals(
+            listOf(SHORTCUT_SEARCH_ID, SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_RESCUE_ID),
+            active
+        )
+    }
+
+    @Test
+    fun `resolve keeps rescue when the enabled list does not mention it`() {
+        val active = resolveActiveShortcutIds("albums,artists", "albums,artists")
+        assertTrue(SHORTCUT_RESCUE_ID in active)
+        assertEquals(listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_RESCUE_ID), active)
+    }
+
+    @Test
+    fun `resolve keeps rescue when the stored order does not mention it`() {
+        // An order missing ids used to make rescue vanish from the launcher.
+        val active = resolveActiveShortcutIds("search,albums", "search,albums")
+        assertEquals(listOf(SHORTCUT_SEARCH_ID, SHORTCUT_ALBUMS_ID, SHORTCUT_RESCUE_ID), active)
+    }
+
+    @Test
+    fun `resolve with a blank order still registers the enabled shortcuts`() {
+        assertEquals(
+            listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_RESCUE_ID),
+            resolveActiveShortcutIds("", "albums")
+        )
+    }
+
+    @Test
+    fun `resolve never returns duplicates`() {
+        val active = resolveActiveShortcutIds("albums,albums,rescue", "albums,albums,rescue")
+        assertEquals(active.distinct(), active)
+        assertEquals(listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_RESCUE_ID), active)
+    }
+
+    @Test
+    fun `resolve ignores unknown ids and falls back to defaults on unusable input`() {
+        val defaults = listOf(SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID, SHORTCUT_RESCUE_ID)
+        assertEquals(defaults, resolveActiveShortcutIds("nope,nada", ""))
+        assertEquals(defaults, resolveActiveShortcutIds(",,", ","))
+    }
+
+    @Test
+    fun `the dialog and the registration parse the same way`() {
+        val order = "library,search"
+        val enabled = "library"
+        val config = parseShortcutConfig(order, enabled)
+
+        assertEquals(config.order, AppShortcutsSettingsDialog.parseOrder(order))
+        assertEquals(config.enabled, AppShortcutsSettingsDialog.parseEnabled(enabled))
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Where each shortcut goes
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `rescue opens RescueActivity and every other shortcut opens MainActivity`() {
+        // Pointing rescue at MainActivity would send the user into the crash it exists for.
+        assertEquals(RescueActivity::class.java, shortcutTargetClass(SHORTCUT_RESCUE_ID))
+        ALL_SHORTCUT_IDS.filter { it != SHORTCUT_RESCUE_ID }.forEach {
+            assertEquals(MainActivity::class.java, shortcutTargetClass(it))
+        }
     }
 }
 

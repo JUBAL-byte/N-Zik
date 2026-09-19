@@ -1,7 +1,10 @@
 package app.n_zik.android.core.rescue
 
+import android.content.SharedPreferences
 import app.n_zik.android.components.dialog.export.ExportSettingsDialog
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -246,5 +249,192 @@ class RescueFilesTest {
         assertFalse(indexJournal.exists())
         assertTrue(appDb.exists())
         assertTrue(File(cacheDir, "exoplayer/stream.bin").exists())
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Database files: reset / restore / import
+    // ──────────────────────────────────────────────────────────────────────
+
+    /** Writes a database main file, plus the side files that are given, into [dir]. */
+    private fun writeDb(dir: File, main: String, wal: String? = null, shm: String? = null): File {
+        dir.mkdirs()
+        val db = File(dir, "data.db").apply { writeText(main) }
+        wal?.let { File(dir, "data.db-wal").writeText(it) }
+        shm?.let { File(dir, "data.db-shm").writeText(it) }
+        return db
+    }
+
+    @Test
+    fun `moving a database takes its wal and shm along and leaves no stale side file behind`(@TempDir tmp: File) {
+        val live = writeDb(File(tmp, "databases"), main = "live-main", wal = "live-wal", shm = "live-shm")
+        val backup = writeDb(File(tmp, "backups"), main = "old-main", wal = "old-wal")
+        File(tmp, "backups/data.db-journal").writeText("stale journal of the old backup")
+
+        RescueFiles.moveDatabaseFiles(live, backup)
+
+        assertEquals("live-main", backup.readText())
+        assertEquals("live-wal", File(tmp, "backups/data.db-wal").readText())
+        assertEquals("live-shm", File(tmp, "backups/data.db-shm").readText())
+        assertFalse(File(tmp, "backups/data.db-journal").exists(), "old backup's journal must not survive")
+        assertFalse(live.exists())
+        assertFalse(File(tmp, "databases/data.db-wal").exists())
+        assertFalse(File(tmp, "databases/data.db-shm").exists())
+    }
+
+    @Test
+    fun `swapping databases exchanges them completely and swapping again restores the original`(@TempDir tmp: File) {
+        val live = writeDb(File(tmp, "databases"), main = "A-main", wal = "A-wal")
+        val backup = writeDb(File(tmp, "backups"), main = "B-main", shm = "B-shm")
+
+        RescueFiles.swapDatabaseFiles(live, backup)
+
+        assertEquals("B-main", live.readText())
+        assertEquals("B-shm", File(tmp, "databases/data.db-shm").readText())
+        assertFalse(File(tmp, "databases/data.db-wal").exists())
+        assertEquals("A-main", backup.readText())
+        assertEquals("A-wal", File(tmp, "backups/data.db-wal").readText())
+        assertFalse(File(tmp, "backups/data.db-shm").exists())
+        assertFalse(File(tmp, "backups/data.db.swap").exists(), "parking file must be gone")
+
+        RescueFiles.swapDatabaseFiles(live, backup)
+
+        assertEquals("A-main", live.readText())
+        assertEquals("A-wal", File(tmp, "databases/data.db-wal").readText())
+        assertEquals("B-main", backup.readText())
+        assertEquals("B-shm", File(tmp, "backups/data.db-shm").readText())
+    }
+
+    @Test
+    fun `swapping when there is no live database just brings the backup back`(@TempDir tmp: File) {
+        val live = File(tmp, "databases/data.db").apply { parentFile.mkdirs() }
+        val backup = writeDb(File(tmp, "backups"), main = "B-main")
+
+        RescueFiles.swapDatabaseFiles(live, backup)
+
+        assertEquals("B-main", live.readText())
+        assertFalse(backup.exists())
+    }
+
+    @Test
+    fun `replacing the database removes the stale side files of the old one`(@TempDir tmp: File) {
+        val live = writeDb(File(tmp, "databases"), main = "old", wal = "old-wal", shm = "old-shm")
+        val imported = File(tmp, "databases/data.db.import").apply { writeText("new") }
+
+        RescueFiles.replaceDatabaseFile(imported, live)
+
+        assertEquals("new", live.readText())
+        assertFalse(File(tmp, "databases/data.db-wal").exists(), "a stale wal must never be replayed onto the new database")
+        assertFalse(File(tmp, "databases/data.db-shm").exists())
+        assertFalse(imported.exists())
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Settings backups / reset / restore
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `settings backup then swap brings the old settings back and keeps the current ones as backup`(@TempDir tmp: File) {
+        val prefsDir = File(tmp, "shared_prefs").apply { mkdirs() }
+        val backupDir = File(tmp, "backups")
+        File(prefsDir, "preferences.xml").writeText("before")
+        File(prefsDir, "secure_preferences.xml").writeText("secure-before")
+
+        RescueFiles.backupSettingsFiles(prefsDir, backupDir)
+        // The app then runs with other settings and no secure file
+        File(prefsDir, "preferences.xml").writeText("after")
+        File(prefsDir, "secure_preferences.xml").delete()
+
+        RescueFiles.swapSettingsFiles(prefsDir, backupDir)
+
+        assertEquals("before", File(prefsDir, "preferences.xml").readText())
+        assertEquals("secure-before", File(prefsDir, "secure_preferences.xml").readText())
+        assertEquals("after", File(backupDir, "preferences.xml").readText())
+        assertFalse(File(backupDir, "secure_preferences.xml").exists(), "there was no live secure file to keep")
+        assertFalse(File(backupDir, "preferences.xml.swap").exists(), "parking file must be gone")
+    }
+
+    @Test
+    fun `backing up settings leaves no stale copy of a file that no longer exists`(@TempDir tmp: File) {
+        val prefsDir = File(tmp, "shared_prefs").apply { mkdirs() }
+        val backupDir = File(tmp, "backups").apply { mkdirs() }
+        File(backupDir, "secure_preferences.xml").writeText("stale")
+        File(prefsDir, "preferences.xml").writeText("current")
+
+        RescueFiles.backupSettingsFiles(prefsDir, backupDir)
+
+        assertEquals("current", File(backupDir, "preferences.xml").readText())
+        assertFalse(File(backupDir, "secure_preferences.xml").exists())
+    }
+
+    @Test
+    fun `deleting backups removes the whole directory and tolerates a missing one`(@TempDir tmp: File) {
+        val backupDir = File(tmp, "rescue_backups").apply { mkdirs() }
+        File(backupDir, "data.db").writeText("x")
+        File(backupDir, "nested").apply { mkdirs() }
+
+        RescueFiles.deleteBackupDir(backupDir)
+        assertFalse(backupDir.exists())
+
+        RescueFiles.deleteBackupDir(backupDir) // already gone: no exception
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Settings import routing (credentials vs regular settings)
+    // ──────────────────────────────────────────────────────────────────────
+
+    private fun editor() = mockk<SharedPreferences.Editor>(relaxed = true)
+
+    @Test
+    fun `credential keys go to the encrypted editor and the rest to the plain one`() {
+        val plain = editor()
+        val encrypted = editor()
+        val rows = listOf(
+            Triple("String", "ytCookie", "SECRET"),
+            Triple("Boolean", "persistentQueue", "true"),
+            Triple("Int", "count", "7"),
+            Triple("Long", "big", "9000000000"),
+            Triple("Float", "ratio", "1.5")
+        )
+
+        val stats = RescueFiles.applySettingRows(rows, plain, encrypted)
+
+        verify { encrypted.putString("ytCookie", "SECRET") }
+        verify(exactly = 0) { plain.putString("ytCookie", any()) }
+        verify { plain.putBoolean("persistentQueue", true) }
+        verify { plain.putInt("count", 7) }
+        verify { plain.putLong("big", 9_000_000_000L) }
+        verify { plain.putFloat("ratio", 1.5f) }
+        assertEquals(RescueFiles.SettingsImportStats(imported = 5, encryptedSkipped = 0), stats)
+    }
+
+    @Test
+    fun `credential keys are skipped and never written in clear when the encrypted store is unavailable`() {
+        val plain = editor()
+        val rows = listOf(
+            Triple("String", "ytCookie", "SECRET"),
+            Triple("String", "language", "en")
+        )
+
+        val stats = RescueFiles.applySettingRows(rows, plain, null)
+
+        verify(exactly = 0) { plain.putString("ytCookie", any()) }
+        verify { plain.putString("language", "en") }
+        assertEquals(RescueFiles.SettingsImportStats(imported = 1, encryptedSkipped = 1), stats)
+    }
+
+    @Test
+    fun `unknown types and unparsable numbers are not counted and do not abort the import`() {
+        val plain = editor()
+        val rows = listOf(
+            Triple("HashSet", "tags", "a"),
+            Triple("Int", "bad", "abc"),
+            Triple("String", "ok", "v")
+        )
+
+        val stats = RescueFiles.applySettingRows(rows, plain, null)
+
+        assertEquals(1, stats.imported)
+        verify { plain.putString("ok", "v") }
+        verify(exactly = 0) { plain.putInt(any(), any()) }
     }
 }

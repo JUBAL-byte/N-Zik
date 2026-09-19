@@ -130,6 +130,7 @@ import app.it.fast4x.rimusic.utils.crossfadeEnabledKey
 import app.it.fast4x.rimusic.utils.crossfadeGaplessKey
 import androidx.compose.animation.scaleIn
 import android.content.Context
+import app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog
 
 @Composable
 fun DefaultGeneralSettings(context: Context) {
@@ -208,7 +209,7 @@ fun DefaultGeneralSettings(context: Context) {
     jumpPrevious = "3"
     var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
     notificationType = NotificationType.Default
-    app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.reset(context)
+    AppShortcutsSettingsDialog.reset(context)
 }
 
 @ExperimentalAnimationApi
@@ -1414,7 +1415,7 @@ if (search.inputValue.isBlank() || stringResource(R.string.max_songs_in_queue_an
          }
 
         // App Shortcuts Section
-        app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.Render()
+        AppShortcutsSettingsDialog.Render()
         val searchCtx_Shortcuts = search.inputValue.isBlank() || stringResource(R.string.app_shortcuts_settings).contains(search.inputValue, true)
         AnimatedVisibility(
             visible = searchCtx_Shortcuts,
@@ -1429,7 +1430,7 @@ if (search.inputValue.isBlank() || stringResource(R.string.max_songs_in_queue_an
                             title = stringResource(R.string.app_shortcuts_settings),
                             text = stringResource(R.string.app_shortcuts_settings_description),
                             icon = R.drawable.shortcut_rescue,
-                            onClick = { app.n_zik.android.components.dialog.settings.AppShortcutsSettingsDialog.showDialog() }
+                            onClick = { AppShortcutsSettingsDialog.showDialog() }
                         )
                     }
                 }

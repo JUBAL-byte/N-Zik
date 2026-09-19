@@ -1,6 +1,8 @@
 package app.n_zik.android.components.ui.screens.rescue
 
+import android.app.Activity
 import android.net.Uri
+import android.os.Process
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,7 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -26,8 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,13 +41,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.it.fast4x.rimusic.utils.getEncryptedSharedPreferencesResult
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.R
 import app.n_zik.android.core.rescue.RescueFiles
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -55,8 +60,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import es.dmoral.toasty.Toasty
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,10 +71,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.BasicText
 
+/** Time left to read the confirmation toast before the `:rescue` process is ended. */
+private const val PROCESS_EXIT_DELAY_MS = 1_500L
+
 /**
  * Main UI composable for the Rescue Center.
  *
- * Lists all 8 recovery actions with confirmation dialogs for destructive ones.
+ * Lists the recovery actions by category (data, maintenance, danger zone), with confirmation
+ * dialogs for destructive ones.
  * Runs in the `:rescue` process — NO Room, no DI, no player, no `appContext()`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,9 +88,13 @@ fun RescueScreen() {
     val scope = rememberCoroutineScope()
     val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
 
-    // Encrypted prefs Result (safe, no throw)
-    val encryptedPrefsResult = remember {
-        context.getEncryptedSharedPreferencesResult()
+    // Encrypted prefs Result (safe, no throw). Opened lazily and off the main thread, only when an
+    // action awaits it: Keystore work must not run in composition, and the database and log
+    // actions never need it.
+    val encryptedPrefs = remember(scope) {
+        scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+            context.getEncryptedSharedPreferencesResult()
+        }
     }
 
     // State for confirmation dialogs
@@ -173,8 +184,10 @@ fun RescueScreen() {
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val result = withContext(Dispatchers.IO) {
+                val wantsCredentials = includeYtb || includeDiscord || includeLastfm
                 RescueFiles.exportSettings(
-                    context, uri, encryptedPrefsResult,
+                    context, uri,
+                    if (wantsCredentials) encryptedPrefs.await() else null,
                     includeYtb, includeDiscord, includeLastfm
                 )
             }
@@ -189,7 +202,7 @@ fun RescueScreen() {
         guardWrite {
             scope.launch {
                 val result = withContext(Dispatchers.IO) {
-                    RescueFiles.importSettings(context, uri, encryptedPrefsResult)
+                    RescueFiles.importSettings(context, uri, encryptedPrefs.await())
                 }
                 showSettingsResult(result)
             }
@@ -275,50 +288,15 @@ fun RescueScreen() {
                             }
                         }
                         Spacer(modifier = Modifier.height(24.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable(onClick = { showCredentialToggles = false })
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BasicText(
-                                    text = stringResource(android.R.string.cancel),
-                                    style = TextStyle(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        textAlign = TextAlign.Center,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
+                        RescueDialogButtons(
+                            cancelText = stringResource(android.R.string.cancel),
+                            confirmText = stringResource(android.R.string.ok),
+                            onCancel = { showCredentialToggles = false },
+                            onConfirm = {
+                                showCredentialToggles = false
+                                exportSettingsLauncher.launch("${BuildConfig.APP_NAME} $date Settings.csv")
                             }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        showCredentialToggles = false
-                                        exportSettingsLauncher.launch("${BuildConfig.APP_NAME} $date Settings.csv")
-                                    }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                BasicText(
-                                    text = stringResource(android.R.string.ok),
-                                    style = TextStyle(
-                                        color = MaterialTheme.colorScheme.onPrimary,
-                                        textAlign = TextAlign.Center,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                )
-                            }
-                        }
+                        )
                     }
                 }
             }
@@ -350,7 +328,7 @@ fun RescueScreen() {
             // ─── DATA & BACKUP ───
             RescueCategoryHeader(stringResource(R.string.rescue_category_data))
 
-            // 1. Export database
+            // Export database
             RescueActionCard(
                 iconRes = R.drawable.server,
                 title = stringResource(R.string.rescue_export_database),
@@ -360,7 +338,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 2. Import database
+            // Import database
             RescueActionCard(
                 iconRes = R.drawable.server,
                 title = stringResource(R.string.rescue_import_database),
@@ -378,7 +356,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 3. Export settings
+            // Export settings
             RescueActionCard(
                 iconRes = R.drawable.settings,
                 title = stringResource(R.string.rescue_export_settings),
@@ -386,7 +364,7 @@ fun RescueScreen() {
                 onClick = { showCredentialToggles = true }
             )
 
-            // 4. Import settings
+            // Import settings
             RescueActionCard(
                 iconRes = R.drawable.settings,
                 title = stringResource(R.string.rescue_import_settings),
@@ -405,7 +383,7 @@ fun RescueScreen() {
             // ─── MAINTENANCE ───
             RescueCategoryHeader(stringResource(R.string.rescue_category_maintenance))
 
-            // 5. Export logs
+            // Export logs
             RescueActionCard(
                 iconRes = R.drawable.bugs,
                 title = stringResource(R.string.rescue_export_logs),
@@ -417,7 +395,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 6. Delete logs
+            // Delete logs
             RescueActionCard(
                 iconRes = R.drawable.trash,
                 title = stringResource(R.string.rescue_delete_logs),
@@ -438,7 +416,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 7. Clear cache
+            // Clear cache
             RescueActionCard(
                 iconRes = R.drawable.trash,
                 title = stringResource(R.string.rescue_clear_cache),
@@ -457,7 +435,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 8. Delete downloads
+            // Delete downloads
             RescueActionCard(
                 iconRes = R.drawable.trash,
                 title = stringResource(R.string.rescue_delete_downloads),
@@ -476,40 +454,25 @@ fun RescueScreen() {
                 }
             )
 
-            // 9. Delete backups (corbeille)
-            RescueActionCard(
-                iconRes = R.drawable.trash,
-                title = stringResource(R.string.rescue_delete_backups),
-                description = stringResource(R.string.rescue_delete_backups_description),
-                enabled = fileState.hasDatabaseBackup || fileState.hasSettingsBackup,
-                disabledReason = stringResource(R.string.rescue_no_backups_to_delete),
-                onClick = {
-                    guardWrite {
-                        confirmAction = ConfirmAction(R.string.rescue_confirm_delete_backups) {
-                            scope.launch {
-                                val result = withContext(Dispatchers.IO) {
-                                    RescueFiles.deleteBackups(context)
-                                }
-                                showResult(result)
-                            }
-                        }
-                    }
-                }
-            )
-
             Spacer(modifier = Modifier.height(8.dp))
 
             // ─── DANGER ZONE ───
             RescueCategoryHeader(stringResource(R.string.rescue_category_danger))
 
-            // 9. Reset database
+            // Reset database
             RescueActionCard(
                 iconRes = R.drawable.server,
                 title = stringResource(R.string.rescue_reset_database),
                 description = stringResource(R.string.rescue_reset_database_description),
                 onClick = {
                     guardWrite {
-                        confirmAction = ConfirmAction(R.string.rescue_confirm_reset_database) {
+                        // A second reset overwrites the only backup: say so before it happens.
+                        val message = if (fileState.hasDatabaseBackup) {
+                            R.string.rescue_confirm_reset_database_replace_backup
+                        } else {
+                            R.string.rescue_confirm_reset_database
+                        }
+                        confirmAction = ConfirmAction(message) {
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
                                     RescueFiles.resetDatabase(context)
@@ -521,7 +484,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 10. Restore database
+            // Restore database
             RescueActionCard(
                 iconRes = R.drawable.server,
                 title = stringResource(R.string.rescue_restore_database),
@@ -542,7 +505,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 11. Reset settings
+            // Reset settings
             RescueActionCard(
                 iconRes = R.drawable.settings,
                 title = stringResource(R.string.rescue_reset_settings),
@@ -552,7 +515,7 @@ fun RescueScreen() {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_reset_settings) {
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
-                                    RescueFiles.resetSettings(context, encryptedPrefsResult)
+                                    RescueFiles.resetSettings(context, encryptedPrefs.await())
                                 }
                                 showResult(result)
                             }
@@ -561,7 +524,7 @@ fun RescueScreen() {
                 }
             )
 
-            // 12. Restore settings
+            // Restore settings
             RescueActionCard(
                 iconRes = R.drawable.settings,
                 title = stringResource(R.string.rescue_restore_settings),
@@ -574,6 +537,35 @@ fun RescueScreen() {
                             scope.launch {
                                 val result = withContext(Dispatchers.IO) {
                                     RescueFiles.restoreSettings(context)
+                                }
+                                showResult(result)
+                                if (result.isSuccess) {
+                                    // The XML files were swapped behind this process's in-memory
+                                    // SharedPreferences: a later commit() would write the stale map
+                                    // back over them. End the :rescue process so nothing does.
+                                    delay(PROCESS_EXIT_DELAY_MS)
+                                    (context as? Activity)?.finishAndRemoveTask()
+                                    Process.killProcess(Process.myPid())
+                                }
+                            }
+                        }
+                    }
+                }
+            )
+
+            // Delete backups: removes the only safety copy, so it lives in the danger zone
+            RescueActionCard(
+                iconRes = R.drawable.trash,
+                title = stringResource(R.string.rescue_delete_backups),
+                description = stringResource(R.string.rescue_delete_backups_description),
+                enabled = fileState.hasDatabaseBackup || fileState.hasSettingsBackup,
+                disabledReason = stringResource(R.string.rescue_no_backups_to_delete),
+                onClick = {
+                    guardWrite {
+                        confirmAction = ConfirmAction(R.string.rescue_confirm_delete_backups) {
+                            scope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    RescueFiles.deleteBackups(context)
                                 }
                                 showResult(result)
                             }
@@ -609,7 +601,10 @@ private fun RescueActionCard(
 ) {
     val context = LocalContext.current
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        // Still tappable (it explains why it is unavailable), but announced as disabled.
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { if (!enabled) disabled() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (enabled)
@@ -752,53 +747,47 @@ fun RescueConfirmationDialog(
                             .padding(bottom = 24.dp)
                     )
 
-                    // Action buttons
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable(onClick = onDismiss)
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            BasicText(
-                                text = cancelText,
-                                style = TextStyle(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
+                    RescueDialogButtons(
+                        cancelText = cancelText,
+                        confirmText = confirmText,
+                        onCancel = onDismiss,
+                        onConfirm = {
+                            onConfirm()
+                            onDismiss()
                         }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable {
-                                    onConfirm()
-                                    onDismiss()
-                                }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            BasicText(
-                                text = confirmText,
-                                style = TextStyle(
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    textAlign = TextAlign.Center,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Cancel / confirm buttons shared by the Rescue dialogs. Material3 buttons keep the button role
+ * for TalkBack and a 48 dp minimum touch target.
+ */
+@Composable
+private fun RescueDialogButtons(
+    cancelText: String,
+    confirmText: String,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TextButton(
+            onClick = onCancel,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(text = cancelText, fontWeight = FontWeight.Medium)
+        }
+        Button(
+            onClick = onConfirm,
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(text = confirmText, fontWeight = FontWeight.Medium)
         }
     }
 }

@@ -42,13 +42,6 @@ const val appShortcutsOrderKey = "appShortcutsOrder"
 const val appShortcutsEnabledKey = "appShortcutsEnabled"
 
 /**
- * @deprecated Use [ALL_SHORTCUT_IDS] instead. Kept for test backward compatibility.
- */
-@Deprecated("Use ALL_SHORTCUT_IDS", replaceWith = ReplaceWith("ALL_SHORTCUT_IDS"))
-internal val SHORTCUT_IDS =
-    listOf(SHORTCUT_SEARCH_ID, SHORTCUT_ALBUMS_ID, SHORTCUT_ARTISTS_ID, SHORTCUT_LIBRARY_ID)
-
-/**
  * True when the given package is the Google (Pixel) launcher.
  *
  * The Pixel launcher resolves (and caches) shortcut icons with its own configuration, so the
@@ -73,37 +66,50 @@ internal fun homeLauncherPackage(packageManager: PackageManager): String? =
     }.getOrNull()?.activityInfo?.packageName
 
 /**
- * Resolves the active shortcut IDs from user preferences.
+ * Shortcut order and enabled set, parsed from the two comma-separated preference values.
  *
- * Reads the order from [appShortcutsOrderKey] (comma-separated string) and the enabled
- * set from [appShortcutsEnabledKey] (comma-separated string). Unknown IDs are ignored.
- * Rescue is always included (locked). At most [MAX_ACTIVE_SHORTCUTS] are returned.
- *
- * If no preferences exist, returns [DEFAULT_ACTIVE_SHORTCUT_IDS].
+ * Single source of truth shared by the launcher registration and the settings dialog, so they
+ * cannot disagree. Guarantees, whatever the stored strings contain (blank, unknown ids,
+ * duplicates, missing ids):
+ * - [order] holds every id of [ALL_SHORTCUT_IDS] exactly once, stored order first;
+ * - [enabled] always contains [SHORTCUT_RESCUE_ID] (locked), and falls back to
+ *   [DEFAULT_ACTIVE_SHORTCUT_IDS] when nothing usable is stored.
+ */
+internal data class ShortcutConfig(val order: List<String>, val enabled: Set<String>)
+
+internal fun parseShortcutConfig(orderStr: String?, enabledStr: String?): ShortcutConfig {
+    val storedOrder = orderStr.orEmpty().split(",").filter { it in ALL_SHORTCUT_IDS }.distinct()
+    val order = storedOrder + ALL_SHORTCUT_IDS.filter { it !in storedOrder }
+
+    val storedEnabled = enabledStr.orEmpty().split(",").filter { it in ALL_SHORTCUT_IDS }
+    val enabled = (storedEnabled.ifEmpty { DEFAULT_ACTIVE_SHORTCUT_IDS } + SHORTCUT_RESCUE_ID).toSet()
+
+    return ShortcutConfig(order, enabled)
+}
+
+/**
+ * The shortcut ids to register, in display order: enabled ones only, at most
+ * [MAX_ACTIVE_SHORTCUTS]. Rescue is locked, so when more than the maximum are enabled the other
+ * shortcuts give way, never Rescue.
+ */
+internal fun resolveActiveShortcutIds(orderStr: String?, enabledStr: String?): List<String> {
+    val (order, enabled) = parseShortcutConfig(orderStr, enabledStr)
+    val active = order.filter { it in enabled }
+    if (active.size <= MAX_ACTIVE_SHORTCUTS) return active
+
+    val kept = active.filter { it != SHORTCUT_RESCUE_ID }.take(MAX_ACTIVE_SHORTCUTS - 1).toSet()
+    return active.filter { it == SHORTCUT_RESCUE_ID || it in kept }
+}
+
+/**
+ * Same as above, reading the values from the `"preferences"` file. A value of an unexpected type
+ * (corrupt preferences) is treated as absent instead of failing registration.
  */
 internal fun resolveActiveShortcutIds(context: Context): List<String> {
     val prefs = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
-    val orderStr = prefs.getString(appShortcutsOrderKey, null)
-    val enabledStr = prefs.getString(appShortcutsEnabledKey, null)
-
-    // No preferences yet: use defaults
-    if (orderStr == null && enabledStr == null) {
-        return DEFAULT_ACTIVE_SHORTCUT_IDS
-    }
-
-    val order = orderStr?.split(",")
-        ?.filter { it in ALL_SHORTCUT_IDS }
-        ?: ALL_SHORTCUT_IDS
-    val enabled = enabledStr?.split(",")
-        ?.filter { it in ALL_SHORTCUT_IDS }
-        ?.toMutableSet()
-        ?: DEFAULT_ACTIVE_SHORTCUT_IDS.toMutableSet()
-
-    // Rescue is always enabled (locked)
-    enabled.add(SHORTCUT_RESCUE_ID)
-
-    // Filter and cap at max
-    return order.filter { it in enabled }.take(MAX_ACTIVE_SHORTCUTS)
+    val orderStr = runCatching { prefs.getString(appShortcutsOrderKey, null) }.getOrNull()
+    val enabledStr = runCatching { prefs.getString(appShortcutsEnabledKey, null) }.getOrNull()
+    return resolveActiveShortcutIds(orderStr, enabledStr)
 }
 
 /**
@@ -124,13 +130,18 @@ internal fun registerAppShortcuts(context: Context) {
     runCatching {
         val activeIds = resolveActiveShortcutIds(context)
         val blackIcons = isGoogleLauncher(homeLauncherPackage(context.packageManager))
-        shortcutManager.setDynamicShortcuts(activeIds.map { buildShortcut(context, it, blackIcons) })
-        Timber.tag("ShortcutIconSync").i(
-            "Registered %d shortcuts (%s)%s",
-            activeIds.size,
-            activeIds.joinToString(","),
-            if (blackIcons) " (Google launcher: black icons)" else ""
-        )
+        val registered = shortcutManager.setDynamicShortcuts(activeIds.map { buildShortcut(context, it, blackIcons) })
+        if (registered) {
+            Timber.tag("ShortcutIconSync").i(
+                "Registered %d shortcuts (%s)%s",
+                activeIds.size,
+                activeIds.joinToString(","),
+                if (blackIcons) " (Google launcher: black icons)" else ""
+            )
+        } else {
+            // false = rate-limited: this runs on every main-process start, including background ones.
+            Timber.tag("ShortcutIconSync").w("Shortcuts not registered (rate limited)")
+        }
     }.onFailure {
         Timber.tag("ShortcutIconSync").e(it, "Failed to register shortcuts")
     }
@@ -156,20 +167,21 @@ internal fun shortcutSpec(shortcutId: String): Triple<Int, Int, String> = when (
 /** Intent action for the Rescue Center shortcut. Must match the manifest intent-filter. */
 const val ACTION_RESCUE = "app.n_zik.android.action.rescue"
 
+/**
+ * The activity a shortcut opens. Rescue MUST open [RescueActivity] (its own process, no app
+ * init): pointing it at [MainActivity] would send the user into the very crash it exists for.
+ * Split out so this is unit-testable without a `Context`.
+ */
+internal fun shortcutTargetClass(shortcutId: String): Class<*> =
+    if (shortcutId == SHORTCUT_RESCUE_ID) RescueActivity::class.java else MainActivity::class.java
+
 private fun buildShortcut(context: Context, shortcutId: String, blackIcon: Boolean): ShortcutInfo {
     val (labelRes, drawableRes, action) = shortcutSpec(shortcutId)
-
-    // Rescue targets RescueActivity; all others target MainActivity
-    val targetClass = if (shortcutId == SHORTCUT_RESCUE_ID) {
-        RescueActivity::class.java
-    } else {
-        MainActivity::class.java
-    }
 
     return ShortcutInfo.Builder(context, shortcutId)
         .setShortLabel(context.getString(labelRes))
         .setIcon(shortcutIcon(context, drawableRes, blackIcon))
-        .setIntent(Intent(context, targetClass).setAction(action))
+        .setIntent(Intent(context, shortcutTargetClass(shortcutId)).setAction(action))
         .build()
 }
 

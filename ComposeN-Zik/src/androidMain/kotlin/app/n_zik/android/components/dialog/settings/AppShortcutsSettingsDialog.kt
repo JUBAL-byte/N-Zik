@@ -14,7 +14,6 @@ import app.n_zik.android.R
 import app.n_zik.android.components.dialog.common.Dialog
 import app.n_zik.android.components.dialog.common.ToggleItem
 import app.n_zik.android.components.dialog.common.ToggleListDialog
-import app.n_zik.android.shortcuts.ALL_SHORTCUT_IDS
 import app.n_zik.android.shortcuts.DEFAULT_ACTIVE_SHORTCUT_IDS
 import app.n_zik.android.shortcuts.MAX_ACTIVE_SHORTCUTS
 import app.n_zik.android.shortcuts.SHORTCUT_ALBUMS_ID
@@ -24,7 +23,9 @@ import app.n_zik.android.shortcuts.SHORTCUT_RESCUE_ID
 import app.n_zik.android.shortcuts.SHORTCUT_SEARCH_ID
 import app.n_zik.android.shortcuts.appShortcutsEnabledKey
 import app.n_zik.android.shortcuts.appShortcutsOrderKey
+import app.n_zik.android.shortcuts.parseShortcutConfig
 import app.n_zik.android.shortcuts.registerAppShortcuts
+import app.n_zik.android.shortcuts.resolveActiveShortcutIds
 import app.kreate.android.me.knighthat.utils.Toaster
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -90,40 +91,20 @@ object AppShortcutsSettingsDialog : Dialog {
 
     override var isActive: Boolean by mutableStateOf(false)
 
-    fun parseOrder(serialized: String): List<String> {
-        if (serialized.isBlank()) return defaultShortcutsOrder
-        return try {
-            val list = serialized.split(",").filter { it in ALL_SHORTCUT_IDS }
-            // Add any missing IDs at the end
-            val result = list.toMutableList()
-            for (id in ALL_SHORTCUT_IDS) {
-                if (id !in result) result.add(id)
-            }
-            result
-        } catch (_: Exception) {
-            defaultShortcutsOrder
-        }
-    }
+    /** Every shortcut id once, stored order first, missing ids appended. */
+    fun parseOrder(serialized: String): List<String> = parseShortcutConfig(serialized, null).order
 
-    fun parseEnabled(serialized: String): Set<String> {
-        if (serialized.isBlank()) return DEFAULT_ACTIVE_SHORTCUT_IDS.toSet()
-        return try {
-            val set = serialized.split(",").filter { it in ALL_SHORTCUT_IDS }.toMutableSet()
-            // Rescue is always enabled
-            set.add(SHORTCUT_RESCUE_ID)
-            set
-        } catch (_: Exception) {
-            DEFAULT_ACTIVE_SHORTCUT_IDS.toSet()
-        }
-    }
+    /** Enabled ids: Rescue is always in, defaults apply when nothing usable is stored. */
+    fun parseEnabled(serialized: String): Set<String> = parseShortcutConfig(null, serialized).enabled
 
     fun loadPrefs(prefs: SharedPreferences): Pair<MutableList<String>, MutableList<Boolean>> {
-        val orderStr = prefs.getString(appShortcutsOrderKey, "") ?: ""
-        val enabledStr = prefs.getString(appShortcutsEnabledKey, "") ?: ""
-        val order = parseOrder(orderStr).toMutableList()
-        val enabled = parseEnabled(enabledStr)
-        val toggles = order.map { it in enabled }.toMutableList()
-        return order to toggles
+        val orderStr = runCatching { prefs.getString(appShortcutsOrderKey, null) }.getOrNull()
+        val enabledStr = runCatching { prefs.getString(appShortcutsEnabledKey, null) }.getOrNull()
+        val order = parseShortcutConfig(orderStr, enabledStr).order
+        // Same resolution as the launcher registration, cap included: the dialog never shows more
+        // active shortcuts than actually get registered.
+        val active = resolveActiveShortcutIds(orderStr, enabledStr).toSet()
+        return order.toMutableList() to order.map { it in active }.toMutableList()
     }
 
     private fun savePrefs(prefs: SharedPreferences, order: List<String>, toggles: Map<String, Boolean>) {
@@ -162,16 +143,17 @@ object AppShortcutsSettingsDialog : Dialog {
             }
         }
 
-        val shortcutItems = workingOrder.mapIndexed { _, shortcutId ->
-            val def = defs[shortcutId] ?: return@mapIndexed null
-            ToggleItem(
-                id = def.id,
-                iconRes = def.iconRes,
-                label = stringResource(def.labelRes),
-                preferenceKey = "shortcut_${def.id}_enabled",
-                defaultValue = def.defaultEnabled
-            )
-        }.filterNotNull()
+        val shortcutItems = workingOrder.mapNotNull { shortcutId ->
+            defs[shortcutId]?.let { def ->
+                ToggleItem(
+                    id = def.id,
+                    iconRes = def.iconRes,
+                    label = stringResource(def.labelRes),
+                    preferenceKey = "shortcut_${def.id}_enabled",
+                    defaultValue = def.defaultEnabled
+                )
+            }
+        }
 
         ToggleListDialog(
             items = shortcutItems,
@@ -196,7 +178,7 @@ object AppShortcutsSettingsDialog : Dialog {
                 if (newValue) {
                     val currentActive = workingToggles.count { it }
                     if (currentActive >= MAX_ACTIVE_SHORTCUTS) {
-                        Toaster.s(R.string.app_shortcuts_max_reached)
+                        Toaster.s(context.getString(R.string.app_shortcuts_max_reached, MAX_ACTIVE_SHORTCUTS))
                         return@ToggleListDialog
                     }
                 }

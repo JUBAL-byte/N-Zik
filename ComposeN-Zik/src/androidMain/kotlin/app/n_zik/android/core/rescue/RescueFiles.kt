@@ -3,8 +3,11 @@ package app.n_zik.android.core.rescue
 import android.app.ActivityManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
+import android.os.Build
+import android.os.Process
 import app.it.fast4x.rimusic.utils.discordAvatarKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.discordUsernameKey
@@ -65,6 +68,18 @@ object RescueFiles {
 
     private const val PREFS_NAME = "preferences"
     private const val ENCRYPTED_PREFS_NAME = "secure_preferences"
+    private const val SHARED_PREFS_DIR = "shared_prefs"
+    private val SETTINGS_FILE_NAMES = listOf("$PREFS_NAME.xml", "$ENCRYPTED_PREFS_NAME.xml")
+
+    /** Suffixes of the files that make up one SQLite database, main file first. */
+    private val DB_FILE_SUFFIXES = listOf("", "-wal", "-shm", "-journal")
+
+    /**
+     * Error handler that leaves a corrupt database alone. The default one DELETES the file when
+     * SQLite reports corruption at open time, which is unacceptable in a tool whose job is to
+     * save the user's data.
+     */
+    private val keepCorruptDatabase by lazy { DatabaseErrorHandler { } }
 
     // Encrypted credential keys, built from the real constants so they cannot drift from
     // ExportSettingsDialog.buildCredentialEntries (const vals are inlined: no app init needed).
@@ -97,7 +112,7 @@ object RescueFiles {
     fun isMainProcessRunning(context: Context): Boolean {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
             ?: return false
-        val myPid = android.os.Process.myPid()
+        val myPid = Process.myPid()
         val packageName = context.packageName
         return am.runningAppProcesses?.any { proc ->
             proc.processName == packageName && proc.pid != myPid
@@ -110,7 +125,10 @@ object RescueFiles {
 
     /**
      * Exports the database to the given SAF URI.
-     * Opens it as raw SQLite (no Room, no migration), checkpoints WAL, and copies.
+     *
+     * Opens it as raw SQLite (no Room, no migration) to fold the WAL into `data.db`, then copies
+     * the file. The WAL must be merged first: after a crash a `-wal` file is left next to
+     * `data.db`, and a bare copy of `data.db` would lack every transaction still in it.
      */
     fun exportDatabase(context: Context, uri: Uri): Result<Unit> = runCatching {
         val dbFile = context.getDatabasePath(DB_FILE_NAME)
@@ -118,18 +136,7 @@ object RescueFiles {
             error("Database file does not exist: ${dbFile.absolutePath}")
         }
 
-        // Open raw SQLite, checkpoint WAL, then close before copying
-        SQLiteDatabase.openDatabase(
-            dbFile.absolutePath,
-            null,
-            SQLiteDatabase.OPEN_READONLY
-        ).use { db ->
-            db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    Timber.tag(TAG).d("WAL checkpoint result: %d", cursor.getInt(0))
-                }
-            }
-        }
+        checkpointWal(dbFile)
 
         context.contentResolver.openOutputStream(uri)?.use { outStream ->
             FileInputStream(dbFile).use { inStream ->
@@ -137,6 +144,30 @@ object RescueFiles {
                 Timber.tag(TAG).i("Database exported: %d bytes", bytes)
             }
         } ?: error("Failed to open output stream for database export")
+    }
+
+    /**
+     * Folds the WAL into [dbFile] through a raw SQLite connection, and throws when it cannot.
+     *
+     * The connection is read-write on purpose: a read-only one cannot checkpoint (it raises
+     * "disk I/O error" on a WAL database). It uses [keepCorruptDatabase] because the default
+     * error handler DELETES the database file when SQLite reports corruption at open time.
+     */
+    private fun checkpointWal(dbFile: File) {
+        SQLiteDatabase.openDatabase(
+            dbFile.absolutePath,
+            null,
+            SQLiteDatabase.OPEN_READWRITE,
+            keepCorruptDatabase
+        ).use { db ->
+            db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val busy = cursor.getInt(0)
+                    Timber.tag(TAG).d("WAL checkpoint busy flag: %d", busy)
+                    check(busy == 0) { "Database is busy: its WAL could not be merged" }
+                }
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -155,11 +186,15 @@ object RescueFiles {
 
     /**
      * Imports a database from the given SAF URI after validation.
-     * Copies to a temp file, validates SQLite header + quick_check, then replaces the real DB.
+     *
+     * The file is copied next to `data.db` (same filesystem), validated there (SQLite header +
+     * quick_check), then renamed over the live database: a failure while copying can never leave
+     * a truncated `data.db`.
      */
     fun importDatabase(context: Context, uri: Uri): Result<Unit> = runCatching {
         val dbFile = context.getDatabasePath(DB_FILE_NAME)
-        val tempFile = File(context.cacheDir, "rescue_import_temp.db")
+        dbFile.parentFile?.mkdirs()
+        val tempFile = File(dbFile.parentFile, "$DB_FILE_NAME.import")
 
         try {
             // Copy to temp file first
@@ -182,7 +217,8 @@ object RescueFiles {
             SQLiteDatabase.openDatabase(
                 tempFile.absolutePath,
                 null,
-                SQLiteDatabase.OPEN_READONLY
+                SQLiteDatabase.OPEN_READONLY,
+                keepCorruptDatabase
             ).use { db ->
                 db.rawQuery("PRAGMA quick_check", null).use { cursor ->
                     if (cursor.moveToFirst()) {
@@ -195,18 +231,23 @@ object RescueFiles {
                 }
             }
 
-            // Delete WAL and SHM files
-            val walFile = File(dbFile.path + "-wal")
-            val shmFile = File(dbFile.path + "-shm")
-            if (walFile.exists()) walFile.delete()
-            if (shmFile.exists()) shmFile.delete()
-
-            // Replace the actual DB
-            tempFile.copyTo(dbFile, overwrite = true)
+            replaceDatabaseFile(tempFile, dbFile)
             Timber.tag(TAG).i("Database imported successfully")
         } finally {
             tempFile.delete()
         }
+    }
+
+    /**
+     * Puts [newDb] in place of [dbFile]. The side files of the old database are removed first:
+     * a stale `-wal` must never be replayed onto a different database.
+     */
+    internal fun replaceDatabaseFile(newDb: File, dbFile: File) {
+        DB_FILE_SUFFIXES.drop(1).forEach { suffix ->
+            val sideFile = File(dbFile.path + suffix)
+            if (sideFile.exists()) check(sideFile.delete()) { "Cannot remove ${sideFile.name}" }
+        }
+        moveReplacing(newDb, dbFile)
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -321,24 +362,48 @@ object RescueFiles {
 
         if (rows.isEmpty()) error("Empty settings file")
 
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-        val encPrefs = encryptedPrefsResult?.getOrNull()
-        val encEditor = encPrefs?.edit()
-        var importedCount = 0
+        val editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        val encEditor = encryptedPrefsResult?.getOrNull()?.edit()
+
+        val stats = applySettingRows(rows, editor, encEditor)
+        // Nothing is written until commit(), so failing here leaves the settings untouched.
+        check(stats.imported > 0) { "No setting could be imported" }
+
+        editor.commit()
+        encEditor?.commit()
+        Timber.tag(TAG).i(
+            "Settings imported: %d entries (%d encrypted keys skipped)",
+            stats.imported, stats.encryptedSkipped
+        )
+        SettingsOutcome(stats.encryptedSkipped > 0)
+    }
+
+    /** Counters returned by [applySettingRows]. */
+    internal data class SettingsImportStats(val imported: Int, val encryptedSkipped: Int)
+
+    /**
+     * Stages [rows] into the editors: credential keys go to [encryptedEditor], everything else to
+     * [plainEditor]. Credential keys are skipped (never written to plain preferences) when
+     * [encryptedEditor] is null. Nothing is committed here.
+     */
+    internal fun applySettingRows(
+        rows: List<Triple<String, String, String>>,
+        plainEditor: SharedPreferences.Editor,
+        encryptedEditor: SharedPreferences.Editor?
+    ): SettingsImportStats {
+        var imported = 0
         var encryptedSkipped = 0
 
         rows.forEach { (type, key, value) ->
-            val isEncrypted = key in ALL_ENCRYPTED_KEYS
-            val targetEditor = if (isEncrypted) {
-                if (encEditor == null) {
+            val targetEditor = if (key in ALL_ENCRYPTED_KEYS) {
+                if (encryptedEditor == null) {
                     encryptedSkipped++
                     Timber.tag(TAG).d("Skipping encrypted key '%s' (keystore unavailable)", key)
                     return@forEach
                 }
-                encEditor
+                encryptedEditor
             } else {
-                editor
+                plainEditor
             }
 
             runCatching {
@@ -353,20 +418,15 @@ object RescueFiles {
                         return@forEach
                     }
                 }
-                importedCount++
+                imported++
             }.onFailure { e ->
-                // Never log the value: it may be a credential (cookie, token).
-                Timber.tag(TAG).e(e, "Failed to import key '%s' (type=%s)", key, type)
+                // Neither the value nor the exception message: NumberFormatException quotes the
+                // input, and the value may be a credential (cookie, token).
+                Timber.tag(TAG).e("Failed to import key '%s' (type=%s): %s", key, type, e.javaClass.simpleName)
             }
         }
 
-        editor.commit()
-        encEditor?.commit()
-        Timber.tag(TAG).i(
-            "Settings imported: %d entries (%d encrypted keys skipped)",
-            importedCount, encryptedSkipped
-        )
-        SettingsOutcome(encryptedSkipped > 0)
+        return SettingsImportStats(imported, encryptedSkipped)
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -472,8 +532,7 @@ object RescueFiles {
         cacheDir.listFiles()?.forEach { child ->
             if (child.isFile && (child.name.startsWith("temp_") ||
                     child.name.startsWith("edit_meta_") ||
-                    child.name == "widget_thumbnail.png" ||
-                    child.name.startsWith("rescue_import_"))
+                    child.name == "widget_thumbnail.png")
             ) {
                 if (child.delete()) deletedCount++
             }
@@ -537,6 +596,10 @@ object RescueFiles {
      * Moves `data.db` (+ `-wal`, `-shm`) to `filesDir/rescue_backups/`.
      * Only the last reset is kept (previous backup is overwritten).
      * The app will start with a fresh empty database on next launch.
+     *
+     * The three files are moved together, untouched: no SQLite connection is opened, so nothing
+     * can be lost by a failed checkpoint and a corrupt database is never seen by the default
+     * error handler. Room replays the WAL when the backup is restored.
      */
     fun resetDatabase(context: Context): Result<Unit> = runCatching {
         val dbFile = context.getDatabasePath(DB_FILE_NAME)
@@ -547,29 +610,37 @@ object RescueFiles {
         val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
         backupDir.mkdirs()
 
-        // Checkpoint WAL before moving
-        runCatching {
-            SQLiteDatabase.openDatabase(
-                dbFile.absolutePath,
-                null,
-                SQLiteDatabase.OPEN_READWRITE
-            ).use { db ->
-                db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
-            }
-        }.onFailure {
-            Timber.tag(TAG).w(it, "WAL checkpoint failed during reset; proceeding anyway")
-        }
-
-        // Move DB files to backup
-        dbFile.copyTo(File(backupDir, DB_FILE_NAME), overwrite = true)
-        dbFile.delete()
-
-        val walFile = File(dbFile.path + "-wal")
-        val shmFile = File(dbFile.path + "-shm")
-        if (walFile.exists()) walFile.delete()
-        if (shmFile.exists()) shmFile.delete()
+        moveDatabaseFiles(dbFile, File(backupDir, DB_FILE_NAME))
 
         Timber.tag(TAG).i("Database reset: backed up to %s", backupDir.absolutePath)
+    }
+
+    /**
+     * Moves a SQLite database and its side files (`-wal`, `-shm`, `-journal`) from [from] to [to].
+     * Stale side files at [to] are removed first; the move fails loudly instead of leaving a
+     * half-moved database behind.
+     */
+    internal fun moveDatabaseFiles(from: File, to: File) {
+        DB_FILE_SUFFIXES.forEach { suffix ->
+            val stale = File(to.path + suffix)
+            if (stale.exists()) check(stale.delete()) { "Cannot remove ${stale.name}" }
+        }
+        DB_FILE_SUFFIXES.forEach { suffix ->
+            val source = File(from.path + suffix)
+            if (source.exists()) moveReplacing(source, File(to.path + suffix))
+        }
+    }
+
+    /**
+     * Renames [source] to [target], replacing it. Falls back to copy + delete when the rename is
+     * refused (existing target on some filesystems, or a different filesystem).
+     */
+    private fun moveReplacing(source: File, target: File) {
+        if (source.renameTo(target)) return
+        if (target.exists()) check(target.delete()) { "Cannot replace ${target.name}" }
+        if (source.renameTo(target)) return
+        source.copyTo(target, overwrite = true)
+        check(source.delete()) { "Cannot remove ${source.name} after copying it" }
     }
 
     /**
@@ -577,51 +648,33 @@ object RescueFiles {
      * The current database becomes the new backup.
      */
     fun restoreDatabase(context: Context): Result<Unit> = runCatching {
-        val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
-        val backupFile = File(backupDir, DB_FILE_NAME)
+        val backupFile = File(File(context.filesDir, RESCUE_BACKUPS_DIR), DB_FILE_NAME)
         if (!backupFile.exists()) {
             error("No backup to restore")
         }
 
-        val dbFile = context.getDatabasePath(DB_FILE_NAME)
-        val tempFile = File(context.cacheDir, "rescue_swap_temp.db")
+        swapDatabaseFiles(context.getDatabasePath(DB_FILE_NAME), backupFile)
+        Timber.tag(TAG).i("Database restored from backup")
+    }
 
+    /**
+     * Swaps the live database with the backup, side files included. The live one is parked first
+     * and only then replaced, so no step ever removes the last good copy; if bringing the backup
+     * back fails, the parked database is put back.
+     */
+    internal fun swapDatabaseFiles(dbFile: File, backupDb: File) {
+        val parkedDb = File(backupDb.parentFile, "$DB_FILE_NAME.swap")
         try {
-            // Checkpoint current DB if it exists
-            if (dbFile.exists()) {
-                runCatching {
-                    SQLiteDatabase.openDatabase(
-                        dbFile.absolutePath,
-                        null,
-                        SQLiteDatabase.OPEN_READWRITE
-                    ).use { db ->
-                        db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
-                    }
-                }
-
-                // Move current to temp
-                dbFile.copyTo(tempFile, overwrite = true)
-
-                // Delete current WAL/SHM
-                val walFile = File(dbFile.path + "-wal")
-                val shmFile = File(dbFile.path + "-shm")
-                if (walFile.exists()) walFile.delete()
-                if (shmFile.exists()) shmFile.delete()
+            if (dbFile.exists()) moveDatabaseFiles(dbFile, parkedDb)
+            moveDatabaseFiles(backupDb, dbFile)
+            // The database that was live becomes the new backup.
+            if (parkedDb.exists()) moveDatabaseFiles(parkedDb, backupDb)
+        } catch (e: Exception) {
+            if (parkedDb.exists() && !dbFile.exists()) {
+                runCatching { moveDatabaseFiles(parkedDb, dbFile) }
+                    .onFailure { Timber.tag(TAG).e("Could not put the parked database back: %s", it.javaClass.simpleName) }
             }
-
-            // Restore backup to DB location
-            backupFile.copyTo(dbFile, overwrite = true)
-
-            // Move current (if any) to backup for future restore
-            if (tempFile.exists()) {
-                tempFile.copyTo(backupFile, overwrite = true)
-            } else {
-                backupFile.delete()
-            }
-
-            Timber.tag(TAG).i("Database restored from backup")
-        } finally {
-            tempFile.delete()
+            throw e
         }
     }
 
@@ -644,26 +697,10 @@ object RescueFiles {
         context: Context,
         encryptedPrefsResult: Result<SharedPreferences>? = null
     ): Result<Unit> = runCatching {
-        val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
-        backupDir.mkdirs()
-
-        // Backup normal preferences
-        val prefsFile = File(context.applicationInfo.dataDir, "shared_prefs/$PREFS_NAME.xml")
-        val backupPrefsFile = File(backupDir, "$PREFS_NAME.xml")
-        if (prefsFile.exists()) {
-            prefsFile.copyTo(backupPrefsFile, overwrite = true)
-        } else {
-            backupPrefsFile.delete() // No normal prefs to backup
-        }
-
-        // Backup encrypted preferences
-        val encPrefsFile = File(context.applicationInfo.dataDir, "shared_prefs/$ENCRYPTED_PREFS_NAME.xml")
-        val backupEncPrefsFile = File(backupDir, "$ENCRYPTED_PREFS_NAME.xml")
-        if (encPrefsFile.exists()) {
-            encPrefsFile.copyTo(backupEncPrefsFile, overwrite = true)
-        } else {
-            backupEncPrefsFile.delete() // No encrypted prefs to backup
-        }
+        backupSettingsFiles(
+            sharedPrefsDir = File(context.applicationInfo.dataDir, SHARED_PREFS_DIR),
+            backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
+        )
 
         // Clear normal preferences
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -680,7 +717,7 @@ object RescueFiles {
         } else {
             // If keystore is broken, try to delete the file directly
             runCatching {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     context.deleteSharedPreferences(ENCRYPTED_PREFS_NAME)
                     Timber.tag(TAG).i("Encrypted preferences file deleted (keystore unavailable)")
                 } else {
@@ -695,59 +732,51 @@ object RescueFiles {
     /**
      * Swaps current settings with the backup from [resetSettings].
      * The current settings become the new backup.
+     *
+     * The XML files are swapped on disk, behind the SharedPreferences instances the `:rescue`
+     * process already holds in memory: a later `commit()` would write that stale in-memory map
+     * back over the restored file. The caller must therefore end the `:rescue` process right
+     * after a successful restore.
      */
     fun restoreSettings(context: Context): Result<Unit> = runCatching {
         val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
-        val backupPrefsFile = File(backupDir, "$PREFS_NAME.xml")
-        val backupEncPrefsFile = File(backupDir, "$ENCRYPTED_PREFS_NAME.xml")
-        
-        if (!backupPrefsFile.exists() && !backupEncPrefsFile.exists()) {
+        if (SETTINGS_FILE_NAMES.none { File(backupDir, it).exists() }) {
             error("No settings backup to restore")
         }
 
-        val sharedPrefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+        swapSettingsFiles(File(context.applicationInfo.dataDir, SHARED_PREFS_DIR), backupDir)
+        Timber.tag(TAG).i("Settings restored from backup")
+    }
+
+    /**
+     * Copies the settings XML files of [sharedPrefsDir] into [backupDir], replacing the previous
+     * backup. A settings file that does not exist leaves no stale copy behind.
+     */
+    internal fun backupSettingsFiles(sharedPrefsDir: File, backupDir: File) {
+        backupDir.mkdirs()
+        SETTINGS_FILE_NAMES.forEach { name ->
+            val source = File(sharedPrefsDir, name)
+            val backup = File(backupDir, name)
+            if (source.exists()) source.copyTo(backup, overwrite = true) else backup.delete()
+        }
+    }
+
+    /**
+     * Swaps each settings XML file of [sharedPrefsDir] with its copy in [backupDir]: the backup
+     * becomes live and the file that was live becomes the new backup. The live file is parked
+     * first, so no step removes the last good copy.
+     */
+    internal fun swapSettingsFiles(sharedPrefsDir: File, backupDir: File) {
         sharedPrefsDir.mkdirs()
+        SETTINGS_FILE_NAMES.forEach { name ->
+            val live = File(sharedPrefsDir, name)
+            val backup = File(backupDir, name)
+            val parked = File(backupDir, "$name.swap")
 
-        val prefsFile = File(sharedPrefsDir, "$PREFS_NAME.xml")
-        val encPrefsFile = File(sharedPrefsDir, "$ENCRYPTED_PREFS_NAME.xml")
-
-        // Temporary swap space
-        val tempPrefsFile = File(context.cacheDir, "rescue_swap_prefs.xml")
-        val tempEncPrefsFile = File(context.cacheDir, "rescue_swap_enc_prefs.xml")
-
-        try {
-            // Move current to temp
-            if (prefsFile.exists()) prefsFile.copyTo(tempPrefsFile, overwrite = true)
-            if (encPrefsFile.exists()) encPrefsFile.copyTo(tempEncPrefsFile, overwrite = true)
-
-            // Restore backup to active
-            if (backupPrefsFile.exists()) {
-                backupPrefsFile.copyTo(prefsFile, overwrite = true)
-            } else {
-                prefsFile.delete()
-            }
-            if (backupEncPrefsFile.exists()) {
-                backupEncPrefsFile.copyTo(encPrefsFile, overwrite = true)
-            } else {
-                encPrefsFile.delete()
-            }
-
-            // Move temp to backup (for reversible swap)
-            if (tempPrefsFile.exists()) {
-                tempPrefsFile.copyTo(backupPrefsFile, overwrite = true)
-            } else {
-                backupPrefsFile.delete()
-            }
-            if (tempEncPrefsFile.exists()) {
-                tempEncPrefsFile.copyTo(backupEncPrefsFile, overwrite = true)
-            } else {
-                backupEncPrefsFile.delete()
-            }
-
-            Timber.tag(TAG).i("Settings restored from backup")
-        } finally {
-            tempPrefsFile.delete()
-            tempEncPrefsFile.delete()
+            parked.delete()
+            if (live.exists()) moveReplacing(live, parked)
+            if (backup.exists()) moveReplacing(backup, live)
+            if (parked.exists()) moveReplacing(parked, backup)
         }
     }
 
@@ -756,20 +785,24 @@ object RescueFiles {
      */
     fun hasSettingsBackup(context: Context): Boolean {
         val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
-        return File(backupDir, "$PREFS_NAME.xml").exists() || 
-               File(backupDir, "$ENCRYPTED_PREFS_NAME.xml").exists()
+        return SETTINGS_FILE_NAMES.any { File(backupDir, it).exists() }
     }
 
     /**
      * Deletes all backups (database and settings) from the rescue_backups directory.
      */
     fun deleteBackups(context: Context): Result<Unit> = runCatching {
-        val backupDir = File(context.filesDir, RESCUE_BACKUPS_DIR)
-        if (backupDir.exists()) {
-            val deletedCount = safeDeleteDir(backupDir)
-            Timber.tag(TAG).i("Deleted backups directory (%d items)", deletedCount)
-        } else {
+        deleteBackupDir(File(context.filesDir, RESCUE_BACKUPS_DIR))
+    }
+
+    /** Deletes [backupDir] entirely and throws if anything is left, so the UI never reports a false success. */
+    internal fun deleteBackupDir(backupDir: File) {
+        if (!backupDir.exists()) {
             Timber.tag(TAG).d("No backups directory found to delete")
+            return
         }
+        val deletedCount = safeDeleteDir(backupDir)
+        check(!backupDir.exists()) { "Failed to delete the backups directory" }
+        Timber.tag(TAG).i("Deleted backups directory (%d items)", deletedCount)
     }
 }

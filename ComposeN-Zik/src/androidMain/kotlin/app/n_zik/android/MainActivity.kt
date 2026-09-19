@@ -110,7 +110,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.R
-import app.n_zik.android.shortcuts.registerAppShortcuts
 import android.graphics.Bitmap
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.ime
