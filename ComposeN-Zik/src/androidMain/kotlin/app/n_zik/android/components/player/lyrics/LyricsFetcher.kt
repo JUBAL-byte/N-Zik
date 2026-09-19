@@ -32,6 +32,14 @@ fun resetGlobalAttemptForType(type: LyricsType) {
     }
 }
 
+/**
+ * Type of the stored row "Fetch lyrics again" resets: the displayed row's type, else the mode's own
+ * type. Null in Auto with nothing displayed: Auto is a display mode, not a stored row type, so there
+ * is no row to reset.
+ */
+internal fun fetchAgainRowType(displayedType: String?, mode: LyricsType): String? =
+    displayedType ?: mode.takeIf { it != LyricsType.Auto }?.name
+
 @Composable
 fun LyricsFetcher(
     mediaId: String,

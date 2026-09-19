@@ -268,6 +268,7 @@ fun LyricsScreen(
             LyricsTrackSelector(
                 mediaId = mediaId,
                 lyrics = lyrics,
+                lyricsType = lyricsType,
                 initialTitle = title,
                 initialArtistName = artistName,
                 onTitleChange = { editedTitle = it },
@@ -688,15 +689,16 @@ fun LyricsScreen(
                                             checkedLyricsKugou = false
                                             checkedLyricsInnertube = false
                                             checkLyrics = !checkLyrics
-                                            val targetType = lyrics?.type ?: lyricsType.name
-                                            Database.asyncTransaction {
-                                                lyricsTable.upsert(
-                                                    Lyrics(
-                                                        songId = mediaId,
-                                                        type = targetType,
-                                                        data = null
+                                            fetchAgainRowType(lyrics?.type, lyricsType)?.let { targetType ->
+                                                Database.asyncTransaction {
+                                                    lyricsTable.upsert(
+                                                        Lyrics(
+                                                            songId = mediaId,
+                                                            type = targetType,
+                                                            data = null
+                                                        )
                                                     )
-                                                )
+                                                }
                                             }
                                         },
                                         onPickFromLrcLib = { isPicking = true },

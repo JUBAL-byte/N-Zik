@@ -68,25 +68,38 @@ fun SettingIcon(@DrawableRes icon: Int) {
 }
 
 /**
- * Row saved when the user picks a LrcLib track. It is a deliberate manual choice, so it is flagged
- * [Lyrics.isEdited]: an automatic fetch would otherwise replace it with the default match the user
- * just rejected. "Fetch lyrics again" clears the flag of the row currently displayed, which is the
- * picked row whenever both share the same type (the type comes from the track, not from the display).
+ * Type and text a LrcLib [track] is stored as when picked in [lyricsType] mode, or null when the track
+ * has nothing usable in that mode: Unsynced mode takes the plain text (else the synced text without its
+ * timestamps), any other mode takes the synced text only, since plain text would break the synced view.
  */
-internal fun pickedLyrics(mediaId: String, track: Track): Lyrics {
-    val isSynced = !track.syncedLyrics.isNullOrEmpty()
-    return Lyrics(
-        songId = mediaId,
-        type = if (isSynced) LyricsType.Synced.name else LyricsType.Unsynced.name,
-        data = if (isSynced) track.syncedLyrics.orEmpty() else track.plainLyrics.orEmpty(),
-        isEdited = true
-    )
-}
+private fun pickedRow(track: Track, lyricsType: LyricsType): Pair<LyricsType, String>? =
+    when (lyricsType) {
+        LyricsType.Unsynced -> {
+            val plain = track.plainLyrics.orEmpty().ifBlank { LrcLib.Lyrics(track.syncedLyrics.orEmpty()).plainText }
+            plain.takeIf { it.isNotBlank() }?.let { LyricsType.Unsynced to it }
+        }
+        else -> track.syncedLyrics.orEmpty().takeIf { it.isNotBlank() }?.let { LyricsType.Synced to it }
+    }
+
+/** Whether picking [track] in [lyricsType] mode would store something the mode can display. */
+internal fun canPick(track: Track, lyricsType: LyricsType): Boolean = pickedRow(track, lyricsType) != null
+
+/**
+ * Row saved when the user picks a LrcLib track, or null when the track has nothing usable in
+ * [lyricsType] mode. It is a deliberate manual choice, so it is flagged [Lyrics.isEdited]: an automatic
+ * fetch would otherwise replace it with the default match the user just rejected. The row always has the
+ * type of the mode the pick was made in, so it is the displayed row and "Fetch lyrics again" clears it.
+ */
+internal fun pickedLyrics(mediaId: String, track: Track, lyricsType: LyricsType): Lyrics? =
+    pickedRow(track, lyricsType)?.let { (type, data) ->
+        Lyrics(songId = mediaId, type = type.name, data = data, isEdited = true)
+    }
 
 @Composable
 fun LyricsTrackSelector(
     mediaId: String,
     lyrics: Lyrics?,
+    lyricsType: LyricsType,
     initialTitle: String,
     initialArtistName: String,
     onTitleChange: (String) -> Unit,
@@ -113,8 +126,9 @@ fun LyricsTrackSelector(
             LrcLib.lyrics(
                 artist = artistName,
                 title = title
-            )?.onSuccess {
-                if (it.isNotEmpty() && playerEnableLyricsPopupMessage)
+            )?.onSuccess { found ->
+                val pickable = found.filter { canPick(it, lyricsType) }
+                if (pickable.isNotEmpty() && playerEnableLyricsPopupMessage)
                     coroutineScope.launch {
                         Toaster.s(
                             R.string.info_lyrics_tracks_found_on_s,
@@ -131,7 +145,7 @@ fun LyricsTrackSelector(
                                 duration = Toast.LENGTH_LONG
                             )
                         }
-                if (it.isEmpty()){
+                if (pickable.isEmpty()){
                         menuState.display {
                         ListMenu.Menu(title = stringResource(R.string.txt_lyrics)) {
                             ListMenu.Entry(
@@ -188,7 +202,7 @@ fun LyricsTrackSelector(
                 }
 
                 tracks.clear()
-                tracks.addAll(it)
+                tracks.addAll(pickable)
                 loading = false
                 error = false
             }?.onFailure {
@@ -281,8 +295,8 @@ fun LyricsTrackSelector(
                             onClick = {
                                 menuState.hide()
                                 onDismiss()
-                                Database.asyncTransaction {
-                                    lyricsTable.upsert(pickedLyrics(mediaId, it))
+                                pickedLyrics(mediaId, it, lyricsType)?.let { row ->
+                                    Database.asyncTransaction { lyricsTable.upsert(row) }
                                 }
                             }
                         )

@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlin.math.abs
 import kotlin.time.Duration
 
@@ -21,9 +21,13 @@ data class Track(
     val plainLyrics: String?,
     val syncedLyrics: String?
 ){
+    /** Duration in seconds, or 0 when LrcLib sends `null` (it does for some tracks) or an unreadable value. */
     val duration: Long
-        get() = (tDuration as? JsonPrimitive)?.toString()?.substringBefore(".")?.toLong() ?:
-                (tDuration as JsonArray).first().jsonPrimitive.toString().substringBefore(".").toLong()
+        get() = when (val d = tDuration) {
+            is JsonPrimitive -> d.contentOrNull
+            is JsonArray -> (d.firstOrNull() as? JsonPrimitive)?.contentOrNull
+            else -> null
+        }?.substringBefore(".")?.toLongOrNull() ?: 0L
 }
 
 

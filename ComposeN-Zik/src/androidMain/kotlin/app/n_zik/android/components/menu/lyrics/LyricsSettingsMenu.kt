@@ -561,7 +561,7 @@ class LyricsSettingsMenu private constructor(
             )
 
             // Pick from LrcLib
-            if (lyricsType == LyricsType.Synced) {
+            if (lyricsType == LyricsType.Synced || lyricsType == LyricsType.Unsynced) {
                 ActionSettingEntry(
                     title = stringResource(R.string.pick_from) + " LrcLib.net",
                     icon = R.drawable.search,
@@ -1026,7 +1026,7 @@ class LyricsSettingsMenu private constructor(
             }
 
             // Pick from LrcLib
-            if (lyricsType == LyricsType.Synced) {
+            if (lyricsType == LyricsType.Synced || lyricsType == LyricsType.Unsynced) {
                 item {
                     ActionSettingEntry(
                         title = stringResource(R.string.pick_from) + " LrcLib.net",
