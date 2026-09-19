@@ -109,7 +109,7 @@ class AutoSessionCallback(
     val database: Database,
     val downloadHelper: MyDownloadHelper
 ) : MediaLibrarySession.Callback {
-    private val scope = CoroutineScope(Dispatchers.Main) + Job()
+    private val scope = CoroutineScope(NzikDispatchers.UI) + Job()
     private var observationJob: Job? = null
     lateinit var binder: PlayerServiceModern.Binder
     var toggleLike: () -> Unit = {}
@@ -234,7 +234,7 @@ class AutoSessionCallback(
         page: Int,
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?,
-    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
+    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(NzikDispatchers.DATA) {
         val pageIndex = if (parentId.contains("_PAGE_")) parentId.substringAfter("_PAGE_").toIntOrNull() ?: -1 else -1
         val list = autoBrowseTree.getChildren(parentId, pageIndex, if (::binder.isInitialized) binder else null)
         LibraryResult.ofItemList(ImmutableList.copyOf(list), params)
@@ -245,7 +245,7 @@ class AutoSessionCallback(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
         mediaId: String,
-    ): ListenableFuture<LibraryResult<MediaItem>> = scope.future(Dispatchers.IO) {
+    ): ListenableFuture<LibraryResult<MediaItem>> = scope.future(NzikDispatchers.DATA) {
         val songId = mediaId.split("/").lastOrNull() ?: mediaId
         database.songTable.findByIdDirect(songId)?.let { song -> 
             if (mediaId.contains("/")) {
@@ -439,7 +439,7 @@ val allSongs = database.formatTable.sortAllWithSongs(sortBy, sortOrder).first().
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo,
         mediaItems: MutableList<MediaItem>
-    ): ListenableFuture<MutableList<MediaItem>> = scope.future(Dispatchers.IO) {
+    ): ListenableFuture<MutableList<MediaItem>> = scope.future(NzikDispatchers.DATA) {
         val parentalControlEnabled = try { context.preferences.getBoolean(parentalControlEnabledKey, false) } catch (e: Exception) { false }
         val mappedItems = mediaItems.fastMap { item ->
             val songId = item.mediaId.split("/").lastOrNull() ?: item.mediaId

@@ -64,7 +64,7 @@ import app.it.fast4x.rimusic.enums.MaxStatisticsItems
 import app.it.fast4x.rimusic.enums.MaxTopPlaylistItems
 import android.text.TextUtils
 import app.n_zik.android.components.dialog.settings.SettingsInputDialog
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.kreate.android.me.knighthat.utils.Toaster
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
@@ -592,7 +592,7 @@ fun AIRecommendationSettings(
                     val eventsCount by remember {
                         Database.eventTable
                                 .countAll()
-                    }.collectAsState( 0L, Dispatchers.IO )
+                    }.collectAsState( 0L, NzikDispatchers.DATA )
 
                     if (search.inputValue.isBlank() || stringResource(R.string.reset_quick_picks).contains(search.inputValue, true)) {
                         OtherSettingsEntry(

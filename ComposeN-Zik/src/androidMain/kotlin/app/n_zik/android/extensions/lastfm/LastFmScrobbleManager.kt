@@ -13,7 +13,7 @@ import app.n_zik.android.utils.titleOrDb
 import it.fast4x.lastfm.LastFm
 import it.fast4x.lastfm.models.LastFmApiException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -50,7 +50,7 @@ internal data class LastFmScrobbleConfig(
  */
 class LastFmScrobbleManager(
     private val context: Context,
-    private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    private val externalScope: CoroutineScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob()),
     private val clock: () -> Long = { System.currentTimeMillis() }
 ) {
     companion object {
@@ -76,7 +76,7 @@ class LastFmScrobbleManager(
     // Dedicated Main scope for the session-expired toast: the service's prefs
     // listener destroys this manager as soon as the session key is removed,
     // which cancels externalScope before a toast launched on it would run.
-    private val toastScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val toastScope = CoroutineScope(NzikDispatchers.UI + SupervisorJob())
 
     @Volatile
     private var config: LastFmScrobbleConfig = LastFmScrobbleConfig()

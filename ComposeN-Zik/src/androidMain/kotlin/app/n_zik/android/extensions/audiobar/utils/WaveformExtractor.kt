@@ -14,7 +14,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -89,7 +88,7 @@ object WaveformExtractor {
 
     suspend fun getOrExtractWaveform(context: Context, mediaId: String, caches: List<Cache>): WaveformResult {
         Timber.tag(TAG).d("EXTRACT [$mediaId] getOrExtractWaveform called, caches=${caches.size}")
-        return withContext(Dispatchers.IO) {
+        return withContext(NzikDispatchers.DATA) {
             // We use filesDir instead of cacheDir so it survives a "Clear Cache" by the user
             val waveformDir = File(context.filesDir, "waveforms")
             if (!waveformDir.exists()) {

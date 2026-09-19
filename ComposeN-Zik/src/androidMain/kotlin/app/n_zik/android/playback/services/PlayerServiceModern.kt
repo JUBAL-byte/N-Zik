@@ -202,7 +202,7 @@ import app.it.fast4x.rimusic.utils.volumeNormalizationKey
 import app.it.fast4x.rimusic.utils.volumeBoostLevelKey
 import app.it.fast4x.rimusic.utils.wallpaperTypeKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -275,7 +275,7 @@ class PlayerServiceModern : MediaLibraryService(),
     SharedPreferences.OnSharedPreferenceChangeListener,
     OnAudioVolumeChangedListener {
 
-    private val coroutineScope = CoroutineScope(Dispatchers.IO) + Job()
+    private val coroutineScope = CoroutineScope(NzikDispatchers.DATA) + Job()
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var mediaSession: MediaLibrarySession
     private var mediaLibrarySessionCallback: AutoSessionCallback =
@@ -377,7 +377,7 @@ class PlayerServiceModern : MediaLibraryService(),
                 if (isAvailable && waitingForNetwork.value) {
                     waitingForNetwork.value = false
                     if (player.playWhenReady && player.playbackState != Player.STATE_IDLE) {
-                        withContext(Dispatchers.Main) {
+                        withContext(NzikDispatchers.UI) {
                             binder.gracefulPlay()
                         }
                     }
@@ -642,7 +642,7 @@ class PlayerServiceModern : MediaLibraryService(),
                 updateDownloadedState()
 
                 updateDefaultNotification()
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     updateWidgets()
                 }
             }
@@ -779,7 +779,7 @@ class PlayerServiceModern : MediaLibraryService(),
             // YTM history push (gated by sync enabled + push toggle + network)
             val pushHistoryEnabled = preferences.getBoolean(syncPushHistoryKey, false)
             if (totalPlayTimeMs > minTimeForEvent.asMillis && isYouTubeSyncEnabled() && pushHistoryEnabled && isNetworkConnected(this@PlayerServiceModern)) {
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val playbackData = playbackDataCache[songId]
                     val streamClient = playbackData?.streamClient
                     val originalUrl = playbackData?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
@@ -997,7 +997,7 @@ class PlayerServiceModern : MediaLibraryService(),
             try {
                 // Background Auto-Fix: Fetch missing album/artist metadata silently
                 // Uses the service's coroutineScope so it gets cancelled properly on service destroy
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     // Immediately persist the full MediaItem metadata to the DB.
                     // This seeds the Song row with real data (title, artist, thumbnail)
                     // before StreamResolver can insert a blank placeholder for FK satisfaction.
@@ -1170,7 +1170,7 @@ class PlayerServiceModern : MediaLibraryService(),
         // Start/stop the per-second widget progress refresh
         if (isPlaying) {
             if (widgetProgressJob?.isActive != true) {
-                widgetProgressJob = coroutineScope.launch(Dispatchers.Main) {
+                widgetProgressJob = coroutineScope.launch(NzikDispatchers.UI) {
                     while (true) {
                         delay(1000)
                         if (player.isPlaying) {
@@ -1451,7 +1451,7 @@ class PlayerServiceModern : MediaLibraryService(),
                 // Save playWhenReady BEFORE pausing - pause() clears it
                 val wasPlaying = player.playWhenReady
                 player.pause()
-                coroutineScope.launch(Dispatchers.Main) {
+                coroutineScope.launch(NzikDispatchers.UI) {
                     delay(retryDelay)
                     val currentIndex = player.currentMediaItemIndex
                     if (currentIndex != C.INDEX_UNSET) {
@@ -1608,7 +1608,7 @@ class PlayerServiceModern : MediaLibraryService(),
         val volumeBoostLevel = preferences.getFloat(volumeBoostLevelKey, 0f)
         player.currentMediaItem?.mediaId?.let { songId ->
             volumeNormalizationJob?.cancel()
-            volumeNormalizationJob = coroutineScope.launch(Dispatchers.Main) {
+            volumeNormalizationJob = coroutineScope.launch(NzikDispatchers.UI) {
                 fun Float?.toMb() = ((this ?: 0f) * 100).toInt()
 
                 Database.formatTable
@@ -1968,7 +1968,7 @@ class PlayerServiceModern : MediaLibraryService(),
         val wallpaperEnabled = preferences.getBoolean(enableWallpaperKey, false)
         val wallpaperType = preferences.getEnum(wallpaperTypeKey, WallpaperType.Lockscreen)
         if (isAtLeastAndroid7 && wallpaperEnabled) {
-            coroutineScope.launch(Dispatchers.IO) {
+            coroutineScope.launch(NzikDispatchers.DATA) {
                 val wpManager = WallpaperManager.getInstance(this@PlayerServiceModern)
                 wpManager.setBitmap(bitmapProvider.bitmap, null, true,
                     when (wallpaperType) {
@@ -1982,7 +1982,7 @@ class PlayerServiceModern : MediaLibraryService(),
     }
 
     private fun updateDefaultNotification() {
-        coroutineScope.launch(Dispatchers.Main) {
+        coroutineScope.launch(NzikDispatchers.UI) {
             mediaSession.setCustomLayout( buildCustomCommandButtons() )
         }
 
@@ -2014,7 +2014,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
     private fun startWidgetUpdates() {
         widgetUpdateJob?.cancel()
-        widgetUpdateJob = coroutineScope.launch(Dispatchers.Main) {
+        widgetUpdateJob = coroutineScope.launch(NzikDispatchers.UI) {
             while (isActive) {
                 if (player.isPlaying) {
                     updateWidgets()
@@ -2032,7 +2032,7 @@ class PlayerServiceModern : MediaLibraryService(),
     fun updateWidgets() {
         val currentMediaId = binder.player.currentMediaItem?.mediaId
         if (currentMediaId == null) {
-            coroutineScope.launch(Dispatchers.IO) {
+            coroutineScope.launch(NzikDispatchers.DATA) {
                 NZikWidgetManager.updateIdleWidgets(applicationContext)
             }
             return
@@ -2054,7 +2054,7 @@ class PlayerServiceModern : MediaLibraryService(),
         val playerPosition = binder.player.currentPosition.coerceAtLeast(0)
         val currentBitmap = bitmapProvider.bitmap
 
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             // Save bitmap to file for backward compatibility or other widgets
             val file = File( cacheDir, "widget_thumbnail.png" )
             FileOutputStream(file).use { outStream ->
@@ -2154,7 +2154,7 @@ class PlayerServiceModern : MediaLibraryService(),
         if (!isPersistentQueueEnabled) return
         Timber.tag("PlayerServiceModern").d("onCreate savePersistentQueue is enabled")
 
-        coroutineScope.launch(Dispatchers.Main) {
+        coroutineScope.launch(NzikDispatchers.UI) {
             val mediaItems = player.currentTimeline.mediaItems
             val mediaItemIndex = player.currentMediaItemIndex
             val mediaItemPosition = player.currentPosition
@@ -2208,7 +2208,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
             val index = filteredQueuedSong.indexOfFirst { it.position != null }.coerceAtLeast(0)
 
-            coroutineScope.launch(Dispatchers.Main) {
+            coroutineScope.launch(NzikDispatchers.UI) {
                 player.setMediaItems(
                     filteredQueuedSong.map { mediaItem ->
                         mediaItem.mediaItem.buildUpon()
@@ -2470,7 +2470,7 @@ class PlayerServiceModern : MediaLibraryService(),
         fun toggleLike() {
             val mediaItem = currentMediaItem.value ?: return
 
-            coroutineScope.launch(Dispatchers.IO) {
+            coroutineScope.launch(NzikDispatchers.DATA) {
                 YouTubeSync.rotateSongLikeState( this@PlayerServiceModern, mediaItem )
             }
         }
@@ -2595,7 +2595,7 @@ class PlayerServiceModern : MediaLibraryService(),
         } else null
 
         crossfadeTriggerJob =
-            coroutineScope.launch(Dispatchers.Main) {
+            coroutineScope.launch(NzikDispatchers.UI) {
                 delay(delayUntilPreload)
                 if (isActive && player.isPlaying && player.currentMediaItem?.mediaId == targetMediaId) {
                     preloadCrossfade(triggerTime)
@@ -2771,7 +2771,7 @@ class PlayerServiceModern : MediaLibraryService(),
         // Swap complete, allow listener callbacks again
         isInternalCrossfadeSeek = false
 
-        crossfadeJob = coroutineScope.launch(Dispatchers.Main) {
+        crossfadeJob = coroutineScope.launch(NzikDispatchers.UI) {
             try {
                 val steps = 50
                 val durationMs = crossfadeDuration.toLong()

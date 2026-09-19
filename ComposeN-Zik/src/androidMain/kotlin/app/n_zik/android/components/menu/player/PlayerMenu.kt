@@ -51,7 +51,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 
 import app.it.fast4x.rimusic.utils.removeYTSongFromPlaylist
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
@@ -169,7 +169,7 @@ fun AddToPlaylistPlayerMenu(
                     mapIgnore( playlist, mediaItem.asSong )
                 }
             } else {
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     addSongToYtPlaylist(playlist.id, position, playlist.browseId ?: "", mediaItem)
                 }
             }
@@ -184,7 +184,7 @@ fun AddToPlaylistPlayerMenu(
             }
             if(isYouTubeSyncEnabled() && playlist.isYoutubePlaylist && playlist.isEditable) {
                 Database.asyncTransaction {
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         if (removeYTSongFromPlaylist(
                                 mediaItem.mediaId,
                                 playlist.browseId ?: "",
@@ -232,7 +232,7 @@ fun AddToPlaylistArtistSongs(
                 if ( !isYouTubeSyncEnabled() || !playlistPreview.playlist.isYoutubePlaylist )
                     mapIgnore( playlistPreview.playlist, *mediaItems.toTypedArray() )
                 else
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         addToYtPlaylist(playlistPreview.playlist.id, position, playlistPreview.playlist.browseId ?: "", mediaItems)
                     }
 
@@ -275,11 +275,11 @@ fun AddToPlaylistItemMenu(
     val sortOrder by rememberPreference(Preference.HOME_LIBRARY_PLAYLIST_SORT_ORDER.key, SortOrder.Ascending)
     val playlistPreviews by remember {
         Database.playlistTable.sortPreviews( sortBy, sortOrder )
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val playlistIds by remember {
         Database.songPlaylistMapTable.mappedTo( mediaItem.mediaId )
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val pinnedPlaylists = playlistPreviews.filter {
         it.playlist.name.startsWith(PINNED_PREFIX, 0, true)
@@ -511,7 +511,7 @@ fun AddToPlaylistArtistSongsMenu(
     val sortOrder by rememberPreference(Preference.HOME_LIBRARY_PLAYLIST_SORT_ORDER.key, SortOrder.Ascending)
     val playlistPreviews by remember {
         Database.playlistTable.sortPreviews( sortBy, sortOrder )
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val pinnedPlaylists = playlistPreviews.filter {
         it.playlist.name.startsWith(PINNED_PREFIX, 0, true)

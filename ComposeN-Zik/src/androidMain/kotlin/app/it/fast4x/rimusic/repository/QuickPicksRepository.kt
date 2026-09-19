@@ -14,6 +14,7 @@ import app.it.fast4x.rimusic.utils.*
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.*
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.encodeToString
@@ -22,7 +23,7 @@ import timber.log.Timber
 import kotlin.time.Duration.Companion.days
 
 object QuickPicksRepository {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + NzikDispatchers.DATA)
     
     private val _trendingList = MutableStateFlow<List<Song>>(emptyList())
     val trendingList: StateFlow<List<Song>> = _trendingList.asStateFlow()

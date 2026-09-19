@@ -68,7 +68,7 @@ import app.it.fast4x.rimusic.utils.isNowPlaying
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.medium
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.res.stringResource
@@ -104,7 +104,7 @@ fun LocalSongSearch(
         Database.songTable
                 .findAllTitleArtistContains( textFieldValue.text )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
@@ -126,7 +126,7 @@ fun LocalSongSearch(
     val songIds = remember(items) { items.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

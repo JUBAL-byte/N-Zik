@@ -10,7 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import app.n_zik.android.core.database.Database
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.n_zik.android.components.ImportFromFile
@@ -33,7 +33,7 @@ class ImportDatabase private constructor(
                     Timber.tag("ImportDatabase").d("File picker callback received, uri: $uri")
                     uri ?: return@rememberLauncherForActivityResult
 
-                    CoroutineScope( Dispatchers.IO ).launch {
+                    CoroutineScope( NzikDispatchers.DATA ).launch {
                         try {
                             Timber.tag("ImportDatabase").d("Starting database import...")
                             Database.checkpoint()
@@ -66,7 +66,7 @@ class ImportDatabase private constructor(
                                        }
                                    } ?: Timber.tag("ImportDatabase").w("Failed to open input stream")
 
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 // Reset cookie status after import — fresh start
                                 app.n_zik.android.MainApplication.cookieStatus = app.n_zik.android.MainApplication.CookieStatus.NOT_LOGGED_IN
                                 context.getSharedPreferences("preferences", Context.MODE_PRIVATE).edit().remove("ytCookieExpired").apply()
@@ -78,7 +78,7 @@ class ImportDatabase private constructor(
                             }
                         } catch (e: Exception) {
                             Timber.tag("ImportDatabase").e(e, "Import failed")
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 Toaster.e("Import failed: ${e.message}")
                             }
                         }

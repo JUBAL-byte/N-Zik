@@ -92,7 +92,6 @@ import app.it.fast4x.rimusic.utils.visualizerEnabledKey
 import painters.modifier.Rotate
 import app.n_zik.android.thumbnailShape
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -178,7 +177,7 @@ fun NextVisualizer() {
             
             val isDarkTheme = colorPalette().isDark
             LaunchedEffect(bitmapCover, isDarkTheme) {
-                kotlinx.coroutines.withContext(Dispatchers.Default) {
+                kotlinx.coroutines.withContext(NzikDispatchers.MEDIA) {
                     try {
                         val dynPalette = dynamicColorPaletteOf(bitmapCover, isDarkTheme)
                         if (dynPalette != null) {

@@ -21,7 +21,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.models.NavigationEndpoint
 import it.fast4x.innertube.requests.nextPage
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -160,7 +160,7 @@ class NZikRadio(
     }
 
     private fun fetchAndInject(videoId: String, initialPlaylistId: String?, append: Boolean) {
-        radioJob = coroutineScope.launch(Dispatchers.IO) {
+        radioJob = coroutineScope.launch(NzikDispatchers.DATA) {
             isLoading = true
             
             var playlistId = initialPlaylistId
@@ -200,7 +200,7 @@ class NZikRadio(
             val filteredItems = discoverFilter(mediaItems)
 
             // 4. Inject into Player
-            withContext(Dispatchers.Main) {
+            withContext(NzikDispatchers.UI) {
                 injectIntoPlayer(filteredItems, append)
             }
 
@@ -210,7 +210,7 @@ class NZikRadio(
 
     private suspend fun discoverFilter(items: List<MediaItem>): List<MediaItem> {
         // Any call to player must happen on Main thread
-        val currentQueueIds = withContext(Dispatchers.Main) {
+        val currentQueueIds = withContext(NzikDispatchers.UI) {
             binder.player.mediaItems.fastMap { it.mediaId }
         }
 

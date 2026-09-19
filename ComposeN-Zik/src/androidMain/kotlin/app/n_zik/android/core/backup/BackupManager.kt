@@ -17,7 +17,7 @@ import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
 import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.FileInputStream
@@ -179,7 +179,7 @@ object BackupManager {
         if (uriString.isEmpty()) return false
         val treeUri = Uri.parse(uriString)
 
-        return withContext(Dispatchers.IO) {
+        return withContext(NzikDispatchers.DATA) {
             try {
                 val prefs = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
                 val target = prefs.getInt(PREF_TARGET, TARGET_DATABASE)
@@ -385,7 +385,7 @@ object BackupManager {
             
             var exists = false
             try {
-                val cursor = withContext(Dispatchers.IO) {
+                val cursor = withContext(NzikDispatchers.DATA) {
                     context.contentResolver.query(
                         docUri,
                         arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),

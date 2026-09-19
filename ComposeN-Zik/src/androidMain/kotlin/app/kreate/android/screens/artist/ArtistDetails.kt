@@ -113,7 +113,6 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
@@ -308,7 +307,7 @@ fun ArtistDetails(
     val songIds = remember(songs) { songs.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
@@ -464,7 +463,7 @@ fun ArtistDetails(
                     var translatedText by remember { mutableStateOf("") }
                     if (translate.isActive) {
                         LaunchedEffect(Unit) {
-                            val result = withContext(Dispatchers.IO) {
+                            val result = withContext(NzikDispatchers.DATA) {
                                 try {
                                     translator.translate(
                                         nonTranslatedText,
@@ -574,7 +573,7 @@ fun ArtistDetails(
                                 modifier = Modifier
                                     .padding(end = 12.dp)
                                     .clip(uiRoundnessShape()).clickable {
-                                        scope.launch(Dispatchers.IO) {
+                                        scope.launch(NzikDispatchers.DATA) {
                                             sectionLoadingId = sectionId
                                             // Shuffler.play() is fire-and-forget (issue #606 M2): when it's actually
                                             // invoked, sectionLoadingId is cleared from its onComplete once playback
@@ -604,7 +603,7 @@ fun ArtistDetails(
                                                         Shuffler.play(b, allMediaItems, onComplete = { sectionLoadingId = null })
                                                     }
                                                 } else {
-                                                    withContext(Dispatchers.Main) {
+                                                    withContext(NzikDispatchers.UI) {
                                                         Toaster.e(R.string.no_song_found)
                                                     }
                                                 }
@@ -622,7 +621,7 @@ fun ArtistDetails(
                                 modifier = Modifier
                                     .padding(end = 12.dp)
                                     .clip(uiRoundnessShape()).clickable {
-                                        scope.launch(Dispatchers.IO) {
+                                        scope.launch(NzikDispatchers.DATA) {
                                             sectionLoadingId = sectionId
                                             try {
                                                 val allMediaItems = mutableListOf<MediaItem>()
@@ -641,13 +640,13 @@ fun ArtistDetails(
                                                     }
                                                 }
                                                 if (allMediaItems.isNotEmpty()) {
-                                                    withContext(Dispatchers.Main) {
+                                                    withContext(NzikDispatchers.UI) {
                                                         binder?.stopRadio()
                                                         binder?.player?.forcePlay(allMediaItems.first())
                                                         binder?.player?.addMediaItems(allMediaItems.drop(1))
                                                     }
                                                 } else {
-                                                    withContext(Dispatchers.Main) {
+                                                    withContext(NzikDispatchers.UI) {
                                                         Toaster.e(R.string.no_song_found)
                                                     }
                                                 }

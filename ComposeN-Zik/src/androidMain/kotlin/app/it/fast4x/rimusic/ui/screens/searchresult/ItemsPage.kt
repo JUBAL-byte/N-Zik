@@ -36,7 +36,7 @@ import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.withContext
 import app.n_zik.android.colorPalette
@@ -104,7 +104,7 @@ inline fun <T : Innertube.Item> ItemsPage(
             if (shouldLoad) {
                 isLoadingMore = true
                 val currentContinuation = itemsPage?.continuation
-                withContext(Dispatchers.IO) {
+                withContext(NzikDispatchers.DATA) {
                     currentItemsPageProvider(currentContinuation)
                 }?.onSuccess { newPage ->
                     if (newPage == null) {
@@ -112,7 +112,7 @@ inline fun <T : Innertube.Item> ItemsPage(
                             itemsPage = Innertube.ItemsPage(null, null)
                         }
                     } else {
-                        val merged = withContext(Dispatchers.IO) {
+                        val merged = withContext(NzikDispatchers.DATA) {
                             itemsPage + newPage
                         }
                         itemsPage = merged
@@ -130,7 +130,7 @@ inline fun <T : Innertube.Item> ItemsPage(
 
     LaunchedEffect(itemsPage, updatedItemsPageProvider) {
         if (itemsPage == null && updatedItemsPageProvider != null) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 updatedItemsPageProvider?.invoke(null)
             }?.onSuccess {
                 if (it == null) {
@@ -289,7 +289,7 @@ inline fun <T : Innertube.Item> ItemsGridPage(
             if (shouldLoad) {
                 isLoadingMore = true
                 val currentContinuation = itemsPage?.continuation
-                withContext(Dispatchers.IO) {
+                withContext(NzikDispatchers.DATA) {
                     currentItemsPageProvider(currentContinuation)
                 }?.onSuccess { newPage ->
                     if (newPage == null) {
@@ -297,7 +297,7 @@ inline fun <T : Innertube.Item> ItemsGridPage(
                             itemsPage = Innertube.ItemsPage(null, null)
                         }
                     } else {
-                        val merged = withContext(Dispatchers.IO) {
+                        val merged = withContext(NzikDispatchers.DATA) {
                             itemsPage + newPage
                         }
                         itemsPage = merged
@@ -315,7 +315,7 @@ inline fun <T : Innertube.Item> ItemsGridPage(
 
     LaunchedEffect(itemsPage, updatedItemsPageProvider) {
         if (itemsPage == null && updatedItemsPageProvider != null) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 updatedItemsPageProvider?.invoke(null)
             }?.onSuccess {
                 if (it == null) {

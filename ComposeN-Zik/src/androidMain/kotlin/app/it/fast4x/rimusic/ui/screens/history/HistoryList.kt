@@ -78,7 +78,6 @@ import app.it.fast4x.rimusic.utils.historyTypeKey
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -133,7 +132,7 @@ fun HistoryList(
 
     var isCoreSyncEnabled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        isCoreSyncEnabled = withContext(Dispatchers.IO) {
+        isCoreSyncEnabled = withContext(NzikDispatchers.DATA) {
             appContext().encryptedPreferences.getBoolean(enableYouTubeSyncKey, false)
         }
     }
@@ -177,7 +176,7 @@ fun HistoryList(
                         }
                     }
                 }
-    }.collectAsState( emptyMap(), Dispatchers.IO )
+    }.collectAsState( emptyMap(), NzikDispatchers.DATA )
 
     val buttonsList = mutableListOf(HistoryType.History to stringResource(R.string.history))
     val syncImportHistory by rememberPreference(syncImportHistoryKey, false)
@@ -294,7 +293,7 @@ fun HistoryList(
             }
             val likeStatesMap by remember(allHistorySongIds) {
                 LikeStateManager.getLikeStates(allHistorySongIds)
-            }.collectAsState(emptyMap(), Dispatchers.IO)
+            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
             val allHistorySongs = remember(events) { events.values.flatten().map { it.song } }
             val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

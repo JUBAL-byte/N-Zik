@@ -42,7 +42,7 @@ import app.n_zik.android.musicbrainz.models.ExternalLink
 import app.n_zik.android.musicbrainz.utils.cleanWikipediaText
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 
 /**
@@ -76,7 +76,7 @@ fun InfoAndCommunity(
     var translatedBio by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(cleanedBio, translate.isActive) {
         if (translate.isActive && !cleanedBio.isNullOrBlank()) {
-            val result = withContext(Dispatchers.IO) {
+            val result = withContext(NzikDispatchers.DATA) {
                 runCatching {
                     translator.translate(cleanedBio, languageDestination, Language.AUTO).translatedText
                 }.getOrNull()

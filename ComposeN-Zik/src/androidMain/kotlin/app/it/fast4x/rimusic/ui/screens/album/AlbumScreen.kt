@@ -66,7 +66,7 @@ import app.it.fast4x.rimusic.utils.parseArtists
 import app.it.fast4x.rimusic.utils.playerPositionKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.transitionEffectKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 
@@ -100,7 +100,7 @@ fun AlbumScreen(
     LaunchedEffect(Unit) {
         Database.albumTable
                 .findById( browseId )
-                .flowOn( Dispatchers.IO )
+                .flowOn( NzikDispatchers.DATA )
                 .distinctUntilChanged()
                 .collect { album = it }
     }

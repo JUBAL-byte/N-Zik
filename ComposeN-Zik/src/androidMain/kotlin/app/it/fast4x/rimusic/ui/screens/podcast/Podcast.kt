@@ -125,7 +125,6 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
@@ -168,7 +167,7 @@ fun Podcast(
 
     LaunchedEffect(Unit) {
         if (podcastPage == null) {
-            podcastPage = withContext(Dispatchers.IO) {
+            podcastPage = withContext(NzikDispatchers.DATA) {
                 Innertube.podcastPage(browseId = browseId.removePrefix(MODIFIED_PREFIX)).getOrNull()
             }
         }
@@ -535,7 +534,7 @@ fun Podcast(
                                                                 mapIgnore( playlistPreview.playlist, *songs.toTypedArray() )
                                                             }
                                                         } else {
-                                                            CoroutineScope(Dispatchers.IO).launch {
+                                                            CoroutineScope(NzikDispatchers.DATA).launch {
                                                                 playlistPreview.playlist.browseId?.let { id ->
                                                                     addToYtPlaylist(playlistPreview.playlist.id,
                                                                         position,
@@ -545,7 +544,7 @@ fun Podcast(
                                                             }
                                                         }
 
-                                                        CoroutineScope(Dispatchers.Main).launch {
+                                                        CoroutineScope(NzikDispatchers.UI).launch {
                                                             Toaster.done()
                                                         }
                                                     },

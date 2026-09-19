@@ -11,7 +11,7 @@ import timber.log.Timber
 /**
  * Fetches and stores MusicBrainz metadata for artists and albums.
  *
- * Intended to be called from a background coroutine (Dispatchers.IO)
+ * Intended to be called from a background coroutine (NzikDispatchers.DATA)
  * when the user views an artist/album page, and from the backfill worker.
  */
 class MBMetadataHelper(

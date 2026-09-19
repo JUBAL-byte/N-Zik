@@ -10,7 +10,7 @@ import app.n_zik.android.Dependencies
 import app.n_zik.android.core.database.Database
 import app.n_zik.android.musicbrainz.MusicBrainz
 import app.n_zik.android.musicbrainz.models.MBArtistRelationEntry
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,30 +50,30 @@ class ArtistInsightsViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             _state.value = ArtistDetailUiState(isLoading = true)
 
-            val artist = withContext(Dispatchers.IO) {
+            val artist = withContext(NzikDispatchers.DATA) {
                 artistTable.findByIdDirect(artistId)
             } ?: return@launch
 
-            val albums = withContext(Dispatchers.IO) {
+            val albums = withContext(NzikDispatchers.DATA) {
                 artistTable.getAlbumsByArtist(artistId)
             }
 
-            val topTracks = withContext(Dispatchers.IO) {
+            val topTracks = withContext(NzikDispatchers.DATA) {
                 // getTopSongsByArtist caps at `limit` regardless of play time, so
                 // never-listened songs (0ms) would fill the list; keep only listened.
                 artistTable.getTopSongsByArtist(artistId, limit = 5)
                     .filter { it.totalPlayTimeMs >= 1 }
             }
 
-            val topAlbums = withContext(Dispatchers.IO) {
+            val topAlbums = withContext(NzikDispatchers.DATA) {
                 artistTable.getTopAlbumsByArtist(artistId, limit = 5)
             }
 
-            val relations = withContext(Dispatchers.IO) {
+            val relations = withContext(NzikDispatchers.DATA) {
                 fetchRelations(artist)
             }
 
-            val stats = withContext(Dispatchers.IO) {
+            val stats = withContext(NzikDispatchers.DATA) {
                 val likedSongs = artistTable.getTopSongsByArtist(artistId, limit = 1000)
                     .count { it.likedAt != null }
                 val bookmarkedAlbums = artistTable.getBookmarkedAlbumsCountByArtist(artistId)

@@ -14,7 +14,7 @@ import app.n_zik.android.R
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,7 +97,7 @@ object UpdateDownloadManager {
             Timber.tag("UpdateDownloadManager").w(e, "Missing POST_NOTIFICATIONS permission")
         }
 
-        downloadJob = CoroutineScope(Dispatchers.IO).launch {
+        downloadJob = CoroutineScope(NzikDispatchers.DATA).launch {
             var outputStream: FileOutputStream? = null
             var outputFile: File? = null
             try {

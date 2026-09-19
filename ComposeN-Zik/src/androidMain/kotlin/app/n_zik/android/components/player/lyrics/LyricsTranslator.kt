@@ -8,7 +8,7 @@ import app.n_zik.android.R
 
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
@@ -26,12 +26,12 @@ fun TranslateLyricsWithRomanization(
 ) {
     LaunchedEffect(showSecondLine, romanizationEnabled, textToTranslate, destinationLanguage, translateEnabled){
         if (translateEnabled && textToTranslate.isNotEmpty()) {
-            withContext(Dispatchers.Main) {
+            withContext(NzikDispatchers.UI) {
                 Toaster.i(R.string.translation_in_progress)
             }
         }
         var destLanguage = destinationLanguage
-        val result = withContext(Dispatchers.IO) {
+        val result = withContext(NzikDispatchers.DATA) {
             try {
                 /** used to find the source language of the text and detect CHINESE_TRADITIONAL*/
                 val helperTranslation = translator.translate(
@@ -123,7 +123,7 @@ fun TranslateLyricsWithRomanization(
         onPlaceholderDismissed()
         output.value = translatedText
         
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (textToTranslate.isNotEmpty()) {
                 if (translatedText.isNotEmpty() && translateEnabled) {
                     Toaster.s(R.string.translation_successful)

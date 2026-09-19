@@ -19,7 +19,7 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.ui.components.MenuState
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -45,7 +45,7 @@ class GoToArtist(
     override fun onShortClick() {
         menuState.hide()
         
-        CoroutineScope( Dispatchers.IO ).launch {
+        CoroutineScope( NzikDispatchers.DATA ).launch {
             val id = Database.artistTable
                     .findBySongId( song.id )
                     .first()
@@ -54,13 +54,13 @@ class GoToArtist(
                     
             val isValid = id != null && id.removePrefix(MODIFIED_PREFIX).let { it.length > 11 && it.matches("^[A-Za-z0-9_-]+\$".toRegex()) }
             
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                 if (isValid && id != null) {
                     NavRoutes.artist.navigateHere( navController, id )
                 } else {
                     Toaster.i( R.string.looking_up_artist_online, song.cleanArtistsText() )
                     
-                    CoroutineScope( Dispatchers.IO ).launch {
+                    CoroutineScope( NzikDispatchers.DATA ).launch {
                         try {
                             val hasValidId = song.id.length == 11 && !song.id.startsWith("local:")
                             
@@ -85,7 +85,7 @@ class GoToArtist(
 
                             if (artistEndpoint != null) {
                                 val path = "${artistEndpoint.browseId}?params=${artistEndpoint.params.orEmpty()}"
-                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                     Toaster.s( R.string.artist_found_online_verify )
                                     NavRoutes.artist.navigateHere( navController, path )
                                 }
@@ -119,19 +119,19 @@ class GoToArtist(
                                 if (fallbackEndpoint != null && !fallbackEndpoint.browseId.isNullOrBlank()) {
                                     Timber.tag("go_to_artist").d("Found artist ID in search: %s", fallbackEndpoint.browseId)
                                     val path = "${fallbackEndpoint.browseId}?params=${fallbackEndpoint.params.orEmpty()}"
-                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                         Toaster.s( R.string.artist_found_online_verify )
                                         NavRoutes.artist.navigateHere( navController, path )
                                     }
                                 } else {
-                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                         Toaster.e( R.string.failed_to_fetch_artist )
                                     }
                                 }
                             }
                         } catch (e: Exception) {
                             Timber.tag("go_to_artist").e( e, "Failed to fetch artist" )
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                 Toaster.e( R.string.failed_to_fetch_artist )
                             }
                         }

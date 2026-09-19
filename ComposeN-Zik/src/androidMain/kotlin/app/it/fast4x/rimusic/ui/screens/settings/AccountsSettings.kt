@@ -138,7 +138,7 @@ import app.it.fast4x.rimusic.utils.ytCookieKey
 import app.it.fast4x.rimusic.utils.ytCookieExpiredKey
 import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
 import app.it.fast4x.rimusic.utils.ytVisitorDataKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -1161,9 +1161,9 @@ fun AccountsSettings() {
                     Button(
                         onClick = {
                             showClearSyncDialog = false
-                            dialogCoroutineScope.launch(Dispatchers.IO) {
+                            dialogCoroutineScope.launch(NzikDispatchers.DATA) {
                                 val cleared = runCatching { clearAllSyncedData() }.getOrElse { false }
-                                withContext(Dispatchers.Main) {
+                                withContext(NzikDispatchers.UI) {
                                     val ep = appContext().encryptedPreferences
                                     ep.edit().putString(ytCookieKey, "").apply()
                                     ep.edit().putString(ytAccountNameKey, "").apply()

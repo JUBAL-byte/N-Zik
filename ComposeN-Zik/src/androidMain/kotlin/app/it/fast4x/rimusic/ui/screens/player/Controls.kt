@@ -71,7 +71,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showlyricsthumbnailKey
 import app.it.fast4x.rimusic.utils.showthumbnailKey
 import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import app.it.fast4x.rimusic.ui.styling.ColorPalette
 
@@ -160,7 +160,7 @@ fun Controls(
         Database.songTable
                 .findById( mediaId )
                 .distinctUntilChanged()
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     var disableScrollingText by rememberPreference(disableScrollingTextKey, false)
 

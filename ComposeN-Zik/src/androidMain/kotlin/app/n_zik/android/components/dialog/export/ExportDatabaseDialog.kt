@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.core.database.Database
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.LocalDate
@@ -31,7 +31,7 @@ class ExportDatabaseDialog private constructor(
                 ) { uri ->
                     Timber.tag("ExportDatabaseDialog").d("File picker callback received, uri: $uri")
                     uri ?: return@rememberLauncherForActivityResult
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         try {
                             Timber.tag("ExportDatabaseDialog").d("Starting database export...")
                             Database.checkpoint()

@@ -67,7 +67,7 @@ import app.it.fast4x.rimusic.utils.queueSwipeLeftActionKey
 import app.it.fast4x.rimusic.utils.queueSwipeRightActionKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -219,11 +219,11 @@ fun SwipeableQueueItem(
                     .likeState( mediaItem.mediaId )
                     .distinctUntilChanged()
             }
-        }.collectAsState( null, Dispatchers.IO )
+        }.collectAsState( null, NzikDispatchers.DATA )
     }
 
     val onFavourite: () -> Unit = {
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             YouTubeSync.rotateSongLikeState( context, mediaItem )
         }
     }
@@ -301,11 +301,11 @@ fun SwipeablePlaylistItem(
             Database.songTable
                 .likeState( mediaItem.mediaId )
                 .distinctUntilChanged()
-        }.collectAsState( null, Dispatchers.IO )
+        }.collectAsState( null, NzikDispatchers.DATA )
     }
 
     val onFavourite: () -> Unit = {
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             YouTubeSync.rotateSongLikeState( context, mediaItem )
         }
     }
@@ -391,7 +391,7 @@ fun SwipeableAlbumItem(
     val album by remember( albumItem.key ) {
         Database.albumTable
                 .findById( albumItem.key )
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     val albumSwipeLeftAction by rememberPreference(albumSwipeLeftActionKey, AlbumSwipeAction.PlayNext)
     val albumSwipeRightAction by rememberPreference(albumSwipeRightActionKey, AlbumSwipeAction.Bookmark)

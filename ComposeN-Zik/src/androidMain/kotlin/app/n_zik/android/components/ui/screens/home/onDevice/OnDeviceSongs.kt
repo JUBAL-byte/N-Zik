@@ -66,7 +66,6 @@ import app.it.fast4x.rimusic.utils.isAtLeastAndroid13
 import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFoldersOnDeviceKey
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onEach
@@ -202,7 +201,7 @@ fun OnDeviceSong(
     val songIds = remember(itemsOnDisplay) { itemsOnDisplay.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

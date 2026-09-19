@@ -16,7 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -103,7 +103,7 @@ fun ActionBar(
     var accountThumbnail by remember { mutableStateOf("") }
 
     LaunchedEffect(trigger) {
-        withContext(Dispatchers.IO) {
+        withContext(NzikDispatchers.DATA) {
             cookie = prefs.getString(app.it.fast4x.rimusic.utils.ytCookieKey, "") ?: ""
             isLoginEnabled = prefs.getBoolean(app.it.fast4x.rimusic.utils.enableYouTubeLoginKey, false)
             accountThumbnail = prefs.getString(app.it.fast4x.rimusic.utils.ytAccountThumbnailKey, "") ?: ""

@@ -41,7 +41,7 @@ import app.it.fast4x.rimusic.utils.syncBackgroundGuardKey
 import app.n_zik.android.appRunningInBackground
 import app.it.fast4x.rimusic.enums.SyncDirection
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -92,7 +92,7 @@ object PlaylistEditThrottle {
 }
 
 @OptIn(UnstableApi::class)
-suspend fun ytmPrivatePlaylistSync(playlist: Playlist, playlistId: Long) = withContext(Dispatchers.IO) {
+suspend fun ytmPrivatePlaylistSync(playlist: Playlist, playlistId: Long) = withContext(NzikDispatchers.DATA) {
     val plist = playlist
     // Network call on IO thread
     val remotePlaylist = plist.browseId?.let {
@@ -126,7 +126,7 @@ suspend fun ytmPrivatePlaylistSync(playlist: Playlist, playlistId: Long) = withC
     }
 }
 
-suspend fun importYTMSubscribedChannels(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMSubscribedChannels(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMSubscribedChannels isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -186,7 +186,7 @@ suspend fun importYTMSubscribedChannels(force: Boolean = false, showDetails: Boo
         true
 }
 
-suspend fun importYTMLikedAlbums(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMLikedAlbums(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMLikedAlbums isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -272,7 +272,7 @@ suspend fun removeYTSongFromPlaylist(
         .isSuccess
 }
 
-suspend fun importYTMLikedSongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMLikedSongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMLikedSongs isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -312,7 +312,7 @@ suspend fun importYTMLikedSongs(force: Boolean = false, showDetails: Boolean = t
     true
 }
 
-suspend fun removeYTMLikedSongs(): Boolean = withContext(Dispatchers.IO) {
+suspend fun removeYTMLikedSongs(): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("removeYTMLikedSongs called")
     if (!isYouTubeSyncEnabled()) return@withContext false
 
@@ -342,7 +342,7 @@ suspend fun removeYTMLikedSongs(): Boolean = withContext(Dispatchers.IO) {
     }.getOrDefault(false)
 }
 
-suspend fun importYTMPlaylists(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMPlaylists(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMPlaylists isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -429,7 +429,7 @@ fun autoSyncToolbutton(messageId: Int, preferenceKey: String = autosyncKey, sync
     override fun onLongClick() {}
 }
 
-suspend fun importYTMLibrarySongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMLibrarySongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMLibrarySongs isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -463,7 +463,7 @@ suspend fun importYTMLibrarySongs(force: Boolean = false, showDetails: Boolean =
     true
 }
 
-suspend fun importYTMUploadedSongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMUploadedSongs(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMUploadedSongs isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -497,7 +497,7 @@ suspend fun importYTMUploadedSongs(force: Boolean = false, showDetails: Boolean 
     true
 }
 
-suspend fun importYTMUploadedAlbums(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMUploadedAlbums(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMUploadedAlbums isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -559,7 +559,7 @@ suspend fun importYTMUploadedAlbums(force: Boolean = false, showDetails: Boolean
 
 // ============ EPISODES FOR LATER (VLSE) ============
 
-suspend fun importYTMEpisodesForLater(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(Dispatchers.IO) {
+suspend fun importYTMEpisodesForLater(force: Boolean = false, showDetails: Boolean = true): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("importYTMEpisodesForLater isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canImportFromYTM()) return@withContext false
@@ -665,7 +665,7 @@ val syncStatus: StateFlow<SyncStatus> = _syncStatus
 
 private var syncChannel = Channel<SyncOperation>(Channel.BUFFERED)
 private val syncJob = kotlinx.coroutines.SupervisorJob()
-private val syncScope = CoroutineScope(Dispatchers.IO + syncJob)
+private val syncScope = CoroutineScope(NzikDispatchers.DATA + syncJob)
 @Volatile private var processingJob: kotlinx.coroutines.Job? = null
 private val syncMutex = Mutex()
 private val startLock = Any()
@@ -860,7 +860,7 @@ private suspend fun executeOperation(operation: SyncOperation) {
 
 // ============ DUPLICATE PLAYLIST CLEANUP ============
 
-suspend fun cleanupDuplicatePlaylists() = withContext(Dispatchers.IO) {
+suspend fun cleanupDuplicatePlaylists() = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("cleanupDuplicatePlaylists started")
     val playlists = Database.playlistTable.getAll()
     val byBrowseId = playlists.filter { !it.browseId.isNullOrBlank() }.groupBy { it.browseId }
@@ -881,7 +881,7 @@ suspend fun cleanupDuplicatePlaylists() = withContext(Dispatchers.IO) {
 
 // ============ PODCAST PUSH (SAVE/UNSAVE) ============
 
-suspend fun savePodcast(podcastId: String): Boolean = withContext(Dispatchers.IO) {
+suspend fun savePodcast(podcastId: String): Boolean = withContext(NzikDispatchers.DATA) {
     if (!isYouTubeSyncEnabled() || !canPushToYTM() || !isNetworkConnected(appContext())) return@withContext false
     val result = runCatching {
         YtMusic.likePlaylistOrAlbum(podcastId)
@@ -891,7 +891,7 @@ suspend fun savePodcast(podcastId: String): Boolean = withContext(Dispatchers.IO
     result.isSuccess
 }
 
-suspend fun unsavePodcast(podcastId: String): Boolean = withContext(Dispatchers.IO) {
+suspend fun unsavePodcast(podcastId: String): Boolean = withContext(NzikDispatchers.DATA) {
     if (!isYouTubeSyncEnabled() || !canPushToYTM() || !isNetworkConnected(appContext())) return@withContext false
     val result = runCatching {
         YtMusic.removelikePlaylistOrAlbum(podcastId)
@@ -903,7 +903,7 @@ suspend fun unsavePodcast(podcastId: String): Boolean = withContext(Dispatchers.
 
 // ============ EPISODE PUSH (ADD/REMOVE FROM SE) ============
 
-suspend fun addEpisodeToSavedEpisodes(videoId: String): Boolean = withContext(Dispatchers.IO) {
+suspend fun addEpisodeToSavedEpisodes(videoId: String): Boolean = withContext(NzikDispatchers.DATA) {
     if (!isYouTubeSyncEnabled() || !canPushToYTM() || !isNetworkConnected(appContext())) return@withContext false
     val result = runCatching {
         PlaylistEditThrottle.throttle("SE")
@@ -914,7 +914,7 @@ suspend fun addEpisodeToSavedEpisodes(videoId: String): Boolean = withContext(Di
     result.isSuccess
 }
 
-suspend fun removeEpisodeFromSavedEpisodes(videoId: String, setVideoId: String? = null): Boolean = withContext(Dispatchers.IO) {
+suspend fun removeEpisodeFromSavedEpisodes(videoId: String, setVideoId: String? = null): Boolean = withContext(NzikDispatchers.DATA) {
     if (!isYouTubeSyncEnabled() || !canPushToYTM() || !isNetworkConnected(appContext())) return@withContext false
     val result = runCatching {
         PlaylistEditThrottle.throttle("SE")
@@ -927,7 +927,7 @@ suspend fun removeEpisodeFromSavedEpisodes(videoId: String, setVideoId: String? 
 
 // ============ BULK PUSH TO YTM ============
 
-suspend fun pushYTMLikedSongs(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+suspend fun pushYTMLikedSongs(force: Boolean = false): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("pushYTMLikedSongs isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canPushToYTM()) return@withContext false
@@ -957,7 +957,7 @@ suspend fun pushYTMLikedSongs(force: Boolean = false): Boolean = withContext(Dis
     failed == 0
 }
 
-suspend fun pushYTMAlbumBookmarks(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+suspend fun pushYTMAlbumBookmarks(force: Boolean = false): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("pushYTMAlbumBookmarks isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canPushToYTM()) return@withContext false
@@ -991,7 +991,7 @@ suspend fun pushYTMAlbumBookmarks(force: Boolean = false): Boolean = withContext
     failed == 0
 }
 
-suspend fun pushYTMArtistFollows(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+suspend fun pushYTMArtistFollows(force: Boolean = false): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("pushYTMArtistFollows isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canPushToYTM()) return@withContext false
@@ -1021,7 +1021,7 @@ suspend fun pushYTMArtistFollows(force: Boolean = false): Boolean = withContext(
     failed == 0
 }
 
-suspend fun pushYTMPlaylists(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+suspend fun pushYTMPlaylists(force: Boolean = false): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("pushYTMPlaylists isYouTubeSyncEnabled() = ${isYouTubeSyncEnabled()}")
     if (!isYouTubeSyncEnabled()) return@withContext false
     if (!canPushToYTM()) return@withContext false
@@ -1065,7 +1065,7 @@ suspend fun pushYTMPlaylists(force: Boolean = false): Boolean = withContext(Disp
 
 // ============ PUSH SAVED EPISODES TO YTM ============
 
-suspend fun pushYTMSavedEpisodes(force: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+suspend fun pushYTMSavedEpisodes(force: Boolean = false): Boolean = withContext(NzikDispatchers.DATA) {
     if (!isYouTubeSyncEnabled() || !canPushToYTM() || !isNetworkConnected(appContext())) return@withContext false
     val pushEpisodes = appContext().preferences.getBoolean(syncPushEpisodeKey, false)
     if (!pushEpisodes && !force) return@withContext false
@@ -1101,7 +1101,7 @@ suspend fun pushYTMSavedEpisodes(force: Boolean = false): Boolean = withContext(
 
 // ============ CLEAR ALL SYNCED DATA ON LOGOUT ============
 
-suspend fun clearAllSyncedData(): Boolean = withContext(Dispatchers.IO) {
+suspend fun clearAllSyncedData(): Boolean = withContext(NzikDispatchers.DATA) {
     Timber.tag("SyncYTMusicUtils").d("clearAllSyncedData started")
 
     // Cancel any running sync operations

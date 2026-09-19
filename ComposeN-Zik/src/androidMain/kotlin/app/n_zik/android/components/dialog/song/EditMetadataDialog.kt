@@ -58,7 +58,6 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -260,7 +259,7 @@ class EditMetadataDialog private constructor(
             fields.clear()
             coverArtBytes = null
 
-            val result = withContext(Dispatchers.IO) { readTagsFromFile(context, song) }
+            val result = withContext(NzikDispatchers.DATA) { readTagsFromFile(context, song) }
 
             filePath = result.path
             coverArtBytes = result.coverBytes
@@ -408,7 +407,7 @@ class EditMetadataDialog private constructor(
         val path = filePath ?: run { Toaster.e("Cannot resolve file path"); return }
         val song = getSong() ?: return
 
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             val context = appContext()
             val cacheDir = context.cacheDir
             val originalFile = File(path)
@@ -526,7 +525,7 @@ class EditMetadataDialog private constructor(
                         pendingTempFile = tempFile
                         pendingMediaStoreUri = mediaStoreUri
                         pendingSong = song
-                        withContext(Dispatchers.Main) {
+                        withContext(NzikDispatchers.UI) {
                             writePermissionLauncher?.launch(
                                 IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build()
                             )
@@ -542,7 +541,7 @@ class EditMetadataDialog private constructor(
                 }
             } catch (e: Exception) {
                 Timber.tag("EditMetadata").e(e, "Failed to write tags")
-                withContext(Dispatchers.Main) { Toaster.e("Failed to save: ${e.message}") }
+                withContext(NzikDispatchers.UI) { Toaster.e("Failed to save: ${e.message}") }
             } finally {
                 if (pendingTempFile == null) {
                     tempFile.delete()
@@ -557,7 +556,7 @@ class EditMetadataDialog private constructor(
         val uri = pendingMediaStoreUri ?: return
         val song = pendingSong ?: return
 
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             try {
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     tempFile.inputStream().use { inp -> inp.copyTo(out) }
@@ -566,7 +565,7 @@ class EditMetadataDialog private constructor(
             } catch (e: Exception) {
                 Timber.tag("EditMetadata").e(e, "Failed to write after permission")
                 tempFile.delete()
-                withContext(Dispatchers.Main) { Toaster.e("Failed to save: ${e.message}") }
+                withContext(NzikDispatchers.UI) { Toaster.e("Failed to save: ${e.message}") }
             } finally {
                 pendingTempFile = null
                 pendingMediaStoreUri = null
@@ -586,7 +585,7 @@ class EditMetadataDialog private constructor(
             if (newArtist.isNotEmpty()) songTable.updateArtists(song.id, "$MODIFIED_PREFIX$newArtist")
         }
 
-        withContext(Dispatchers.Main) { Toaster.done(); hideDialog() }
+        withContext(NzikDispatchers.UI) { Toaster.done(); hideDialog() }
     }
 
     private data class ReadResult(

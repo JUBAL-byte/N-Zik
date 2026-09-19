@@ -71,7 +71,7 @@ import app.n_zik.android.core.coil.ImageCacheFactory
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.searchPage
 import it.fast4x.innertube.utils.from
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -144,7 +144,7 @@ fun MusicAudioSearchOverlay(
                 .filter { it.isNotBlank() }.joinToString(" ")
             var song: Innertube.SongItem? = null
             try {
-                val searchResult = withContext(Dispatchers.IO) {
+                val searchResult = withContext(NzikDispatchers.DATA) {
                     Innertube.searchPage(
                         query = query,
                         params = Innertube.SearchFilter.Song.value,
@@ -201,7 +201,7 @@ fun MusicAudioSearchOverlay(
         isMatching = true; lastAttemptSecond = duration
         scope.launch {
             Timber.tag("MusicAudioSearchOverlay").d("Starting audio analysis at duration=$duration")
-            val track = withContext(Dispatchers.IO) { repository.identify(duration, recordedBuffer) }
+            val track = withContext(NzikDispatchers.DATA) { repository.identify(duration, recordedBuffer) }
             if (track != null) {
                 Timber.tag("MusicAudioSearchOverlay").d("Track found - ${track.title}")
                 recorder.stop(); recognitionJob?.cancel(); recognitionJob = null

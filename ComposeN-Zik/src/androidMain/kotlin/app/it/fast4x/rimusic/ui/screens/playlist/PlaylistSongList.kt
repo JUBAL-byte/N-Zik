@@ -153,7 +153,6 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -227,7 +226,7 @@ fun PlaylistSongList(
     LaunchedEffect( browseId ) {
         loadedSongsCount = 0
         if (playlistPage == null) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 val firstPage = YtMusic.getPlaylist( browseId.removePrefix(MODIFIED_PREFIX) ).getOrNull() ?: return@withContext
                 val allSongs = firstPage.songs.toMutableList()
                 loadedSongsCount = allSongs.fastDistinctBy( Innertube.SongItem::key ).size
@@ -258,7 +257,7 @@ fun PlaylistSongList(
             .collect { shouldLoadMore ->
                 if ( !shouldLoadMore ) return@collect
 
-                withContext(Dispatchers.IO) {
+                withContext(NzikDispatchers.DATA) {
                     updatedItemsPageProvider(continuation)
                 }.onSuccess { onlinePlaylist ->
                     if( continuation == null )
@@ -298,7 +297,7 @@ fun PlaylistSongList(
     val localPlaylist by remember( saveCheck ) {
         Database.playlistTable
                 .findByBrowseId( browseId )
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     var filterCharSequence: CharSequence
     filterCharSequence = filter.toString()
@@ -344,7 +343,7 @@ fun PlaylistSongList(
             onDismiss = { showYoutubeLikeConfirmDialog = false },
             onConfirm = {
                 showYoutubeLikeConfirmDialog = false
-                CoroutineScope(Dispatchers.IO).launch {
+                CoroutineScope(NzikDispatchers.DATA).launch {
                     addToYtLikedSongs(playlistNotLikedSongs.map {it.asMediaItem})
                 }
             }
@@ -364,7 +363,7 @@ fun PlaylistSongList(
                     list.map( Song::id )
                 }
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val importPlaylistDialog = ImportPlaylistDialog(
         initialValue = playlistPage?.playlist?.title ?: ""
@@ -396,7 +395,7 @@ fun PlaylistSongList(
     val playlistSongIds = remember(playlistSongs) { playlistSongs.mapNotNull { it.key } }
     val likeStatesMap by remember(playlistSongIds) {
         LikeStateManager.getLikeStates(playlistSongIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box(
@@ -759,7 +758,7 @@ fun PlaylistSongList(
                                                                 mapIgnore( playlistPreview.playlist, *songs.toTypedArray() )
                                                             }
                                                         } else {
-                                                            CoroutineScope(Dispatchers.IO).launch {
+                                                            CoroutineScope(NzikDispatchers.DATA).launch {
                                                                 YtMusic.addPlaylistToPlaylist(
                                                                     cleanPrefix(playlistPreview.playlist.browseId ?: ""),
                                                                     browseId.substringAfter("VL")
@@ -789,7 +788,7 @@ fun PlaylistSongList(
                                             if (!isNetworkConnected(appContext()) && isYouTubeSyncEnabled()) {
                                                 Toaster.noInternet()
                                             } else if (!isYouTubeSyncEnabled()){
-                                                CoroutineScope( Dispatchers.IO ).launch {
+                                                CoroutineScope( NzikDispatchers.DATA ).launch {
                                                     val showDisliked = appContext().preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() }?.isEnabled ?: true
                                                     playlistPage!!.songs
                                                                   .map{ it.asSong.id }
@@ -819,7 +818,7 @@ fun PlaylistSongList(
                                 color = if (localPlaylist?.isYoutubePlaylist == true) colorPalette().favoritesIcon else colorPalette().text,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                 onClick = {
-                                    CoroutineScope(Dispatchers.IO).launch {
+                                    CoroutineScope(NzikDispatchers.DATA).launch {
                                         if (localPlaylist?.isYoutubePlaylist == true) {
                                             if (isYouTubeSyncEnabled() && isNetworkConnected(context)) {
                                                 YtMusic.removelikePlaylistOrAlbum(browseId.substringAfter("VL"))
@@ -969,7 +968,7 @@ fun PlaylistSongList(
                             var translatedText by remember { mutableStateOf("") }
                             if (translateEnabled == true) {
                                 LaunchedEffect(Unit) {
-                                    val result = withContext(Dispatchers.IO) {
+                                    val result = withContext(NzikDispatchers.DATA) {
                                         try {
                                             translator.translate(
                                                 nonTranslatedText,

@@ -91,7 +91,6 @@ import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.LastFmActions
 import app.n_zik.android.playback.services.isLocal
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -319,7 +318,7 @@ class VideoItemMenu private constructor(
 
         val albumForInfo by remember(song.id) {
             Database.albumTable.findBySongId(song.id)
-        }.collectAsState(null, Dispatchers.IO)
+        }.collectAsState(null, NzikDispatchers.DATA)
 
         val infoButton = remember {
             object : MenuIcon, Descriptive, Clickable {
@@ -370,7 +369,7 @@ class VideoItemMenu private constructor(
         // Reactively collect artists from DB for per-artist "More of" buttons
         val artistsData by remember(song.id) {
             Database.artistTable.findBySongId(song.id)
-        }.collectAsState(emptyList(), Dispatchers.IO)
+        }.collectAsState(emptyList(), NzikDispatchers.DATA)
 
         val goToArtistFallback = remember {
             GoToArtist( navController, song, menuState )
@@ -414,7 +413,7 @@ class VideoItemMenu private constructor(
                             override val menuIconTitle: String get() = stringResource(R.string.more_of) + " $artistName"
                             override fun onShortClick() {
                                 menuState.hide()
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     // Try DB by name first (works after search online populated it)
                                     val dbArtist = try {
                                         Database.artistTable.findByName(artistName).first()
@@ -536,7 +535,7 @@ class VideoItemMenu private constructor(
                             Database.songTable
                                     .likeState( song.id )
                                     .distinctUntilChanged()
-                        }.collectAsState( null, Dispatchers.IO )
+                        }.collectAsState( null, NzikDispatchers.DATA )
 
                         Column(
                             Modifier.width( TabToolBar.TOOLBAR_ICON_SIZE )

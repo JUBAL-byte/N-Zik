@@ -51,7 +51,6 @@ import app.n_zik.android.R
 import app.kreate.android.me.knighthat.utils.Toaster
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.n_zik.android.enums.lyrics.LyricsAlignment
@@ -357,12 +356,12 @@ fun KaraokeLyricsView(
         if (linesToTranslate.isEmpty()) return@LaunchedEffect
 
         if (translateEnabled) {
-            withContext(Dispatchers.Main) {
+            withContext(NzikDispatchers.UI) {
                 Toaster.i(R.string.translation_in_progress)
             }
         }
 
-        withContext(Dispatchers.IO) {
+        withContext(NzikDispatchers.DATA) {
             try {
                 val textToTranslate = linesToTranslate.joinToString("\n") { it.second }
 
@@ -429,14 +428,14 @@ fun KaraokeLyricsView(
                 }
 
                 if (translateEnabled) {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         Toaster.s(R.string.translation_successful)
                     }
                 }
             } catch (e: Exception) {
                 Timber.tag("KaraokeLyricsView").e("sync translation error: ${e.message}")
                 if (translateEnabled) {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         Toaster.e(R.string.translation_failed)
                     }
                 }

@@ -225,7 +225,7 @@ fun HomeSongsScreen(navController: NavController ) {
     if (showYouTubeLinkDialog) {
         YouTubeLinkImportDialog(
             onImport = { urlPlaylistId ->
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val browseId = if (urlPlaylistId.startsWith("VL")) urlPlaylistId else "VL$urlPlaylistId"
                     Innertube.playlistPage(browseId = browseId)?.getOrNull()?.let { playlistPage ->
                         val playlistName = playlistPage.title ?: appContext().getString(R.string.youtube_playlist)
@@ -318,7 +318,7 @@ fun HomeSongsScreen(navController: NavController ) {
     LaunchedEffect(matchRunning) {
         if (!matchRunning) return@LaunchedEffect
         val mergedCounter = AtomicInteger(0)
-        val job = launch(Dispatchers.IO) {
+        val job = launch(NzikDispatchers.DATA) {
             try {
                 val unmatched = if (retryMatchMode && retryMatchSongs.isNotEmpty()) {
                     retryMatchSongs
@@ -331,7 +331,7 @@ fun HomeSongsScreen(navController: NavController ) {
                 val jobs = mutableListOf<Job>()
                 unmatched.forEachIndexed { index, song ->
                     ensureActive()
-                    jobs.add(launch(Dispatchers.IO) {
+                    jobs.add(launch(NzikDispatchers.DATA) {
                         var wasCancelled = false
                         try {
                             if (cancelMatch) return@launch
@@ -469,10 +469,10 @@ fun HomeSongsScreen(navController: NavController ) {
         override val messageId: Int = R.string.autosync_likes
         @get:Composable override val menuIconTitle: String get() = stringResource(messageId)
         override fun onShortClick() {
-            coroutineScope.launch(Dispatchers.IO) { importYTMLikedSongs(force = true) }
+            coroutineScope.launch(NzikDispatchers.DATA) { importYTMLikedSongs(force = true) }
         }
         override fun onLongClick() {
-            coroutineScope.launch(Dispatchers.IO) { removeYTMLikedSongs() }
+            coroutineScope.launch(NzikDispatchers.DATA) { removeYTMLikedSongs() }
         }
     }
 

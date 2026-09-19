@@ -151,7 +151,6 @@ import app.it.fast4x.rimusic.utils.homeArtistsFavoritesSortMenuOrderKey
 import app.it.fast4x.rimusic.utils.homeArtistsLibrarySortMenuOrderKey
 import app.it.fast4x.rimusic.utils.homeArtistsDislikedSortMenuOrderKey
 import org.json.JSONArray
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -230,7 +229,7 @@ fun HomeArtists(
         }
     }
 
-    suspend fun getSelectedSongs(): List<Song> = withContext(Dispatchers.IO) {
+    suspend fun getSelectedSongs(): List<Song> = withContext(NzikDispatchers.DATA) {
         val selected = itemSelector.ifEmpty { itemsOnDisplay }
         val seen = HashSet<String>()
         val result = ArrayList<Song>()
@@ -343,9 +342,9 @@ fun HomeArtists(
     }
     if (items.any{it.thumbnailUrl == null}) {
         LaunchedEffect(Unit) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 items.filter { it.thumbnailUrl == null }.forEach { artist ->
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         val artistThumbnail = YtMusic.getArtistPage(artist.id.removePrefix(MODIFIED_PREFIX)).getOrNull()?.artist?.thumbnail?.url
                         Database.asyncTransaction {
                             artistTable.update( artist.copy(thumbnailUrl = artistThumbnail) )

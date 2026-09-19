@@ -44,7 +44,7 @@ import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.it.fast4x.rimusic.utils.menuStyleKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.dialog.playlist.NewPlaylistDialog
 import app.n_zik.android.components.tab.Search
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -176,7 +176,7 @@ class PlaylistsMenu private constructor(
 
         val playlistPreviews by remember {
             Database.playlistTable.sortPreviewsByName()
-        }.collectAsState( emptyList(), Dispatchers.IO )
+        }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
         val pinnedPlaylists = playlistPreviews.filter {
             it.playlist.name.startsWith(PINNED_PREFIX, 0, true)

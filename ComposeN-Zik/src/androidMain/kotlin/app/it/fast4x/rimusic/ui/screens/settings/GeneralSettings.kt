@@ -81,7 +81,7 @@ import app.it.fast4x.rimusic.utils.excludeDislikedArtistsKey
 import app.it.fast4x.rimusic.utils.excludeDislikedAlbumsKey
 import app.n_zik.android.core.database.Database
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.it.fast4x.rimusic.utils.exoPlayerMinTimeForEventKey
 import app.it.fast4x.rimusic.utils.handleAudioFocusEnabledKey
@@ -537,7 +537,7 @@ fun GeneralSettings(
                                onValueSelected = {
                                    excludeDislikedSongs = it
                                    if (it == DislikeMode.Disabled) {
-                                       CoroutineScope(Dispatchers.IO).launch {
+                                       CoroutineScope(NzikDispatchers.DATA).launch {
                                            Database.songTable.clearAllDisliked()
                                        }
                                    }
@@ -564,7 +564,7 @@ fun GeneralSettings(
                                onValueSelected = {
                                    excludeDislikedArtists = it
                                    if (it == DislikeMode.Disabled) {
-                                       CoroutineScope(Dispatchers.IO).launch {
+                                       CoroutineScope(NzikDispatchers.DATA).launch {
                                            Database.artistTable.clearAllDisliked()
                                        }
                                    }
@@ -591,7 +591,7 @@ fun GeneralSettings(
                                onValueSelected = {
                                    excludeDislikedAlbums = it
                                    if (it == DislikeMode.Disabled) {
-                                       CoroutineScope(Dispatchers.IO).launch {
+                                       CoroutineScope(NzikDispatchers.DATA).launch {
                                            Database.albumTable.clearAllDisliked()
                                        }
                                    }

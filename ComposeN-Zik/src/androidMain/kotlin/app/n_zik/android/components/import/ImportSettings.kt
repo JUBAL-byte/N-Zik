@@ -10,7 +10,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.util.fastForEach
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -106,7 +106,7 @@ class ImportSettings private constructor(
                     Timber.tag("ImportSettings").d("File picker callback received, uri: $uri")
                     uri ?: return@rememberLauncherForActivityResult
 
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         runCatching {
                             context.contentResolver
                                    .openInputStream( uri )
@@ -114,7 +114,7 @@ class ImportSettings private constructor(
                                        onImport( context, inStream )
                                    } ?: Timber.tag("ImportSettings").w("Failed to open input stream")
 
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 if (onImportComplete != null) {
                                     onImportComplete()
                                 } else {
@@ -123,7 +123,7 @@ class ImportSettings private constructor(
                             }
                         }.onFailure { e ->
                             Timber.tag("ImportSettings").e(e, "Import failed")
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 Toaster.e("Import failed: ${e.message}")
                             }
                         }

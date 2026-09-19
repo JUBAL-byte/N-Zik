@@ -65,7 +65,6 @@ import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -292,7 +291,7 @@ fun UpdateScreen(navController: NavController) {
                                                     isPreInstallBackupRunning = true
                                                     preInstallCoroutineScope.launch {
                                                         try {
-                                                            val success = withContext(Dispatchers.IO) {
+                                                            val success = withContext(NzikDispatchers.DATA) {
                                                                 BackupManager.executePreInstallBackup(context)
                                                             }
                                                             isPreInstallBackupRunning = false
@@ -786,7 +785,7 @@ fun UpdateScreen(navController: NavController) {
                         val destLanguage = activeTranslateLang.translatorLanguage
                         if (destLanguage != Language.ENGLISH) {
                             try {
-                                val res = withContext(Dispatchers.IO) {
+                                val res = withContext(NzikDispatchers.DATA) {
                                     translator.translate(changelogTextToDisplay, destLanguage, Language.ENGLISH).translatedText
                                 }
                                 translatedText = res

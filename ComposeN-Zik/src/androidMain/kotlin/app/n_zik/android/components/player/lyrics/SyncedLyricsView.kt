@@ -41,7 +41,6 @@ import app.it.fast4x.rimusic.ui.styling.PureBlackColorPalette
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
 import it.fast4x.lrclib.LrcLib
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -204,12 +203,12 @@ fun SyncedLyricsView(
         if (linesToTranslate.isEmpty()) return@LaunchedEffect
 
         if (translateEnabled) {
-            withContext(Dispatchers.Main) {
+            withContext(NzikDispatchers.UI) {
                 Toaster.i(R.string.translation_in_progress)
             }
         }
 
-        withContext(Dispatchers.IO) {
+        withContext(NzikDispatchers.DATA) {
             try {
                 // Join all lines to translate in one go
                 val textToTranslate = linesToTranslate.joinToString("\n") { it.second }
@@ -277,14 +276,14 @@ fun SyncedLyricsView(
                 }
 
                 if (translateEnabled) {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         Toaster.s(R.string.translation_successful)
                     }
                 }
             } catch (e: Exception) {
                 Timber.tag("SyncedLyricsView").e("sync translation error: ${e.message}")
                 if (translateEnabled) {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         Toaster.e(R.string.translation_failed)
                     }
                 }

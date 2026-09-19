@@ -67,7 +67,7 @@ import app.it.fast4x.rimusic.utils.playlistSortByKey
 import app.it.fast4x.rimusic.utils.playlistSortOrderKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.tab.Search
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.components.menu.ListMenu
@@ -170,7 +170,7 @@ fun PlaylistsItemGridMenu(
             val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
             val playlistPreviews by remember {
                 Database.playlistTable.sortPreviews( sortBy, sortOrder )
-            }.collectAsState( emptyList(), Dispatchers.IO )
+            }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
             val pinnedPlaylists = playlistPreviews.filter {
                 it.playlist.name.startsWith(PINNED_PREFIX, 0, true)

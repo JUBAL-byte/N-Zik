@@ -53,7 +53,7 @@ import app.n_zik.android.BuildConfig
 import app.n_zik.android.R
 import app.n_zik.android.core.rescue.RescueFiles
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -94,7 +94,7 @@ fun RescueScreen() {
     // action awaits it: Keystore work must not run in composition, and the database and log
     // actions never need it.
     val encryptedPrefs = remember(scope) {
-        scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+        scope.async(NzikDispatchers.DATA, start = CoroutineStart.LAZY) {
             context.getEncryptedSharedPreferencesResult()
         }
     }
@@ -116,7 +116,7 @@ fun RescueScreen() {
     var fileStateVersion by remember { mutableIntStateOf(0) }
     var fileState by remember { mutableStateOf(RescueFileState()) }
     LaunchedEffect(fileStateVersion) {
-        fileState = withContext(Dispatchers.IO) {
+        fileState = withContext(NzikDispatchers.DATA) {
             RescueFileState(
                 hasLogs = RescueFiles.hasLogs(context),
                 hasDatabaseBackup = RescueFiles.hasBackup(context),
@@ -172,7 +172,7 @@ fun RescueScreen() {
     ) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val result = withContext(Dispatchers.IO) { RescueFiles.exportDatabase(context, uri) }
+            val result = withContext(NzikDispatchers.DATA) { RescueFiles.exportDatabase(context, uri) }
             showResult(result)
         }
     }
@@ -183,7 +183,7 @@ fun RescueScreen() {
         uri ?: return@rememberLauncherForActivityResult
         guardWrite {
             scope.launch {
-                val result = withContext(Dispatchers.IO) { RescueFiles.importDatabase(context, uri) }
+                val result = withContext(NzikDispatchers.DATA) { RescueFiles.importDatabase(context, uri) }
                 showResult(result)
             }
         }
@@ -194,7 +194,7 @@ fun RescueScreen() {
     ) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val result = withContext(Dispatchers.IO) {
+            val result = withContext(NzikDispatchers.DATA) {
                 val wantsCredentials = includeYtb || includeDiscord || includeLastfm
                 RescueFiles.exportSettings(
                     context, uri,
@@ -212,7 +212,7 @@ fun RescueScreen() {
         uri ?: return@rememberLauncherForActivityResult
         guardWrite {
             scope.launch {
-                val result = withContext(Dispatchers.IO) {
+                val result = withContext(NzikDispatchers.DATA) {
                     RescueFiles.importSettings(context, uri, encryptedPrefs.await())
                 }
                 showSettingsResult(result)
@@ -225,7 +225,7 @@ fun RescueScreen() {
     ) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            val result = withContext(Dispatchers.IO) { RescueFiles.exportCrashLogs(context, uri) }
+            val result = withContext(NzikDispatchers.DATA) { RescueFiles.exportCrashLogs(context, uri) }
             result.onSuccess { found ->
                 if (found == true) {
                     showResult(Result.success(Unit))
@@ -417,7 +417,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_delete_logs) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.deleteLogs(context)
                                 }
                                 showResult(result)
@@ -436,7 +436,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_clear_cache) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.clearCache(context)
                                 }
                                 showResult(result)
@@ -455,7 +455,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_delete_downloads) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.deleteDownloads(context)
                                 }
                                 showResult(result)
@@ -485,7 +485,7 @@ fun RescueScreen() {
                         }
                         confirmAction = ConfirmAction(message) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.resetDatabase(context)
                                 }
                                 showResult(result)
@@ -506,7 +506,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_restore_database) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.restoreDatabase(context)
                                 }
                                 showResult(result)
@@ -531,7 +531,7 @@ fun RescueScreen() {
                         }
                         confirmAction = ConfirmAction(message) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.resetSettings(context, encryptedPrefs.await())
                                 }
                                 showResult(result)
@@ -552,7 +552,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_restore_settings) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.restoreSettings(context)
                                 }
                                 showResult(result)
@@ -585,7 +585,7 @@ fun RescueScreen() {
                     guardWrite {
                         confirmAction = ConfirmAction(R.string.rescue_confirm_delete_backups) {
                             scope.launch {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     RescueFiles.deleteBackups(context)
                                 }
                                 showResult(result)

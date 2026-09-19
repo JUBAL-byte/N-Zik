@@ -273,7 +273,6 @@ import app.it.fast4x.rimusic.utils.thumbnailTypeKey
 import app.it.fast4x.rimusic.utils.timelineExpandedKey
 import app.it.fast4x.rimusic.utils.titleExpandedKey
 import app.it.fast4x.rimusic.utils.topPaddingKey
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -1119,7 +1118,7 @@ fun Player(
             Database.songTable
                 .isLiked( mediaItem.mediaId )
                 .distinctUntilChanged()
-        }.collectAsState( false, Dispatchers.IO )
+        }.collectAsState( false, NzikDispatchers.DATA )
 
             Thumbnail(
                 thumbnailTapEnabledKey = thumbnailTapEnabled,
@@ -1136,7 +1135,7 @@ fun Player(
                     currentMediaItem
                         ?.takeIf { it.mediaId == mediaItem.mediaId }
                         ?.let { item ->
-                            CoroutineScope(Dispatchers.IO).launch {
+                            CoroutineScope(NzikDispatchers.DATA).launch {
                                 YouTubeSync.rotateSongLikeState( context, item )
                             }
                         }

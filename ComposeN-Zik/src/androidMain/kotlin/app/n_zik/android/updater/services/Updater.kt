@@ -32,7 +32,7 @@ import app.it.fast4x.rimusic.utils.lastUpdateCheckKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -212,7 +212,7 @@ object Updater {
      *
      * > **NOTE**: This is a blocking process, it should never run on UI thread
      */
-    private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(Dispatchers.IO) {
+    private suspend fun fetchUpdate(checkBetaUpdates: Boolean = false) = withContext(NzikDispatchers.DATA) {
         assert(Looper.myLooper() != Looper.getMainLooper()) {
             "Cannot run fetch update on main thread"
         }
@@ -289,7 +289,7 @@ object Updater {
     private const val CHANGELOG_CACHE_KEY = "cached_changelog"
     private const val CHANGELOG_VERSION_KEY = "cached_changelog_version"
 
-    fun fetchCurrentChangelog() = CoroutineScope(Dispatchers.IO).launch {
+    fun fetchCurrentChangelog() = CoroutineScope(NzikDispatchers.DATA).launch {
         try {
             isFetchingChangelog = true
             val versionCode = BuildConfig.VERSION_CODE
@@ -409,7 +409,7 @@ object Updater {
         isForced: Boolean = false,
         checkBetaUpdates: Boolean = false,
         showDialog: Boolean = true
-    ) = CoroutineScope(Dispatchers.IO).launch {
+    ) = CoroutineScope(NzikDispatchers.DATA).launch {
         // Update the last check timestamp at the beginning
         appContext().preferences.edit()
             .putLong(lastUpdateCheckKey, System.currentTimeMillis())

@@ -59,7 +59,7 @@ import androidx.compose.ui.res.stringResource
 import app.it.fast4x.rimusic.ui.components.themed.HeaderIconButton
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.n_zik.android.core.database.Database
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
@@ -84,7 +84,7 @@ fun AlbumItem(
             Database.albumTable
                 .likeState( album.id )
                 .distinctUntilChanged()
-        }.collectAsState( null, Dispatchers.IO )
+        }.collectAsState( null, NzikDispatchers.DATA )
     }
 
     AlbumItem(
@@ -128,7 +128,7 @@ fun AlbumItem(
             Database.albumTable
                 .likeState( album.key )
                 .distinctUntilChanged()
-        }.collectAsState( null, Dispatchers.IO )
+        }.collectAsState( null, NzikDispatchers.DATA )
     }
 
     AlbumItem(

@@ -101,7 +101,7 @@ import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showStatsListeningTimeKey
 import app.it.fast4x.rimusic.utils.statisticsCategoryKey
 import app.n_zik.android.core.coil.thumbnail
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -171,7 +171,7 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
     val albums by remember {
         Database.eventTable
                 .findAlbumsMostPlayedBetween(
@@ -179,7 +179,7 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
     val playlists by remember {
         Database.eventTable
                 .findPlaylistMostPlayedBetweenAsPreview(
@@ -187,14 +187,14 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
     var totalPlayTimes by remember { mutableLongStateOf(0L) }
     val totalPlayTimesFlow = remember(from) {
         Database.eventTable
             .getTotalPlayTimeBetween(from = from)
             .distinctUntilChanged()
     }
-    val totalPlayTimesState = totalPlayTimesFlow.collectAsState(0L, Dispatchers.IO)
+    val totalPlayTimesState = totalPlayTimesFlow.collectAsState(0L, NzikDispatchers.DATA)
     totalPlayTimes = totalPlayTimesState.value
 
     var distinctSongsPlayedCount by remember { mutableIntStateOf(0) }
@@ -203,7 +203,7 @@ fun StatisticsPage(
             .countDistinctSongsPlayedBetween(from = from)
             .distinctUntilChanged()
     }
-    val distinctSongsPlayedCountState = distinctSongsPlayedCountFlow.collectAsState(0, Dispatchers.IO)
+    val distinctSongsPlayedCountState = distinctSongsPlayedCountFlow.collectAsState(0, NzikDispatchers.DATA)
     distinctSongsPlayedCount = distinctSongsPlayedCountState.value
 
     val songsWithLikeStates by remember(parentalControlEnabled, maxStatisticsItems, maxStatisticsItemsCustomValue) {
@@ -231,7 +231,7 @@ fun StatisticsPage(
                         .map { likeMap -> Pair(songsList, likeMap) }
                 }
             }
-    }.collectAsState(Pair(emptyList(), emptyMap()), Dispatchers.IO)
+    }.collectAsState(Pair(emptyList(), emptyMap()), NzikDispatchers.DATA)
 
     val songs = songsWithLikeStates.first
     val likeStatesMap = songsWithLikeStates.second
@@ -524,7 +524,7 @@ fun StatisticsPage(
                                             song.thumbnailUrl.thumbnail( playlistThumbnailSizePx / 2 )
                                         }
                                     }
-                        }.collectAsState( emptyList(), Dispatchers.IO )
+                        }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
                         PlaylistItem(
                             thumbnailContent = {

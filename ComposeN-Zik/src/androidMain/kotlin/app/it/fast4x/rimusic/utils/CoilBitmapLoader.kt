@@ -13,7 +13,7 @@ import app.n_zik.android.core.coil.ImageCacheFactory
 import com.google.common.util.concurrent.ListenableFuture
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.guava.future
 import app.n_zik.android.R
 import android.content.ContentResolver
@@ -27,12 +27,12 @@ class CoilBitmapLoader(
     override fun supportsMimeType(mimeType: String): Boolean = mimeType.startsWith("image/")
 
     override fun decodeBitmap(data: ByteArray): ListenableFuture<Bitmap> =
-        scope.future(Dispatchers.IO) {
+        scope.future(NzikDispatchers.DATA) {
             BitmapFactory.decodeByteArray(data, 0, data.size) ?: error("Could not decode image data")
         }
 
     override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
-        scope.future(Dispatchers.IO) {
+        scope.future(NzikDispatchers.DATA) {
             var bitmap = ImageCacheFactory.loadBitmap(uri.toString(), allowHardware = false)
             
             if (bitmap == null && (uri.scheme == ContentResolver.SCHEME_CONTENT || uri.scheme == ContentResolver.SCHEME_FILE)) {

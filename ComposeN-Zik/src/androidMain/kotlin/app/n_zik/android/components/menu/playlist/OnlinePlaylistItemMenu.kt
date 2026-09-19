@@ -52,7 +52,6 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
@@ -203,7 +202,7 @@ class OnlinePlaylistItemMenu private constructor(
                     }
 
                     val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-                    val localPlaylist by localPlaylistFlow.collectAsState(null, Dispatchers.IO)
+                    val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
                     val isBookmarked = localPlaylist?.isYoutubePlaylist == true
 
                     if (isBookmarked)
@@ -247,7 +246,7 @@ class OnlinePlaylistItemMenu private constructor(
 
                 // Trailing content (Bookmark & Share)
                 val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-                val localPlaylist by localPlaylistFlow.collectAsState(null, Dispatchers.IO)
+                val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
                 val isBookmarked = localPlaylist?.isYoutubePlaylist == true
                 val coroutineScope = rememberCoroutineScope()
 
@@ -259,7 +258,7 @@ class OnlinePlaylistItemMenu private constructor(
                         icon = if (isBookmarked) R.drawable.bookmark else R.drawable.bookmark_outline,
                         color = colorPalette().favoritesIcon,
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch(NzikDispatchers.DATA) {
                                 val browseId = playlist.key
                                 if (isYouTubeSyncEnabled()) {
                                     if (isBookmarked) {
@@ -323,13 +322,13 @@ class OnlinePlaylistItemMenu private constructor(
         var displayThumbnailUrl by remember { mutableStateOf(playlist.thumbnail?.url) }
 
         val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-        val localPlaylist by localPlaylistFlow.collectAsState(null, Dispatchers.IO)
+        val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
         val changePlaylistId = localPlaylist?.let { lp ->
             ChangePlaylistBrowseIdDialog(menuState = menuState) { lp }
         }
 
         LaunchedEffect(playlist.key) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 val result = YtMusic.getPlaylist(playlist.key.removePrefix(MODIFIED_PREFIX)).getOrNull()
                 if (result != null) {
                     displayTitle = result.playlist.title.takeIf { !it.isNullOrBlank() } ?: displayTitle
@@ -430,7 +429,7 @@ class OnlinePlaylistItemMenu private constructor(
         val importDialog = ImportPlaylistDialog(
             initialValue = cleanPrefix(playlist.title ?: "")
         ) { text ->
-            coroutineScope.launch(Dispatchers.IO) {
+            coroutineScope.launch(NzikDispatchers.DATA) {
                 Database.asyncTransaction {
                     val newPlaylist = Playlist(name = text, browseId = playlist.key)
                     val playlistId = Database.playlistTable.insert(newPlaylist)

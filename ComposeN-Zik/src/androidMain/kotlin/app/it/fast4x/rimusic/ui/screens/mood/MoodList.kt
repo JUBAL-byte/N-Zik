@@ -40,7 +40,6 @@ import app.it.fast4x.compose.persist.persist
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.BrowseResult
 import it.fast4x.innertube.requests.browseCategory
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.LocalPlayerAwareWindowInsets
@@ -161,7 +160,7 @@ fun MoodList(
             }
             val likeStatesMap by remember(moodSongIds) {
                 LikeStateManager.getLikeStates(moodSongIds)
-            }.collectAsState(emptyMap(), Dispatchers.IO)
+            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
             val moodSongs = remember(moodResult) {
                 moodResult.items.flatMap { section ->

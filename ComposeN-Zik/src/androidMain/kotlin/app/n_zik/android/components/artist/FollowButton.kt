@@ -42,7 +42,7 @@ import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.enums.SyncDirection
 import app.n_zik.android.appContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.uiRoundnessShape
@@ -117,7 +117,7 @@ class FollowButton private constructor(
 
             // Only sync to YouTube if NOT disliked (dislike is local only)
             if (newState != false) {
-                CoroutineScope( Dispatchers.IO ).launch {
+                CoroutineScope( NzikDispatchers.DATA ).launch {
                     if( !isYouTubeSyncEnabled() ) return@launch
 
                     val pushArtistFollow = appContext().preferences.getBoolean(syncPushArtistFollowKey, false)
@@ -141,7 +141,7 @@ class FollowButton private constructor(
         val likeState by remember {
             Database.artistTable
                     .likeState( getArtist().id )
-        }.collectAsState( null, Dispatchers.IO )
+        }.collectAsState( null, NzikDispatchers.DATA )
         val colorPalette = colorPalette()
 
         val buttonProps: Triple<Int, Color, Color> = remember( likeState ) {

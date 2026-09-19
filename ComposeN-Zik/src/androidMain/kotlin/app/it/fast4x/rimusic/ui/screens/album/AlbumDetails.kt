@@ -119,7 +119,6 @@ import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -189,7 +188,7 @@ fun AlbumDetails(
         Database.songAlbumMapTable
                 .allSongsOf( browseId )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     val items = remember(rawItems, parentalControlEnabled) {
         rawItems.filter { !parentalControlEnabled || it.title.startsWith(EXPLICIT_PREFIX, true) != true }
@@ -330,7 +329,7 @@ fun AlbumDetails(
                 val albumSongIds = remember(items) { items.map { it.id } }
                 val likeStatesMap by remember(albumSongIds) {
                     LikeStateManager.getLikeStates(albumSongIds)
-                }.collectAsState(emptyMap(), Dispatchers.IO)
+                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
                 val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
                 val downloadedIds by remember {
@@ -481,7 +480,7 @@ fun AlbumDetails(
                         var translatedText by remember { mutableStateOf("") }
                         if (translate.isActive) {
                             LaunchedEffect(Unit) {
-                                val result = withContext(Dispatchers.IO) {
+                                val result = withContext(NzikDispatchers.DATA) {
                                     try {
                                         translator.translate(
                                             nonTranslatedText,

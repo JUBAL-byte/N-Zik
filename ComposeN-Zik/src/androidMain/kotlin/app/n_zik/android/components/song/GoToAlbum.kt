@@ -18,7 +18,7 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.ui.components.MenuState
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -44,7 +44,7 @@ class GoToAlbum(
     override fun onShortClick() {
         menuState.hide()
         
-        CoroutineScope( Dispatchers.IO ).launch {
+        CoroutineScope( NzikDispatchers.DATA ).launch {
             val id = Database.albumTable
                     .findBySongId( song.id )
                     .first()
@@ -52,13 +52,13 @@ class GoToAlbum(
                     
             val isValid = id != null && id.removePrefix(MODIFIED_PREFIX).let { it.length > 11 && it.matches("^[A-Za-z0-9_-]+\$".toRegex()) }
             
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                 if (isValid && id != null) {
                     NavRoutes.album.navigateHere( navController, id )
                 } else {
                     Toaster.i( R.string.looking_up_album_from_the_internet )
                     
-                    CoroutineScope( Dispatchers.IO ).launch {
+                    CoroutineScope( NzikDispatchers.DATA ).launch {
                         try {
                             val hasValidId = song.id.length == 11 && !song.id.startsWith("local:")
                             
@@ -82,7 +82,7 @@ class GoToAlbum(
 
                             if (albumEndpoint != null) {
                                 val path = "${albumEndpoint.browseId}?params=${albumEndpoint.params.orEmpty()}"
-                                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                     Toaster.s( R.string.album_found_online_verify )
                                     NavRoutes.album.navigateHere( navController, path )
                                 }
@@ -105,19 +105,19 @@ class GoToAlbum(
                                 if (fallbackEndpoint != null && !fallbackEndpoint.browseId.isNullOrBlank()) {
                                     Timber.tag("go_to_album").d("Found album ID: %s", fallbackEndpoint.browseId)
                                     val path = "${fallbackEndpoint.browseId}?params=${fallbackEndpoint.params.orEmpty()}"
-                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                         Toaster.s( R.string.album_found_online_verify )
                                         NavRoutes.album.navigateHere( navController, path )
                                     }
                                 } else {
-                                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                                    kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                         Toaster.e( R.string.failed_to_fetch_album )
                                     }
                                 }
                             }
                         } catch (e: Exception) {
                             Timber.tag("go_to_album").e( e, "Failed to fetch album" )
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                 Toaster.e( R.string.failed_to_fetch_album )
                             }
                         }

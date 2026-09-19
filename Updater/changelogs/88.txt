@@ -26,6 +26,7 @@ Improved:
 - Downloads use a dedicated resolver (separate from streaming) for faster, more reliable downloads.
 - Encrypted preferences are cached to avoid repeated expensive creation.
 - YouTube login state is read on a background thread to prevent app freezes on slow storage.
+- Starting playback and other background work now run on dedicated named thread pools, which keeps playback and the UI smoother under load (issue https://github.com/N-Zik-Group/N-Zik/issues/606).
 - Debug logs can now be exported to a file instead of copied to the clipboard, and network calls are logged centrally through Timber.
 
 Fixed:

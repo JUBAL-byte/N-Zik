@@ -185,7 +185,6 @@ import app.it.fast4x.rimusic.utils.thumbnailFadeKey
 import app.it.fast4x.rimusic.utils.thumbnailSpacingKey
 import app.it.fast4x.rimusic.utils.thumbnailSpacingLKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -685,11 +684,11 @@ inline fun SelectorArtistsDialog(
                         val browseId = values[idArtist].id
                         val artist by remember( browseId ) {
                             Database.artistTable.findById( browseId )
-                        }.collectAsState( null, Dispatchers.IO )
+                        }.collectAsState( null, NzikDispatchers.DATA )
 
                         LaunchedEffect(Unit) {
                             if (artist?.thumbnailUrl == null) {
-                                withContext(Dispatchers.IO) {
+                                withContext(NzikDispatchers.DATA) {
                                     YtMusic.getArtistPage(browseId = browseId.removePrefix(MODIFIED_PREFIX))
                                            .onSuccess { currentArtistPage ->
                                                artist?.copy(
@@ -1800,7 +1799,7 @@ fun SongMatchingDialog(
                                     .clip(uiRoundnessShape()).clickable(onClick = {
                                         Database.asyncTransaction {
                                             if (isYouTubeSyncEnabled() && playlist?.isYoutubePlaylist == true && playlist.isEditable){
-                                                CoroutineScope(Dispatchers.IO).launch {
+                                                CoroutineScope(NzikDispatchers.DATA).launch {
                                                     if (removeYTSongFromPlaylist(songToRematch.id, playlist.browseId ?: "", playlistId))
                                                         songPlaylistMapTable.deleteBySongId( songToRematch.id, playlistId )
                                                 }
@@ -1834,7 +1833,7 @@ fun SongMatchingDialog(
                                                 ?.forEach { mapIgnore( it, asMediaItem ) }
                                             songTable.updateArtists( song.asMediaItem.mediaId, artistNameString )
 
-                                            CoroutineScope(Dispatchers.IO).launch {
+                                            CoroutineScope(NzikDispatchers.DATA).launch {
                                                 if (isYouTubeSyncEnabled() && canPushToYTM() && isNetworkConnected(appContext()) && playlist?.isYoutubePlaylist == true && playlist.isEditable){
                                                     PlaylistEditThrottle.throttle(playlist.browseId ?: "")
                                                     YtMusic.addToPlaylist(playlist.browseId ?: "", song.asMediaItem.mediaId)

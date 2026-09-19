@@ -18,7 +18,7 @@ import app.n_zik.android.core.database.Database
 import app.it.fast4x.rimusic.models.Album
 import app.it.fast4x.rimusic.models.Artist
 import app.it.fast4x.rimusic.models.SongAlbumMap
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -44,7 +44,7 @@ fun UpdateYoutubeArtist(browseId: String) {
                     artist = currentArtist
 
                     if (artistPage == null && (currentArtist?.timestamp == null || mustFetch)) {
-                        withContext(Dispatchers.IO) {
+                        withContext(NzikDispatchers.DATA) {
                             Innertube.artistPage(browseId = browseId.removePrefix(MODIFIED_PREFIX))
                                 ?.onSuccess { currentArtistPage ->
                                     artistPage = currentArtistPage
@@ -84,7 +84,7 @@ fun UpdateYoutubeAlbum (browseId: String) {
                     album = currentAlbum
 
                     if (albumPage == null && (currentAlbum?.timestamp == null || tabIndex == 1)) {
-                        withContext(Dispatchers.IO) {
+                        withContext(NzikDispatchers.DATA) {
                             Innertube.albumPage(browseId = browseId.removePrefix(MODIFIED_PREFIX))
                                 ?.onSuccess { currentAlbumPage ->
                                     albumPage = currentAlbumPage

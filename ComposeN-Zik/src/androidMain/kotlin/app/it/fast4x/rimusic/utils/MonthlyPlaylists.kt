@@ -12,7 +12,7 @@ import app.n_zik.android.R
 import app.n_zik.android.core.database.Database
 import app.it.fast4x.rimusic.MONTHLY_PREFIX
 import app.it.fast4x.rimusic.models.Playlist
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -48,7 +48,7 @@ fun CheckMonthlyPlaylist() {
 
         Database.playlistTable
                 .exists( playlistName )
-                .flowOn( Dispatchers.IO )
+                .flowOn( NzikDispatchers.DATA )
                 .collectLatest { isMonthlyPlaylistExist ->
                     // Force cancel this to prevent further updates
                     if( isMonthlyPlaylistExist ) return@collectLatest

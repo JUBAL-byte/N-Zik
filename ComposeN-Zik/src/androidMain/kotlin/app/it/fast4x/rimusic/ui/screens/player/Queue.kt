@@ -132,7 +132,7 @@ import app.n_zik.android.components.ui.screens.player.QueueArrow
 import app.n_zik.android.components.ui.screens.player.Repeat
 import app.n_zik.android.components.ui.screens.player.ShuffleQueue
 import app.kreate.android.me.knighthat.utils.Toaster
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import timber.log.Timber
 import app.kreate.android.themed.rimusic.component.playlist.PositionLock
 import androidx.compose.ui.res.stringResource
@@ -346,7 +346,7 @@ fun Queue(
             val queueSongIds = remember(windowsOnDisplay) { windowsOnDisplay.map { it.mediaItem.asSong.id } }
             val likeStatesMap by remember(queueSongIds) {
                 LikeStateManager.getLikeStates(queueSongIds)
-            }.collectAsState(emptyMap(), Dispatchers.IO)
+            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
             val queueSongs = remember(windowsOnDisplay) { windowsOnDisplay.map { it.mediaItem.asSong } }
 

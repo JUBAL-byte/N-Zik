@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import app.n_zik.android.core.database.Database
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import timber.log.Timber
 
@@ -20,7 +20,7 @@ fun getLikeState(mediaId: String): Int {
         Database.songTable
                 .likeState( mediaId )
                 .distinctUntilChanged()
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     return when( songLikeState ) {
         false -> getDislikedIcon()

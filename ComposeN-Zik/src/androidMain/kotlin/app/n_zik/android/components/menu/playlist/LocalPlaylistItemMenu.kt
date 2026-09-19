@@ -61,7 +61,6 @@ import app.n_zik.android.thumbnailShape
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
@@ -335,7 +334,7 @@ class LocalPlaylistItemMenu private constructor(
         var songs by remember { mutableStateOf<List<Song>?>(null) }
         
         LaunchedEffect(playlistPreview.playlist.id) {
-            kotlinx.coroutines.withContext(Dispatchers.IO) {
+            kotlinx.coroutines.withContext(NzikDispatchers.DATA) {
                 songs = Database.songPlaylistMapTable.allSongsOf(playlistPreview.playlist.id).firstOrNull() ?: emptyList()
             }
         }
@@ -435,7 +434,7 @@ class LocalPlaylistItemMenu private constructor(
                     return
                 }
                 val wasBookmarked = isBookmarked
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val browseId = playlistPreview.playlist.browseId
                     val pushPlaylist = appContext().preferences.getBoolean(syncPushPlaylistKey, false)
                     val syncDir = getSyncDirection()
@@ -453,7 +452,7 @@ class LocalPlaylistItemMenu private constructor(
                     Database.playlistTable.update(
                         playlistPreview.playlist.copy(isYoutubePlaylist = !wasBookmarked)
                     )
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         isBookmarked = !wasBookmarked
                     }
                     Toaster.s( if (!wasBookmarked) R.string.added_to_favorites else R.string.removed_from_favorites )
@@ -485,7 +484,7 @@ class LocalPlaylistItemMenu private constructor(
                     @get:Composable override val menuIconTitle: String get() = stringResource(messageId)
                     override fun onShortClick() {
                         menuState.hide()
-                        coroutineScope.launch(Dispatchers.IO) {
+                        coroutineScope.launch(NzikDispatchers.DATA) {
                             val pushPlaylist = appContext().preferences.getBoolean(syncPushPlaylistKey, false)
                             val syncDirection = getSyncDirection()
                             if (playlistPreview.playlist.isYoutubePlaylist && isYouTubeSyncEnabled() && pushPlaylist && syncDirection != SyncDirection.YT_TO_APP && isNetworkConnected(appContext())) {
@@ -529,7 +528,7 @@ class LocalPlaylistItemMenu private constructor(
                         get() = if (playlistPreview.playlist.isAutoSync) stringResource(R.string.sync_per_playlist_auto_on) else stringResource(R.string.sync_per_playlist_auto_off)
                     override fun onShortClick() {
                         menuState.hide()
-                        coroutineScope.launch(Dispatchers.IO) {
+                        coroutineScope.launch(NzikDispatchers.DATA) {
                             Database.playlistTable.toggleAutoSync(playlistPreview.playlist.id)
                             Toaster.done()
                         }
@@ -550,7 +549,7 @@ class LocalPlaylistItemMenu private constructor(
             deleteAllDialog.Render()
             PlaylistItemDisplay(playlistPreview, isBookmarked, onBookmarkToggle = {
                 val wasBookmarked = isBookmarked
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val browseId = playlistPreview.playlist.browseId
                     val pushPlaylist = appContext().preferences.getBoolean(syncPushPlaylistKey, false)
                     val syncDir = getSyncDirection()
@@ -568,7 +567,7 @@ class LocalPlaylistItemMenu private constructor(
                     Database.playlistTable.update(
                         playlistPreview.playlist.copy(isYoutubePlaylist = !wasBookmarked)
                     )
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         isBookmarked = !wasBookmarked
                     }
                     Toaster.s( if (!wasBookmarked) R.string.added_to_favorites else R.string.removed_from_favorites )

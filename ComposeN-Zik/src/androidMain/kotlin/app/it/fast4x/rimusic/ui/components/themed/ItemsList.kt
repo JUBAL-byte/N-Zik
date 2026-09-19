@@ -25,7 +25,7 @@ import app.it.fast4x.rimusic.ui.components.ShimmerHost
 import app.it.fast4x.rimusic.utils.center
 import app.it.fast4x.rimusic.utils.secondary
 import app.n_zik.android.R
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import app.n_zik.android.typography
 import timber.log.Timber
@@ -56,7 +56,7 @@ inline fun <T : Innertube.Item> ItemsList(
             .collect { shouldLoadMore ->
                 if (!shouldLoadMore) return@collect
 
-                withContext(Dispatchers.IO) {
+                withContext(NzikDispatchers.DATA) {
                     currentItemsPageProvider(itemsPage?.continuation)
                 }?.onSuccess {
                     if (it == null) {

@@ -66,7 +66,7 @@ import app.n_zik.android.core.database.BookmarkStateManager
 import app.n_zik.android.core.database.LikeStateManager
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.HomePage
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlin.random.Random
 import app.it.fast4x.rimusic.ui.items.AlbumItemPlaceholder
 import app.n_zik.android.download.utils.MyDownloadHelper
@@ -161,7 +161,7 @@ fun YtmSectionItems(
                 val sectionSongIds = remember(songItems) { songItems.mapNotNull { it.key } }
                 val sectionLikeStatesMap by remember(sectionSongIds) {
                     LikeStateManager.getLikeStates(sectionSongIds)
-                }.collectAsState(emptyMap(), Dispatchers.IO)
+                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
                 // Download state cache
                 val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

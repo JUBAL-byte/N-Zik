@@ -70,7 +70,6 @@ import app.it.fast4x.rimusic.utils.getSyncDirection
 import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.enums.SyncDirection
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -222,7 +221,7 @@ class OnlineAlbumItemMenu private constructor(
                         Database.albumTable
                             .likeState(album.key)
                             .distinctUntilChanged()
-                    }.collectAsState(null, Dispatchers.IO)
+                    }.collectAsState(null, NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -291,13 +290,13 @@ class OnlineAlbumItemMenu private constructor(
                     Database.albumTable
                         .isBookmarked(album.key)
                         .distinctUntilChanged()
-                }.collectAsState(false, Dispatchers.IO)
+                }.collectAsState(false, NzikDispatchers.DATA)
 
                 val likeState by remember(album.key) {
                     Database.albumTable
                         .likeState(album.key)
                         .distinctUntilChanged()
-                }.collectAsState(null, Dispatchers.IO)
+                }.collectAsState(null, NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -315,7 +314,7 @@ class OnlineAlbumItemMenu private constructor(
                             null -> colorPalette().text
                         },
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch(NzikDispatchers.DATA) {
                                 Database.albumTable.insertIgnore(
                                     app.it.fast4x.rimusic.models.Album(
                                         id = album.key,
@@ -431,7 +430,7 @@ class OnlineAlbumItemMenu private constructor(
         val changeId = ChangeAlbumBrowseIdDialog(menuState = menuState, getAlbum = albumProvider)
 
         LaunchedEffect(album.key) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 if (album.key.startsWith("LOCAL_ALBUM_")) {
                     songs = emptyList()
                     return@withContext

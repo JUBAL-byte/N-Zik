@@ -31,7 +31,7 @@ import androidx.navigation.NavController
 import app.n_zik.android.R
 import app.n_zik.android.colorPalette
 import app.n_zik.android.context
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -52,7 +52,7 @@ private const val SAMSUNG_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; SM-S921U
      * Get the discord user info
      */
 
-suspend fun fetchDiscordUser(token: String): Pair<String, String>? = withContext(Dispatchers.IO) {
+suspend fun fetchDiscordUser(token: String): Pair<String, String>? = withContext(NzikDispatchers.DATA) {
     val client = NetworkClientFactory.getClient()
     val request = Request.Builder()
         .url("https://discord.com/api/v9/users/@me")
@@ -138,7 +138,7 @@ fun DiscordLoginAndGetToken(
                             message: String,
                             result: JsResult,
                         ): Boolean {
-                            scope.launch(Dispatchers.Main) {
+                            scope.launch(NzikDispatchers.UI) {
                                 val token = message
                                 val user = fetchDiscordUser(token)
                                 if (user != null) {

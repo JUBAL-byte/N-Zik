@@ -38,7 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.encryptedPreferencesUpdateTrigger
 import androidx.compose.ui.Alignment
@@ -108,7 +108,7 @@ fun SettingsScreen(
     val trigger = encryptedPreferencesUpdateTrigger
     var ytLoggedIn by remember { mutableStateOf(false) }
     LaunchedEffect(trigger) {
-        ytLoggedIn = withContext(Dispatchers.IO) {
+        ytLoggedIn = withContext(NzikDispatchers.DATA) {
             isYouTubeLoginEnabled() && isYouTubeLoggedIn()
         }
     }

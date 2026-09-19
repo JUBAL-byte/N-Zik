@@ -21,7 +21,6 @@ import coil3.toBitmap
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.MainActivity
 import app.n_zik.android.R
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.ui.styling.colorPaletteOf
@@ -295,7 +294,7 @@ object NZikWidgetManager {
     }
 
     private suspend fun loadAlbumArt(context: Context, artworkUri: String, size: Int = 200): Bitmap? {
-        return withContext(Dispatchers.IO) {
+        return withContext(NzikDispatchers.DATA) {
             try {
                 val request = ImageRequest.Builder(context)
                     .data(artworkUri)

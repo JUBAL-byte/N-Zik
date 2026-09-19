@@ -168,7 +168,6 @@ import dev.rebelonion.translator.Translator
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
@@ -204,7 +203,7 @@ fun AlbumScreen(
     LaunchedEffect(Unit) {
         Database.albumTable
             .findById(browseId)
-            .flowOn(Dispatchers.IO)
+            .flowOn(NzikDispatchers.DATA)
             .distinctUntilChanged()
             .collect { album = it }
     }
@@ -283,7 +282,7 @@ fun AlbumScreen(
         val albumEntity = album ?: return@LaunchedEffect
         mbSyncing = true
         try {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 val albumId = browseId.removePrefix(MODIFIED_PREFIX)
                 if (albumEntity.youtubeAlbumId != albumId) {
                     Database.albumTable.updateReplace(albumEntity.copy(youtubeAlbumId = albumId))
@@ -449,7 +448,7 @@ fun AlbumDetails(
         Database.songAlbumMapTable
             .allSongsOf(browseId)
             .distinctUntilChanged()
-    }.collectAsState(emptyList(), Dispatchers.IO)
+    }.collectAsState(emptyList(), NzikDispatchers.DATA)
 
     val items = remember(rawItems, parentalControlEnabled) {
         rawItems.filter { !parentalControlEnabled || it.title.startsWith(EXPLICIT_PREFIX, true) != true }
@@ -582,7 +581,7 @@ fun AlbumDetails(
                 val albumSongIds = remember(items) { items.map { it.id } }
                 val likeStatesMap by remember(albumSongIds) {
                     LikeStateManager.getLikeStates(albumSongIds)
-                }.collectAsState(emptyMap(), Dispatchers.IO)
+                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
                 val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
                 val downloadedIds by remember {
@@ -734,7 +733,7 @@ fun AlbumDetails(
                         isSyncing = mbSyncing,
                         onResyncClick = {
                             album?.id?.let { id ->
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     onMbSyncingChange(true)
                                     try {
                                         val success = MBMetadataHelper.Default.onAlbumViewed(id, force = true)

@@ -56,7 +56,7 @@ import app.n_zik.android.thumbnailShape
 import app.n_zik.android.artistThumbnailShape
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.secondary
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import app.it.fast4x.rimusic.utils.asMediaItem
@@ -161,7 +161,7 @@ class LocalArtistItemMenu private constructor(
                     Database.artistTable
                         .likeState(artist.id)
                         .distinctUntilChanged()
-                }.collectAsState(null, Dispatchers.IO)
+                }.collectAsState(null, NzikDispatchers.DATA)
 
                 // Artist's thumbnail
                 Box(
@@ -232,7 +232,7 @@ class LocalArtistItemMenu private constructor(
                     Database.artistTable
                         .isFollowing(artist.id)
                         .distinctUntilChanged()
-                }.collectAsState(false, Dispatchers.IO)
+                }.collectAsState(false, NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -250,7 +250,7 @@ class LocalArtistItemMenu private constructor(
                             null -> colorPalette().text
                         },
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch(NzikDispatchers.DATA) {
                                 if (showDisliked.isEnabled) {
                                     Database.artistTable.rotateLikeState(artist.id)
                                 } else {
@@ -325,7 +325,7 @@ class LocalArtistItemMenu private constructor(
         var displayTitle by remember { mutableStateOf(artist.name) }
         var displayThumbnailUrl by remember { mutableStateOf(artist.thumbnailUrl) }
 
-        val dbArtist by Database.artistTable.findById(artist.id).collectAsState(initial = artist, context = Dispatchers.IO)
+        val dbArtist by Database.artistTable.findById(artist.id).collectAsState(initial = artist, context = NzikDispatchers.DATA)
 
         LaunchedEffect(dbArtist) {
             dbArtist?.let {
@@ -335,7 +335,7 @@ class LocalArtistItemMenu private constructor(
         }
 
         val binder = LocalPlayerServiceBinder.current
-        val songs by Database.artistSongs(artist.id).collectAsState(initial = emptyList(), context = Dispatchers.IO)
+        val songs by Database.artistSongs(artist.id).collectAsState(initial = emptyList(), context = NzikDispatchers.DATA)
 
         val playAll = object : MenuIcon, Descriptive, Clickable {
             override val iconId: Int = R.drawable.play

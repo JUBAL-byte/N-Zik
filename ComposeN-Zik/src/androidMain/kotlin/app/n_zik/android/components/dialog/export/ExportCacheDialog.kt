@@ -33,7 +33,6 @@ import app.n_zik.android.playback.services.PlayerServiceModern
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -84,7 +83,7 @@ class ExportCacheDialog(
             isExporting: MutableState<Boolean>,
             showResultToast: Boolean = true
         ) = scope.launch {
-            kotlinx.coroutines.withContext(Dispatchers.Main) { isExporting.value = true }
+            kotlinx.coroutines.withContext(NzikDispatchers.UI) { isExporting.value = true }
             try {
                 Timber.tag("ExportCache").i("onExport triggered for song: ${song.title}")
                 val format = Database.formatTable.findBySongId( song.id ).first()
@@ -105,7 +104,7 @@ class ExportCacheDialog(
                         DocumentsContract.deleteDocument( appContext().contentResolver, uri )
                     } catch ( _: Exception ) {}
 
-                    kotlinx.coroutines.withContext(Dispatchers.Main) { isExporting.value = false }
+                    kotlinx.coroutines.withContext(NzikDispatchers.UI) { isExporting.value = false }
                     return@launch
                 }
 
@@ -259,7 +258,7 @@ class ExportCacheDialog(
                                 inStream.copyTo(outStream)
                             }
                         }
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                             Timber.tag("ExportCache").i("Toaster.done() called")
                             isExporting.value = false
                             if (showResultToast) Toaster.done()
@@ -267,7 +266,7 @@ class ExportCacheDialog(
                     } else {
                         val logs = session.allLogsAsString
                         Timber.tag("ExportCache").e("FFmpeg failed with return code $returnCode. Logs: $logs")
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                             isExporting.value = false
                             if (showResultToast) Toaster.e(R.string.export_failed, "FFmpeg error: $returnCode")
                         }
@@ -276,7 +275,7 @@ class ExportCacheDialog(
 
                 } catch (e: Exception) {
                     Timber.tag("ExportCache").e(e, "Export overall error")
-                    kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                         isExporting.value = false
                         if (showResultToast) Toaster.e(R.string.export_failed, e.message)
                     }
@@ -289,7 +288,7 @@ class ExportCacheDialog(
 
             } catch (e: Exception) {
                 Timber.tag("ExportCache").e(e, "Export init error")
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                     isExporting.value = false
                     if (showResultToast) Toaster.e(R.string.export_error, e.message)
                 }
@@ -310,7 +309,7 @@ class ExportCacheDialog(
 
             var fileExtension by remember { mutableStateOf("m4a") }
             LaunchedEffect(song.id) {
-                fileExtension = withContext(Dispatchers.IO) {
+                fileExtension = withContext(NzikDispatchers.DATA) {
                     val format = Database.formatTable.findBySongId(song.id).first()
                     if (format?.mimeType?.contains("webm", ignoreCase = true) == true || 
                         format?.mimeType?.contains("ogg", ignoreCase = true) == true ||
@@ -334,8 +333,8 @@ class ExportCacheDialog(
                 val treeDocId = DocumentsContract.getTreeDocumentId(folderUri)
                 val parentUri = DocumentsContract.buildDocumentUriUsingTree(folderUri, treeDocId)
 
-                coroutineScope.launch(Dispatchers.IO) {
-                    kotlinx.coroutines.withContext(Dispatchers.Main) { isExporting.value = true }
+                coroutineScope.launch(NzikDispatchers.DATA) {
+                    kotlinx.coroutines.withContext(NzikDispatchers.UI) { isExporting.value = true }
                     try {
                         val format = Database.formatTable.findBySongId(currentSong.id).first()
                         val contentLength = format?.contentLength ?: 0L
@@ -345,7 +344,7 @@ class ExportCacheDialog(
                         val isCached = currentBinder.cache.isCached(currentSong.id, 0, contentLength)
                         val isDownloaded = currentBinder.downloadCache.isCached(currentSong.id, 0, contentLength)
                         if (!isCached && !isDownloaded) {
-                            kotlinx.coroutines.withContext(Dispatchers.Main) {
+                            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                                 isExporting.value = false
                                 Toaster.i(R.string.song_must_be_cached_or_downloaded_to_export)
                             }
@@ -380,13 +379,13 @@ class ExportCacheDialog(
                             }
                         }
 
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                             isExporting.value = false
                             Toaster.done()
                         }
                     } catch (e: Exception) {
                         Timber.tag("ExportCache").e(e, "Single export failed")
-                        kotlinx.coroutines.withContext(Dispatchers.Main) {
+                        kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                             isExporting.value = false
                             Toaster.e(R.string.export_failed, e.message)
                         }
@@ -429,7 +428,7 @@ class ExportCacheDialog(
             val parentUri = DocumentsContract.buildDocumentUriUsingTree(folderUri, treeDocId)
 
             songs.forEachIndexed { index, song ->
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                     onProgress(index + 1, songs.size, song.title)
                 }
                 Timber.tag("ExportCache").i("batchExport: [${index + 1}/${songs.size}] ${song.title}")
@@ -503,7 +502,7 @@ class ExportCacheDialog(
                     failCount++
                 }
             }
-            kotlinx.coroutines.withContext(Dispatchers.Main) {
+            kotlinx.coroutines.withContext(NzikDispatchers.UI) {
                 onComplete(successCount, failCount)
             }
         }

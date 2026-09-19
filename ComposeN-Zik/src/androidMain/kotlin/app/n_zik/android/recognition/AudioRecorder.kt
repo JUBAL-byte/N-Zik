@@ -5,7 +5,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Process
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +51,7 @@ class AudioRecorder(private val scope: CoroutineScope) {
                     instance?.startRecording()
                     Timber.tag(TAG).d("startRecording() called, recordingState=${instance?.recordingState}")
                     reset(true)
-                    job = scope.launch(Dispatchers.IO) { loop() }
+                    job = scope.launch(NzikDispatchers.DATA) { loop() }
                 }.onFailure {
                     Timber.tag(TAG).e(it, "Failed to start audio recorder")
                     instance?.release()

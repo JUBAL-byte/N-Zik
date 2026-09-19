@@ -139,7 +139,6 @@ import app.it.fast4x.rimusic.utils.homeAlbumsFavoritesSortMenuOrderKey
 import app.it.fast4x.rimusic.utils.homeAlbumsLibrarySortMenuOrderKey
 import app.it.fast4x.rimusic.utils.homeAlbumsDislikedSortMenuOrderKey
 import org.json.JSONArray
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -230,7 +229,7 @@ fun HomeAlbums(
     }
 
     val scope = rememberCoroutineScope()
-    suspend fun getSelectedSongs(): List<Song> = withContext(Dispatchers.IO) {
+    suspend fun getSelectedSongs(): List<Song> = withContext(NzikDispatchers.DATA) {
         val selected = itemSelector.ifEmpty { itemsOnDisplay }
         val seen = HashSet<String>()
         val result = ArrayList<Song>()

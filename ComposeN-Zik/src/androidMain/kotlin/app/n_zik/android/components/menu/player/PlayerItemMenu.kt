@@ -86,7 +86,6 @@ import app.n_zik.android.extensions.lastfm.lastfmSessionKey
 import app.n_zik.android.extensions.lastfm.LastFmActions
 import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.enums.DislikeMode
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
@@ -322,11 +321,11 @@ class PlayerItemMenu private constructor(
         // Reactively collect Album and Artists (like the old menu)
         val albumData by remember(mediaItem.mediaId) {
             Database.albumTable.findBySongId(mediaItem.mediaId)
-        }.collectAsState(null, Dispatchers.IO)
+        }.collectAsState(null, NzikDispatchers.DATA)
         
         val artistsData by remember(mediaItem.mediaId) {
             Database.artistTable.findBySongId(mediaItem.mediaId)
-        }.collectAsState(emptyList(), Dispatchers.IO)
+        }.collectAsState(emptyList(), NzikDispatchers.DATA)
 
         // Pre-create GoTo objects to avoid race condition on channelId lookup
         val goToArtistObj = remember(song) { GoToArtist(navController, song, menuState) }
@@ -653,7 +652,7 @@ class PlayerItemMenu private constructor(
                                     override fun onShortClick() {
                                         menuState.hide()
                                         onClosePlayer()
-                                        coroutineScope.launch(Dispatchers.IO) {
+                                        coroutineScope.launch(NzikDispatchers.DATA) {
                                             Innertube.nextPage(videoId = song.id)
                                                 ?.getOrNull()
                                                 ?.itemsPage?.items?.firstOrNull()
@@ -733,7 +732,7 @@ class PlayerItemMenu private constructor(
                     binder.cache.removeResource(mediaItem.mediaId)
                     binder.downloadCache.removeResource(mediaItem.mediaId)
                     val videoId = mediaItem.mediaId.split("/").lastOrNull() ?: mediaItem.mediaId
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         Database.asyncTransaction {
                             Database.songTable.updateTotalPlayTime(mediaItem.mediaId, 0)
                         }
@@ -804,7 +803,7 @@ class PlayerItemMenu private constructor(
                             Database.songTable
                                     .likeState(song.id)
                                     .distinctUntilChanged()
-                        }.collectAsState(null, Dispatchers.IO)
+                        }.collectAsState(null, NzikDispatchers.DATA)
 
                         Column {
                             IconButton(

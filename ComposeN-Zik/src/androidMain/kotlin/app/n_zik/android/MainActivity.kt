@@ -249,7 +249,7 @@ import app.it.fast4x.rimusic.utils.thumbnailRoundnessDpKey
 import app.it.fast4x.rimusic.utils.artistThumbnailRoundnessDpKey
 import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.it.fast4x.rimusic.utils.useSystemFontKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -393,12 +393,12 @@ class MainActivity :
         // App shortcuts are now registered in MainApplication.onCreate (before Dependencies.init)
         // so they survive initialization crashes. See ShortcutIconSync.kt.
         // Verify backup location exists
-        lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(NzikDispatchers.DATA) {
             BackupManager.verifyBackupLocation(this@MainActivity)
         }
 
         // Fetch Invidious instances
-        lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(NzikDispatchers.DATA) {
             try {
                 Invidious.fetchInstances()
             } catch (e: Exception) {
@@ -707,7 +707,7 @@ class MainActivity :
                 val colorPaletteMode =
                     preferences.getEnum(colorPaletteModeKey, ColorPaletteMode.Dark)
                 paletteJob.value?.cancel()
-                paletteJob.value = coroutineScope.launch(Dispatchers.IO) {
+                paletteJob.value = coroutineScope.launch(NzikDispatchers.DATA) {
                     try {
                         val bitmap: Bitmap? = ImageCacheFactory.loadBitmap(url, allowHardware = false)
 
@@ -740,7 +740,7 @@ class MainActivity :
                                     savePaletteForWidget(finalPalette)
                                     return@launch
                                 }
-                                withContext(Dispatchers.Main) {
+                                withContext(NzikDispatchers.UI) {
                                     setSystemBarAppearance(finalPalette.isDark)
                                     updateAppearance(
                                         appearance.copy(
@@ -757,7 +757,7 @@ class MainActivity :
                                     background0 = Color.Black, background1 = Color.Black,
                                     background2 = Color.Black, background3 = Color.Black, background4 = Color.Black,
                                 )
-                                withContext(Dispatchers.Main) {
+                                withContext(NzikDispatchers.UI) {
                                     setSystemBarAppearance(defaultColorPalette.isDark)
                                     updateAppearance(
                                         appearance.copy(
@@ -778,7 +778,7 @@ class MainActivity :
                                 background3 = Color.Black,
                                 background4 = Color.Black,
                             )
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 setSystemBarAppearance(defaultColorPalette.isDark)
                                 updateAppearance(
                                     appearance.copy(
@@ -848,9 +848,9 @@ class MainActivity :
                         return@setBitmapListener
                     }
 
-                    bitmapListenerJob = coroutineScope.launch(Dispatchers.IO) {
+                    bitmapListenerJob = coroutineScope.launch(NzikDispatchers.DATA) {
                         dynamicColorPaletteOf(bitmap, isDark, isPicthBlack)?.let {
-                            withContext(Dispatchers.Main) {
+                            withContext(NzikDispatchers.UI) {
                                 setSystemBarAppearance(it.isDark)
                             }
                             appearance = appearance.copy(
@@ -1631,7 +1631,7 @@ class MainActivity :
                     duration = Toast.LENGTH_LONG
                 )
 
-                lifecycleScope.launch(Dispatchers.Main) {
+                lifecycleScope.launch(NzikDispatchers.UI) {
                     when (val path = uri.pathSegments.firstOrNull()) {
                         "playlist" -> uri.getQueryParameter("list")?.let { playlistId ->
                             val browseId = "VL$playlistId"
@@ -1666,11 +1666,11 @@ class MainActivity :
                         }
 
                         "playFavorites" -> {
-                            lifecycleScope.launch(Dispatchers.IO) {
+                            lifecycleScope.launch(NzikDispatchers.DATA) {
                                 val favorites = Database.songTable.allFavorites().first()
                                 if (favorites.isNotEmpty()) {
                                     val mediaItems = favorites.map { it.asMediaItem }
-                                    withContext(Dispatchers.Main) {
+                                    withContext(NzikDispatchers.UI) {
                                         val validBinder = snapshotFlow { binder }.filterNotNull().first()
                                         validBinder.player.forcePlayFromBeginning(mediaItems)
                                     }
@@ -1689,7 +1689,7 @@ class MainActivity :
                         }?.let { videoId ->
                             Innertube.song(videoId)?.getOrNull()?.let { song ->
                                 val binder = snapshotFlow { binder }.filterNotNull().first()
-                                withContext(Dispatchers.Main) {
+                                withContext(NzikDispatchers.UI) {
                                     if (song.explicit && preferences.getBoolean(
                                             parentalControlEnabledKey,
                                             false

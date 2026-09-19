@@ -169,7 +169,6 @@ import app.it.fast4x.rimusic.utils.getSyncDirection
 import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.enums.SyncDirection
 
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -293,12 +292,12 @@ fun LocalPlaylistSongs(
                             list.sortedBy { it.id in downloaded }
                         }
                     }
-                    .flowOn( Dispatchers.IO )
+                    .flowOn( NzikDispatchers.DATA )
                     .distinctUntilChanged()
         } else {
             Database.songPlaylistMapTable
                     .sortSongs( playlistId, sort.sortBy, sort.sortOrder )
-                    .flowOn( Dispatchers.IO )
+                    .flowOn( NzikDispatchers.DATA )
                     .distinctUntilChanged()
         }
     }.collectAsStateWithLifecycle( emptyList() )
@@ -338,7 +337,7 @@ fun LocalPlaylistSongs(
             return@Bookmark
         }
         val wasBookmarked = isBookmarked
-        coroutineScope.launch(Dispatchers.IO) {
+        coroutineScope.launch(NzikDispatchers.DATA) {
             val p = playlist ?: return@launch
             val browseId = p.browseId
             val pushPlaylist = appContext().preferences.getBoolean(syncPushPlaylistKey, false)
@@ -357,7 +356,7 @@ fun LocalPlaylistSongs(
             Database.playlistTable.update(
                 p.copy(isYoutubePlaylist = !wasBookmarked)
             )
-            withContext(Dispatchers.Main) {
+            withContext(NzikDispatchers.UI) {
                 isBookmarked = !wasBookmarked
             }
             Toaster.s( if (!wasBookmarked) R.string.added_to_favorites else R.string.removed_from_favorites )
@@ -438,7 +437,7 @@ fun LocalPlaylistSongs(
         if (!matchRunningExt) return@LaunchedEffect
         val mergedCounter = AtomicInteger(0)
         val matchedItemsRef = items.filter{song -> song.id == (cleanPrefix(song.title ?: "")+(song.artistsText ?: "")).filter{it.isLetterOrDigit()}}
-        val job = launch(Dispatchers.IO) {
+        val job = launch(NzikDispatchers.DATA) {
             try {
                 totalSongsToMatch = matchedItemsRef.size
                 songsMatched = 0
@@ -446,7 +445,7 @@ fun LocalPlaylistSongs(
                 val jobs = mutableListOf<Job>()
                 matchedItemsRef.forEachIndexed { index, song ->
                     ensureActive()
-                    jobs.add(launch(Dispatchers.IO) {
+                    jobs.add(launch(NzikDispatchers.DATA) {
                         var wasCancelled = false
                         try {
                             if (cancelMatchExt) return@launch
@@ -540,7 +539,7 @@ fun LocalPlaylistSongs(
         } else {
             getSongs().filter { (it.id.length != 11 || (it.durationText == "00:00" && it.totalPlayTimeMs == 1L)) && !it.id.startsWith(LOCAL_KEY_PREFIX) }
         }
-        val job = launch(Dispatchers.IO) {
+        val job = launch(NzikDispatchers.DATA) {
             try {
                 totalSongsToMatch = unmatched.size
                 songsMatched = 0
@@ -548,7 +547,7 @@ fun LocalPlaylistSongs(
                 val jobs = mutableListOf<Job>()
                 unmatched.forEachIndexed { index, song ->
                     ensureActive()
-                    jobs.add(launch(Dispatchers.IO) {
+                    jobs.add(launch(NzikDispatchers.DATA) {
                         var wasCancelled = false
                         try {
                             if (cancelMatchExt) return@launch
@@ -679,7 +678,7 @@ fun LocalPlaylistSongs(
                 placeholder = "https://youtube.com/playlist?list=...",
                 setValue = { url ->
                     showYouTubeLinkDialog = false
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         val urlPlaylistId = listOf(
                             "https://www.youtube.com/playlist?",
                             "https://youtube.com/playlist?",
@@ -753,23 +752,23 @@ fun LocalPlaylistSongs(
                         onConfirm = {
                             showDeleteConfirmDialog = false
                             if (hasSelection) {
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     Database.asyncTransaction {
                                         selectedSongs.forEach { song ->
                                             songPlaylistMapTable.deleteBySongId(song.id, playlistId)
                                         }
                                     }
-                                    withContext(Dispatchers.Main) {
+                                    withContext(NzikDispatchers.UI) {
                                         Toaster.s("${context.resources.getString(R.string.deleted)} ${selectedSongs.size}")
                                         itemSelector.isActive = false
                                     }
                                 }
                             } else {
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     Database.asyncTransaction {
                                         playlist?.let(playlistTable::delete)
                                     }
-                                    withContext(Dispatchers.Main) {
+                                    withContext(NzikDispatchers.UI) {
                                         if (navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED)
                                             navController.popBackStack()
                                     }
@@ -878,7 +877,7 @@ fun LocalPlaylistSongs(
 
     fun sync() {
         playlist?.let {
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(NzikDispatchers.DATA).launch {
                 val browseId = it.browseId?.removePrefix(MODIFIED_PREFIX) ?: return@launch
                 val rp = YtMusic.getPlaylist(playlistId = browseId).getOrNull() ?: return@launch
                 val allSongs = rp.songs.toMutableList()
@@ -1087,7 +1086,8 @@ fun LocalPlaylistSongs(
             mutableItems.add( toIndex, movedSong )
             itemsOnDisplay = mutableItems
 
-            CoroutineScope( Dispatchers.Default ).launch {
+            // asyncTransaction is non-suspending: its block runs on the Room transaction executor, not on NzikDispatchers.MEDIA (the launch is a no-op).
+            CoroutineScope( NzikDispatchers.MEDIA ).launch {
                 Database.asyncTransaction {
                     mutableItems.forEachIndexed { index, song ->
                         Database.songPlaylistMapTable.updatePosition( playlistId, song.id, index )
@@ -1116,7 +1116,7 @@ fun LocalPlaylistSongs(
     val songIds = remember(itemsOnDisplay) { itemsOnDisplay.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

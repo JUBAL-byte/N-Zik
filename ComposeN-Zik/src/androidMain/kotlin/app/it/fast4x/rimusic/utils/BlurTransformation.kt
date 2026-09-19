@@ -5,7 +5,7 @@ import android.graphics.Color
 import coil3.size.Size
 import coil3.transform.Transformation
 
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -35,7 +35,7 @@ class BlurTransformation(
 private suspend fun Bitmap.blur(
     scale: Float,
     radius: Int
-): Bitmap? = withContext(Dispatchers.IO) {
+): Bitmap? = withContext(NzikDispatchers.DATA) {
     var sentBitmap = this@blur
     if (sentBitmap.config == null) return@withContext null
     val width = (sentBitmap.width * scale).roundToInt()

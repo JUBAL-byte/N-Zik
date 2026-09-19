@@ -90,7 +90,7 @@ import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.core.coil.thumbnail
 import app.n_zik.android.core.coil.size
 import app.kreate.android.me.knighthat.utils.Toaster
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import app.n_zik.android.uiRoundnessShape
 import timber.log.Timber
@@ -116,7 +116,7 @@ fun SongItem(
         thumbnailSizeDp = thumbnailSizeDp,
         modifier = modifier,
         onDownloadClick = {
-            CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(NzikDispatchers.DATA).launch {
                 Database.upsert( song )
             }
             onDownloadClick()
@@ -364,7 +364,7 @@ fun SongItem(
     val playlistindicator by rememberPreference(playlistindicatorKey,false)
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
-    }.collectAsState( false, Dispatchers.IO )
+    }.collectAsState( false, NzikDispatchers.DATA )
     val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
 
     val context = LocalContext.current
@@ -391,7 +391,7 @@ fun SongItem(
                 Database.songTable
                     .likeState( mediaItem.mediaId )
                     .distinctUntilChanged()
-            }.collectAsState( null, Dispatchers.IO )
+            }.collectAsState( null, NzikDispatchers.DATA )
 
             if ( likeState != null )
                 HeaderIconButton(

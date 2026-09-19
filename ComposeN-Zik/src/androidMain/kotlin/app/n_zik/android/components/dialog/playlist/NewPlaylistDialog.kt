@@ -34,7 +34,7 @@ import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.enums.SyncDirection
 import app.n_zik.android.appContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.components.dialog.common.InputDialogConstraints
@@ -100,7 +100,7 @@ class NewPlaylistDialog private constructor(
             val syncDirection = getSyncDirection()
             if (pushPlaylist && syncDirection != SyncDirection.YT_TO_APP && isNetworkConnected(appContext())) {
                 hideDialog()
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val playlist = runCatching {
                         YtMusic.createPlaylist(newValue).getOrNull()?.let { browseId ->
                             Playlist(

@@ -67,7 +67,6 @@ import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
@@ -154,7 +153,7 @@ fun ArtistLocalSongs(
     val songIds = remember(songs) { songs?.map { it.id }.orEmpty() }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
@@ -276,7 +275,7 @@ fun ArtistLocalSongs(
                         if (songs?.isNotEmpty() == true)
                             songs?.forEach {
                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                CoroutineScope(Dispatchers.IO).launch {
+                                CoroutineScope(NzikDispatchers.DATA).launch {
                                     Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
                                 }
                                 manageDownload(
@@ -298,7 +297,7 @@ fun ArtistLocalSongs(
                         if (songs?.isNotEmpty() == true)
                             songs?.forEach {
                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                CoroutineScope(Dispatchers.IO).launch {
+                                CoroutineScope(NzikDispatchers.DATA).launch {
                                     Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
                                 }
                                 manageDownload(
@@ -418,7 +417,7 @@ fun ArtistLocalSongs(
     val artistSongIds = remember(songs) { songs?.map { it.id }.orEmpty() }
     val likeStatesMap by remember(artistSongIds) {
         LikeStateManager.getLikeStates(artistSongIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     var showConfirmDeleteDownloadDialog by remember {
         mutableStateOf(false)
@@ -497,7 +496,7 @@ fun ArtistLocalSongs(
                                         if (songs?.isNotEmpty() == true)
                                             songs?.forEach {
                                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                CoroutineScope(Dispatchers.IO).launch {
+                                                CoroutineScope(NzikDispatchers.DATA).launch {
                                                     Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
                                                 }
                                                 manageDownload(
@@ -533,7 +532,7 @@ fun ArtistLocalSongs(
                                         if (songs?.isNotEmpty() == true)
                                             songs?.forEach {
                                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                CoroutineScope(Dispatchers.IO).launch {
+                                                CoroutineScope(NzikDispatchers.DATA).launch {
                                                     Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
                                                 }
                                                 manageDownload(

@@ -37,7 +37,7 @@ import app.it.fast4x.rimusic.utils.preferences
 import app.kreate.android.me.knighthat.utils.Toaster
 import it.fast4x.innertube.YtMusic
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -93,12 +93,12 @@ fun AlbumBookmark(
     val likeState by remember(albumId) {
         Database.albumTable.likeState( albumId )
             .distinctUntilChanged()
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     val album by remember(albumId) {
         Database.albumTable.findById( albumId )
             .distinctUntilChanged()
-    }.collectAsState( null, Dispatchers.IO )
+    }.collectAsState( null, NzikDispatchers.DATA )
 
     val showDisliked = rememberPreference(excludeDislikedAlbumsKey, DislikeMode.Enabled).value.isEnabled
 
@@ -122,7 +122,7 @@ fun AlbumBookmark(
         get() = stringResource( messageId )
 
     override fun onShortClick() {
-        CoroutineScope( Dispatchers.IO ).launch {
+        CoroutineScope( NzikDispatchers.DATA ).launch {
             val pushAlbumBookmark = appContext().preferences.getBoolean(syncPushAlbumBookmarkKey, false)
             val syncDir = getSyncDirection()
             // Only sync to YouTube if NOT disliked (dislike is local only)

@@ -61,7 +61,7 @@ import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.medium
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -183,7 +183,7 @@ fun PlaylistItem(
                         // Ensure it only takes not null thumbnailUrl
                         list.mapNotNull( Song::thumbnailUrl ).takeLast( 4 )
                     }
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     PlaylistItem(
         browseId = playlist.playlist.browseId,
@@ -223,7 +223,7 @@ fun PlaylistItem(
     } else {
         remember(playlist.key) {
             Database.playlistTable.findByBrowseId(playlist.key)
-        }.collectAsState(null, Dispatchers.IO)
+        }.collectAsState(null, NzikDispatchers.DATA)
     }
     val isBookmarkedResolved = isBookmarked ?: (localPlaylist?.isYoutubePlaylist == true)
 

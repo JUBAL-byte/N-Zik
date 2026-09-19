@@ -51,7 +51,6 @@ import app.it.fast4x.rimusic.utils.pauseSearchHistoryKey
 import app.it.fast4x.rimusic.utils.pauseListenHistoryKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -582,7 +581,7 @@ fun DataSettings() {
                         Database.searchTable
                             .findAllContain("")
                             .map { it.size }
-                    }.collectAsState(0, Dispatchers.IO)
+                    }.collectAsState(0, NzikDispatchers.DATA)
                     
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.player_pause_listen_history),
@@ -597,7 +596,7 @@ fun DataSettings() {
                     
                     val eventsCount by remember {
                         Database.eventTable.countAll()
-                    }.collectAsState(0L, Dispatchers.IO)
+                    }.collectAsState(0L, NzikDispatchers.DATA)
 
                     if (search.inputValue.isBlank() || stringResource(R.string.clear_search_history).contains(search.inputValue, true)) {
                         OtherSettingsEntry(

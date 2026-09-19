@@ -44,7 +44,7 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 import io.ktor.client.statement.bodyAsText
@@ -244,7 +244,7 @@ fun ArtistPlaylists(
                 isRefreshing = isRefreshing,
                 onRefresh = {
                     isRefreshing = true
-                    CoroutineScope(Dispatchers.IO).launch {
+                    CoroutineScope(NzikDispatchers.DATA).launch {
                         fetchPlaylists()
                         isRefreshing = false
                     }

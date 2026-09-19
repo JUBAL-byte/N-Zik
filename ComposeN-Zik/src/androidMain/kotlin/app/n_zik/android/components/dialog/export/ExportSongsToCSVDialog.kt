@@ -19,7 +19,7 @@ import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.n_zik.android.components.dialog.export.ExportToFileDialog
 import app.kreate.android.me.knighthat.utils.TimeDateUtils
@@ -83,7 +83,7 @@ class ExportSongsToCSVDialog private constructor(
 
                 // Run in background to prevent UI thread
                 // from freezing due to large file.
-                CoroutineScope( Dispatchers.IO ).launch {
+                CoroutineScope( NzikDispatchers.DATA ).launch {
                     val songsToWrite = songs().map {
                         SongCSV(
                             playlistBrowseId = playlistBrowseId,

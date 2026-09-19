@@ -151,7 +151,6 @@ import it.fast4x.innertube.requests.ArtistPage
 import it.fast4x.innertube.requests.ArtistSection
 import it.fast4x.innertube.requests.queue
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
@@ -189,7 +188,7 @@ fun ArtistScreen(
     LaunchedEffect(Unit) {
         Database.artistTable
             .findById(browseId)
-            .flowOn(Dispatchers.IO)
+            .flowOn(NzikDispatchers.DATA)
             .distinctUntilChanged()
             .collect { localArtist = it }
     }
@@ -261,7 +260,7 @@ fun ArtistScreen(
         val artist = localArtist ?: return@LaunchedEffect
         mbSyncing = true
         try {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 val channelId = browseId.removePrefix(MODIFIED_PREFIX)
                 if (artist.youtubeChannelId != channelId) {
                     Database.artistTable.update(artist.copy(youtubeChannelId = channelId))
@@ -468,7 +467,7 @@ fun ArtistOverview(
     val songIds = remember(songs) { songs.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
     val downloadedIds by remember {
@@ -624,7 +623,7 @@ fun ArtistOverview(
                         isSyncing = mbSyncing,
                         onResyncClick = {
                             val id = localArtist?.id ?: artistPage.artist.key
-                            scope.launch(Dispatchers.IO) {
+                            scope.launch(NzikDispatchers.DATA) {
                                 onMbSyncingChange(true)
                                 try {
                                     val success = MBMetadataHelper.Default.onArtistViewed(id, force = true)
@@ -682,7 +681,7 @@ fun ArtistOverview(
                                     modifier = Modifier
                                         .padding(end = 12.dp)
                                         .clip(uiRoundnessShape()).clickable {
-                                            scope.launch(Dispatchers.IO) {
+                                            scope.launch(NzikDispatchers.DATA) {
                                                 sectionLoadingId = sectionId
                                                 // Shuffler.play() is fire-and-forget (issue #606 M2): when it's actually
                                                 // invoked, sectionLoadingId is cleared from its onComplete once playback
@@ -712,7 +711,7 @@ fun ArtistOverview(
                                                             Shuffler.play(b, allMediaItems, onComplete = { sectionLoadingId = null })
                                                         }
                                                     } else {
-                                                        withContext(Dispatchers.Main) {
+                                                        withContext(NzikDispatchers.UI) {
                                                             Toaster.e(R.string.no_song_found)
                                                         }
                                                     }
@@ -730,7 +729,7 @@ fun ArtistOverview(
                                     modifier = Modifier
                                         .padding(end = 12.dp)
                                         .clip(uiRoundnessShape()).clickable {
-                                            scope.launch(Dispatchers.IO) {
+                                            scope.launch(NzikDispatchers.DATA) {
                                                 sectionLoadingId = sectionId
                                                 try {
                                                     val allMediaItems = mutableListOf<MediaItem>()
@@ -749,13 +748,13 @@ fun ArtistOverview(
                                                         }
                                                     }
                                                     if (allMediaItems.isNotEmpty()) {
-                                                        withContext(Dispatchers.Main) {
+                                                        withContext(NzikDispatchers.UI) {
                                                             binder?.stopRadio()
                                                             binder?.player?.forcePlay(allMediaItems.first())
                                                             binder?.player?.addMediaItems(allMediaItems.drop(1))
                                                         }
                                                     } else {
-                                                        withContext(Dispatchers.Main) {
+                                                        withContext(NzikDispatchers.UI) {
                                                             Toaster.e(R.string.no_song_found)
                                                         }
                                                     }

@@ -8,7 +8,7 @@ import app.n_zik.android.appContext
 import timber.log.Timber
 import app.n_zik.android.core.coil.ImageCacheFactory
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,11 +84,11 @@ class BitmapProvider(
         loadJob?.cancel()
         lastUri = uri
 
-        loadJob = scope.launch(Dispatchers.IO) {
+        loadJob = scope.launch(NzikDispatchers.DATA) {
             try {
                 val loadedBitmap: Bitmap? = ImageCacheFactory.loadBitmap(uri.toString(), allowHardware = false)
                 
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     if (loadedBitmap != null) {
                         lastBitmap = loadedBitmap
                     } else {
@@ -98,7 +98,7 @@ class BitmapProvider(
                 }
             } catch (e: Exception) {
                 Timber.tag("BitmapProvider").e("Failed to load bitmap ${e.stackTraceToString()}")
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     lastBitmap = null
                     onDone(bitmap)
                 }

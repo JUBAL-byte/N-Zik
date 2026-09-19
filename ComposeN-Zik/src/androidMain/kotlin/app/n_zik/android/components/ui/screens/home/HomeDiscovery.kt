@@ -79,7 +79,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showSearchTabKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -99,8 +99,6 @@ fun HomeDiscovery(
     onNewReleaseAlbumClick: (String) -> Unit,
     onSearchClick: () -> Unit
 ) {
-    //val coroutineScope = CoroutineScope(Dispatchers.IO)
-
     val windowInsets = LocalPlayerAwareWindowInsets.current
 
     val scrollState = rememberScrollState()
@@ -170,7 +168,7 @@ fun HomeDiscovery(
                     Database.artistTable
                             .sortFollowingByName()
                             .distinctUntilChanged()
-                }.collectAsStateWithLifecycle( emptyList(), context = Dispatchers.IO )
+                }.collectAsStateWithLifecycle( emptyList(), context = NzikDispatchers.DATA )
 
                 val newReleaseAlbumsFiltered = remember(page.newReleaseAlbums, artists) {
                     page.newReleaseAlbums.filter { album ->

@@ -17,7 +17,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import app.n_zik.android.playback.services.PlayerServiceModern
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -103,7 +103,7 @@ fun MedleyMode(binder: PlayerServiceModern.Binder?, seconds: Int) {
             coroutineScope.launch {
                 while (isActive) {
                     delay(1.seconds * seconds)
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         if (binder.player.isPlaying)
                             binder.player.playNext()
                     }

@@ -17,7 +17,7 @@ import androidx.media3.common.util.UnstableApi
 import app.n_zik.android.R
 import app.it.fast4x.rimusic.enums.DurationInMinutes
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
@@ -133,7 +133,7 @@ fun Player.forcePlayAtIndex(mediaItems: List<MediaItem>, mediaItemIndex: Int) {
     if ( mediaItems.isEmpty() ) return
 
     // This will prevent UI from freezing up during conversion
-    CoroutineScope( Dispatchers.Default ).launch {
+    CoroutineScope( NzikDispatchers.MEDIA ).launch {
         val cleanedMediaItems = mediaItems.fastMap( MediaItem::cleaned ).fastDistinctBy( MediaItem::mediaId ).toMutableList()
         // Use the cleaned mediaId for lookup to ensure consistent comparison
         val targetMediaId = mediaItems.getOrNull(mediaItemIndex)?.cleaned?.mediaId
@@ -150,7 +150,7 @@ fun Player.forcePlayAtIndex(mediaItems: List<MediaItem>, mediaItemIndex: Int) {
         }
 
         // Start playback immediately before pre-fetching metadata to avoid UI delays
-        withContext( Dispatchers.Main ) {
+        withContext( NzikDispatchers.UI ) {
             setMediaItems( cleanedMediaItems, newIndex, C.TIME_UNSET )
             prepare()
             restoreGlobalVolume()
@@ -196,7 +196,7 @@ fun Player.forcePlayAtIndex(mediaItems: List<MediaItem>, mediaItemIndex: Int) {
             }.getOrNull()
             if (enrichedItem != null) {
                 Timber.tag("PlayerPrefetch").d("Prefetch success! Enriched metadata for: $videoId")
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     for (i in 0 until mediaItemCount) {
                         if (getMediaItemAt(i).mediaId == targetItem.mediaId) {
                             Timber.tag("PlayerPrefetch").d("Replaced mediaItem in queue at index: $i")

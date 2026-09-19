@@ -137,7 +137,6 @@ import app.it.fast4x.rimusic.utils.homeLibraryPinnedPlaylistSortMenuOrderKey
 import app.it.fast4x.rimusic.utils.homeLibraryMonthlyPlaylistSortMenuOrderKey
 import app.it.fast4x.rimusic.utils.semiBold
 import org.json.JSONArray
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -225,7 +224,7 @@ fun HomeLibrary(
     val positionLock = remember( sort.sortOrder ) { PositionLock(sort.sortOrder) }
     val itemSize = ItemSize.init( HOME_LIBRARY_ITEM_SIZE )
 
-    suspend fun getSelectedSongs(): List<Song> = withContext(Dispatchers.IO) {
+    suspend fun getSelectedSongs(): List<Song> = withContext(NzikDispatchers.DATA) {
         val selected = itemSelector.ifEmpty { itemsOnDisplay }
         val seen = HashSet<String>()
         val result = ArrayList<Song>()
@@ -267,7 +266,7 @@ fun HomeLibrary(
     if (showYouTubeLinkDialog) {
         YouTubeLinkImportDialog(
             onImport = { playlistId ->
-                coroutineScope.launch(Dispatchers.IO) {
+                coroutineScope.launch(NzikDispatchers.DATA) {
                     val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
                     Innertube.playlistPage(browseId = browseId)?.getOrNull()?.let { playlistPage ->
                         val playlistName = playlistPage.title ?: "YouTube Playlist"
@@ -591,13 +590,13 @@ fun HomeLibrary(
                             onDismiss = { showDeleteConfirmDialog = false },
                             onConfirm = {
                                 showDeleteConfirmDialog = false
-                                coroutineScope.launch(Dispatchers.IO) {
+                                coroutineScope.launch(NzikDispatchers.DATA) {
                                     Database.asyncTransaction {
                                         itemsToDelete.forEach { preview ->
                                             playlistTable.delete(preview.playlist)
                                         }
                                     }
-                                    withContext(Dispatchers.Main) { itemSelector.isActive = false }
+                                    withContext(NzikDispatchers.UI) { itemSelector.isActive = false }
                                 }
                             }
                         )

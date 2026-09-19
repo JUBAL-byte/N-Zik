@@ -14,7 +14,7 @@ import app.n_zik.android.playback.utils.Shuffler
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.kreate.android.me.knighthat.utils.Toaster
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.Flow
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.MenuState
@@ -38,7 +38,7 @@ class SongShuffler private constructor(
         ): SongShuffler {
             val songsToShuffle by remember( key ) {
                 databaseCall( Int.MAX_VALUE )
-            }.collectAsStateWithLifecycle( initialValue = emptyList(), context = Dispatchers.IO )
+            }.collectAsStateWithLifecycle( initialValue = emptyList(), context = NzikDispatchers.DATA )
 
             return SongShuffler( LocalPlayerServiceBinder.current, LocalMenuState.current ) { songsToShuffle }
         }

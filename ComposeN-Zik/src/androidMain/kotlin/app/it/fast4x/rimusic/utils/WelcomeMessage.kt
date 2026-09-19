@@ -7,7 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,7 +47,7 @@ fun WelcomeMessage(){
     var message by remember { mutableStateOf(baseMessage) }
 
     LaunchedEffect(baseMessage) {
-        withContext(Dispatchers.IO) {
+        withContext(NzikDispatchers.DATA) {
             if (isYouTubeLoggedIn()) {
                 val name = ytAccountName()
                 if (!name.isNullOrBlank()) {

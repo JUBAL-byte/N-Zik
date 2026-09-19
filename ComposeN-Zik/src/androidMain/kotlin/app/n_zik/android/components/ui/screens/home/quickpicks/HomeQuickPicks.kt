@@ -57,7 +57,7 @@ import app.n_zik.android.typography
 import app.n_zik.android.playback.utils.Shuffler
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.queue
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -112,7 +112,7 @@ fun HomeQuickPicks(
     var currentYouTubeLoggedIn by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        currentYouTubeLoggedIn = withContext(Dispatchers.IO) { isYouTubeLoggedIn() }
+        currentYouTubeLoggedIn = withContext(NzikDispatchers.DATA) { isYouTubeLoggedIn() }
     }
 
     var lastYouTubeLoggedIn by rememberSaveable { mutableStateOf(false) }
@@ -132,7 +132,7 @@ fun HomeQuickPicks(
     }
 
     LaunchedEffect(Unit) {
-        val loggedIn = withContext(Dispatchers.IO) { isYouTubeLoggedIn() }
+        val loggedIn = withContext(NzikDispatchers.DATA) { isYouTubeLoggedIn() }
         if (loggedIn != lastYouTubeLoggedIn) {
             lastYouTubeLoggedIn = loggedIn
             currentYouTubeLoggedIn = loggedIn
@@ -281,7 +281,7 @@ fun HomeQuickPicks(
             }
 
             val artistsState = persistList<Artist>("home/quickpicks/local/artists")
-            val artists by remember { Database.artistTable.sortFollowingByName().distinctUntilChanged() }.collectAsStateWithLifecycle(artistsState.value, context = Dispatchers.IO)
+            val artists by remember { Database.artistTable.sortFollowingByName().distinctUntilChanged() }.collectAsStateWithLifecycle(artistsState.value, context = NzikDispatchers.DATA)
             LaunchedEffect(artists) { artistsState.value = artists }
 
             val newReleaseAlbumsFiltered = remember(state.discoverPageInit.value, artists) {
@@ -293,13 +293,13 @@ fun HomeQuickPicks(
             val monthlyPlaylistsState = persistList<PlaylistPreview>("home/quickpicks/local/monthlyPlaylists")
             val monthlyPlaylists by remember {
                 Database.playlistTable.allAsPreview().distinctUntilChanged().map { list -> list.filter { it.playlist.name.startsWith(MONTHLY_PREFIX, true) } }
-            }.collectAsStateWithLifecycle(monthlyPlaylistsState.value, context = Dispatchers.IO)
+            }.collectAsStateWithLifecycle(monthlyPlaylistsState.value, context = NzikDispatchers.DATA)
             LaunchedEffect(monthlyPlaylists) { monthlyPlaylistsState.value = monthlyPlaylists }
 
             val maxTopPlaylistItems by rememberPreference(MaxTopPlaylistItemsKey, MaxTopPlaylistItems.`10`)
             val maxTopPlaylistItemsCustomValue by rememberPreference(MaxTopPlaylistItemsCustomValueKey, 10)
             val myTopSongsState = persistList<Song>("home/quickpicks/local/myTopSongs")
-            val myTopSongs by remember { Database.eventTable.findSongsMostPlayedBetween(from = 0L, limit = maxTopPlaylistItems.toInt(maxTopPlaylistItemsCustomValue)) }.collectAsStateWithLifecycle(myTopSongsState.value, context = Dispatchers.IO)
+            val myTopSongs by remember { Database.eventTable.findSongsMostPlayedBetween(from = 0L, limit = maxTopPlaylistItems.toInt(maxTopPlaylistItemsCustomValue)) }.collectAsStateWithLifecycle(myTopSongsState.value, context = NzikDispatchers.DATA)
             LaunchedEffect(myTopSongs) { myTopSongsState.value = myTopSongs }
 
             val sectionOrder = rememberQuickPicksSectionOrder()

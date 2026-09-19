@@ -80,7 +80,6 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -257,7 +256,7 @@ class AlbumItemMenu private constructor(
                         Database.albumTable
                             .likeState(album.id)
                             .distinctUntilChanged()
-                    }.collectAsState(null, Dispatchers.IO)
+                    }.collectAsState(null, NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -322,13 +321,13 @@ class AlbumItemMenu private constructor(
                     Database.albumTable
                         .isBookmarked(album.id)
                         .distinctUntilChanged()
-                }.collectAsState(false, Dispatchers.IO)
+                }.collectAsState(false, NzikDispatchers.DATA)
 
                 val likeState by remember(album.id) {
                     Database.albumTable
                         .likeState(album.id)
                         .distinctUntilChanged()
-                }.collectAsState(null, Dispatchers.IO)
+                }.collectAsState(null, NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -346,7 +345,7 @@ class AlbumItemMenu private constructor(
                             null -> colorPalette().text
                         },
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch(NzikDispatchers.DATA) {
                                 val pushAlbumBookmark = appContext().preferences.getBoolean(syncPushAlbumBookmarkKey, false)
                                 val syncDir = getSyncDirection()
                                 // Only sync to YouTube if NOT disliked (dislike is local only)
@@ -437,7 +436,7 @@ class AlbumItemMenu private constructor(
             Database.songAlbumMapTable
                     .allSongsOf( album.id )
                     .distinctUntilChanged()
-        }.collectAsState( emptyList(), Dispatchers.IO )
+        }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
         // Collect artists from the first song if available
         // We observe the songs list to react to its population
@@ -451,7 +450,7 @@ class AlbumItemMenu private constructor(
                     flowOf(emptyList())
                 }
             }
-        }.collectAsState(emptyList(), Dispatchers.IO)
+        }.collectAsState(emptyList(), NzikDispatchers.DATA)
         
         val changeArtistId = ChangeArtistBrowseIdDialog(menuState = menuState) { artistsData.firstOrNull() }
 
@@ -511,7 +510,7 @@ class AlbumItemMenu private constructor(
                                 override val menuIconTitle: String get() = stringResource(R.string.more_of) + " $artistName"
                                 override fun onShortClick() {
                                     menuState.hide()
-                                    coroutineScope.launch(Dispatchers.IO) {
+                                    coroutineScope.launch(NzikDispatchers.DATA) {
                                         Innertube.nextPage(videoId = firstSong.id)
                                             ?.getOrNull()
                                             ?.itemsPage?.items?.firstOrNull()

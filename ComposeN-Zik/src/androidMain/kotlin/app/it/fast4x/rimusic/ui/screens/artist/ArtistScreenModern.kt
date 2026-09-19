@@ -27,7 +27,6 @@ import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.playerPositionKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.transitionEffectKey
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
@@ -71,7 +70,7 @@ fun ArtistScreenModern(
     LaunchedEffect( Unit ) {
         Database.artistTable
                 .findById( browseId )
-                .flowOn( Dispatchers.IO )
+                .flowOn( NzikDispatchers.DATA )
                 .collect { localArtist = it }
     }
     var artistPage: ArtistPage? by remember { mutableStateOf( null ) }

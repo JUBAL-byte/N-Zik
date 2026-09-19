@@ -7,7 +7,7 @@ import app.n_zik.android.R
 import app.n_zik.android.appContext
 import it.fast4x.lastfm.LastFm
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -25,7 +25,7 @@ object LastFmActions {
 
     // Own scope: menus hide themselves on the same click, which would cancel
     // a menu-scoped request mid-flight and toast a fake failure.
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
 
     fun isConfigured(): Boolean =
         BuildConfig.LASTFM_API_KEY.isNotEmpty() &&

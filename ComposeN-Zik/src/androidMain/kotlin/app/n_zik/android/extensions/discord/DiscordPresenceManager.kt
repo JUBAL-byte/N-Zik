@@ -11,7 +11,7 @@ import com.metrolist.music.discordrpc.entities.Timestamps
 import com.metrolist.music.discordrpc.ActivityType
 import com.metrolist.music.discordrpc.entities.Button
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -31,7 +31,7 @@ class DiscordPresenceManager(
     private val context: Context,
     private val getToken: () -> String?,
     private val getBrowsingEnabled: () -> Boolean = { true },
-    private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val externalScope: CoroutineScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
 ) {
     companion object {
         private const val APPLICATION_ID = "1379051016007454760"
@@ -90,7 +90,7 @@ class DiscordPresenceManager(
     /**
      * Validate the token
      */
-    internal suspend fun validateToken(token: String): Boolean? = withContext(Dispatchers.IO) {
+    internal suspend fun validateToken(token: String): Boolean? = withContext(NzikDispatchers.DATA) {
         if (!context.isNetworkAvailable) return@withContext null
         val request = Request.Builder()
             .url("https://discord.com/api/v9/users/@me")
@@ -257,7 +257,7 @@ class DiscordPresenceManager(
             when (validateToken(token)) {
                 false -> {
                     Timber.tag("DiscordPresence").e("Invalid token, stopping presence updates")
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         Toaster.e(R.string.discord_token_text_invalid)
                     }
                     return

@@ -31,7 +31,7 @@ import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.models.Playlist
 import app.it.fast4x.rimusic.ui.items.PlaylistItem
 import app.n_zik.android.core.coil.thumbnail
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.res.stringResource
@@ -57,7 +57,7 @@ fun Playlist(
                         it.thumbnailUrl.thumbnail( thumbnailSizePx / 2 )
                     }
                 }
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     PlaylistItem(
         thumbnailContent = {

@@ -23,7 +23,7 @@ import app.it.fast4x.rimusic.utils.splitArtistNames
 import app.n_zik.android.utils.getAlbumVersionFromVideo
 import app.n_zik.android.playback.services.LOCAL_KEY_PREFIX
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import app.n_zik.android.components.ImportFromFile
@@ -233,7 +233,7 @@ class ImportSongsFromServices private constructor(
                 ) { uri ->
                     if( uri == null ) return@rememberLauncherForActivityResult
                     
-                    coroutineScope.launch(Dispatchers.IO) {
+                    coroutineScope.launch(NzikDispatchers.DATA) {
                         val importedSongs = mutableListOf<Song>()
                         val finalPlaylistId = openFile( uri, playlistIdForMatch, source, likeImported, beforeTransaction ) { index, song, album, artists ->
                             afterTransaction(index, song, album, artists)

@@ -59,7 +59,7 @@ import app.n_zik.android.artistThumbnailShape
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.secondary
 import it.fast4x.innertube.Innertube
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -184,7 +184,7 @@ class OnlineArtistItemMenu private constructor(
                         Database.artistTable
                             .likeState(artist.key)
                             .distinctUntilChanged()
-                    }.collectAsState(null, Dispatchers.IO)
+                    }.collectAsState(null, NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -240,13 +240,13 @@ class OnlineArtistItemMenu private constructor(
                     Database.artistTable
                         .isFollowing(artist.key)
                         .distinctUntilChanged()
-                }.collectAsState(false, Dispatchers.IO)
+                }.collectAsState(false, NzikDispatchers.DATA)
 
                 val likeState by remember(artist.key) {
                     Database.artistTable
                         .likeState(artist.key)
                         .distinctUntilChanged()
-                }.collectAsState(null, Dispatchers.IO)
+                }.collectAsState(null, NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -264,7 +264,7 @@ class OnlineArtistItemMenu private constructor(
                             null -> colorPalette().text
                         },
                         onClick = {
-                            coroutineScope.launch(Dispatchers.IO) {
+                            coroutineScope.launch(NzikDispatchers.DATA) {
                                 Database.artistTable.insertIgnore(
                                     app.it.fast4x.rimusic.models.Artist(
                                         id = artist.key,
@@ -338,7 +338,7 @@ class OnlineArtistItemMenu private constructor(
 
     @Composable
     override fun MenuComponent() {
-        val dbArtist by Database.artistTable.findById(artist.key).collectAsState(initial = null, context = Dispatchers.IO)
+        val dbArtist by Database.artistTable.findById(artist.key).collectAsState(initial = null, context = NzikDispatchers.DATA)
 
         var displayTitle by remember { mutableStateOf(artist.info?.name) }
         var displayThumbnailUrl by remember { mutableStateOf(artist.thumbnail?.url) }
@@ -369,7 +369,7 @@ class OnlineArtistItemMenu private constructor(
         var isFetching by remember { mutableStateOf(true) }
 
         LaunchedEffect(artist.key) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 if (artist.key.startsWith("LOCAL_ARTIST_")) {
                     artistPage = null
                 } else {

@@ -10,7 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import com.github.doyaaaaaken.kotlincsv.dsl.csvWriter
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.LocalDate
@@ -59,7 +59,7 @@ class ExportSettingsDialog private constructor(
             includeYtb: Boolean,
             includeDiscord: Boolean,
             includeLastfm: Boolean
-        ) = CoroutineScope( Dispatchers.IO ).launch {
+        ) = CoroutineScope( NzikDispatchers.DATA ).launch {
             runCatching {
                 Timber.tag("ExportSettingsDialog").d("Starting settings export...")
                 val entries: MutableList<Triple<String, String, Any>> = context.preferences

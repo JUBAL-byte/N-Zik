@@ -15,7 +15,7 @@ import app.n_zik.android.playback.services.LOCAL_KEY_PREFIX
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid10
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid11
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
@@ -161,7 +161,7 @@ fun Context.getLocalSongs(
 
     // Asynchronously probe the media files for codec, sample rate, and channels
     if (toProbe.isNotEmpty()) {
-        CoroutineScope(Dispatchers.IO).launch {
+        CoroutineScope(NzikDispatchers.DATA).launch {
             for ((id, baseFormat) in toProbe) {
                 var sampleRate: Int? = null
                 var audioChannels: Int? = null

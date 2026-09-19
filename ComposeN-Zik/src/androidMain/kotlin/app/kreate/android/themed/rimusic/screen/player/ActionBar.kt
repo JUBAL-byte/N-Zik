@@ -137,7 +137,7 @@ import app.it.fast4x.rimusic.utils.tapqueueKey
 import app.it.fast4x.rimusic.utils.textoutlineKey
 import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
 import app.it.fast4x.rimusic.utils.visualizerEnabledKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import app.n_zik.android.core.coil.ImageCacheFactory
@@ -558,7 +558,7 @@ fun BoxScope.ActionBar(
                                 val color = colorPalette()
                                 val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
                                     Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
-                                }.collectAsState( false, Dispatchers.IO )
+                                }.collectAsState( false, NzikDispatchers.DATA )
                                 IconButton(
                                     icon = R.drawable.add_in_playlist,
                                     color = if (isSongMappedToPlaylist && showPlaylistIndicator) Color.White else color.accent,

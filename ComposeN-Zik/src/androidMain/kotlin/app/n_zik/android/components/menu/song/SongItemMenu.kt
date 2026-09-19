@@ -119,7 +119,6 @@ import timber.log.Timber
 import java.util.Optional
 import app.it.fast4x.rimusic.ui.components.themed.InProgressDialog
 import app.it.fast4x.rimusic.ui.screens.info.VideoOrSongInfoScreen
-import kotlinx.coroutines.Dispatchers
 import app.n_zik.android.BuildConfig
 import androidx.compose.foundation.text.BasicText
 import app.it.fast4x.rimusic.enums.PlayerTimelineType
@@ -395,7 +394,7 @@ class SongItemMenu private constructor(
         // Information
         val albumForInfo by remember(song.id) {
             Database.albumTable.findBySongId(song.id)
-        }.collectAsState(null, Dispatchers.IO)
+        }.collectAsState(null, NzikDispatchers.DATA)
 
         val infoButton = remember {
             object : MenuIcon, Descriptive, Clickable {
@@ -444,7 +443,7 @@ class SongItemMenu private constructor(
         // Reactively collect artists from DB for per-artist "More of" buttons
         val artistsData by remember(song.id) {
             Database.artistTable.findBySongId(song.id)
-        }.collectAsState(emptyList(), Dispatchers.IO)
+        }.collectAsState(emptyList(), NzikDispatchers.DATA)
 
         val goToArtistFallback = remember {
             GoToArtist( navController, song, menuState )
@@ -500,7 +499,7 @@ class SongItemMenu private constructor(
                                 override val menuIconTitle: String get() = stringResource(R.string.more_of) + " $artistName"
                                 override fun onShortClick() {
                                     menuState.hide()
-                                    coroutineScope.launch(Dispatchers.IO) {
+                                    coroutineScope.launch(NzikDispatchers.DATA) {
                                         // Try DB by name first (works after the search online populated it)
                                         val dbArtist = try {
                                             Database.artistTable.findByName(artistName).first()
@@ -635,7 +634,7 @@ class SongItemMenu private constructor(
                             Database.songTable
                                     .likeState( song.id )
                                     .distinctUntilChanged()
-                        }.collectAsState( null, Dispatchers.IO )
+                        }.collectAsState( null, NzikDispatchers.DATA )
 
                         Column(
                             Modifier.width( TabToolBar.TOOLBAR_ICON_SIZE )

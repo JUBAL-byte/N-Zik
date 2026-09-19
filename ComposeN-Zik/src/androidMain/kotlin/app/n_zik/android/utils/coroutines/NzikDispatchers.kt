@@ -35,7 +35,8 @@ object NzikDispatchers {
         Executors.newSingleThreadExecutor(namedThreadFactory("nzik-visualizer")).asCoroutineDispatcher()
     }
 
-    /** Thread 3b — CPU-bound media work: palette extraction, LRC/TTML parsing, bitmap circling
+    /** Thread 3b — CPU-bound media work: queue conversion at playback start
+     *  (`forcePlayAtIndex` in `utils/Player.kt`), palette extraction, LRC/TTML parsing, bitmap circling
      *  (`Icon.getCircledBitmap` in `NextVisualizer.kt`), and botguard challenge/integrity-token
      *  JSON parsing (`PoTokenWebView.kt`). Isolated from VISUALIZER's continuous loop and from
      *  DATA. */

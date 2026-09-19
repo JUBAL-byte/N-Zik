@@ -37,7 +37,7 @@ import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.core.coil.ImageCacheFactory
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.searchPage
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import it.fast4x.innertube.utils.*
@@ -89,7 +89,7 @@ class ChangeAlbumBrowseIdDialog private constructor(
             if (query.isNotEmpty()) {
                 isSearching = true
                 coroutineScope.launch {
-                    val searchResult = withContext(Dispatchers.IO) {
+                    val searchResult = withContext(NzikDispatchers.DATA) {
                         Innertube.searchPage<Innertube.AlbumItem>(
                             query = query, params = Innertube.SearchFilter.Album.value,
                             fromMusicShelfRendererContent = { Innertube.AlbumItem.from(it) }

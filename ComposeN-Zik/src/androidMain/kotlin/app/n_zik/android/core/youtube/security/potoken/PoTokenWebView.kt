@@ -154,7 +154,7 @@ class PoTokenWebView private constructor(
         Timber.tag(TAG).d("loadHtmlAndObtainBotguard() called")
 
         scope.launch(exceptionHandler) {
-            val html = withContext(Dispatchers.IO) {
+            val html = withContext(NzikDispatchers.DATA) {
                 webView.context.assets.open("po_token.html").bufferedReader().use { it.readText() }
             }
 
@@ -396,7 +396,7 @@ class PoTokenWebView private constructor(
                 .url(url)
             // .use{} so the response is closed on the non-200 path too (an unread body would
             // otherwise strand its connection).
-            val (httpCode, body) = withContext(Dispatchers.IO) {
+            val (httpCode, body) = withContext(NzikDispatchers.DATA) {
                 httpClient.newCall(requestBuilder.build()).execute().use { response ->
                     response.code to if (response.code == 200) response.body?.string() else null
                 }

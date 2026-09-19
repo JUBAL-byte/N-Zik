@@ -73,7 +73,7 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showthumbnailKey
 import app.it.fast4x.rimusic.utils.statsfornerdsKey
 import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlin.math.roundToInt
 import timber.log.Timber
 import androidx.compose.ui.geometry.Offset
@@ -116,7 +116,7 @@ fun StatsForNerds(
                 playbackDataCache[cleanMediaId]?.let { if (it != playbackData) playbackData = it }
                 cachedBytes = binder.cache.getCachedBytes(cleanMediaId, 0, -1)
                 downloadCachedBytes = binder.downloadCache.getCachedBytes(cleanMediaId, 0, -1)
-                val dbFormat = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                val dbFormat = kotlinx.coroutines.withContext(NzikDispatchers.DATA) {
                     Database.formatTable.findBySongIdDirect(cleanMediaId)
                 }
                 if (dbFormat != format) format = dbFormat

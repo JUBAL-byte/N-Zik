@@ -357,7 +357,7 @@ private suspend fun fetchAndSaveAlbumSongs(albumId: String): Int {
                 Database.songAlbumMapTable.upsert(songAlbumMaps)
             } catch (e: SQLiteConstraintException) {
                 Timber.tag(TAG).w("Foreign key constraint failed for album $albumId. Retrying in 5s...")
-                scope.launch(Dispatchers.IO) {
+                scope.launch(NzikDispatchers.DATA) {
                     kotlinx.coroutines.delay(5000)
                     try {
                         Database.asyncTransaction {
@@ -553,7 +553,7 @@ private fun upsertSongFormat(
                     songTable.insertIgnore(Song.makePlaceholder(videoId))
                 } catch (e: SQLiteConstraintException) {
                     Timber.tag(TAG).w("Foreign key constraint failed for song placeholder $videoId. Retrying in 5s...")
-                    scope.launch(Dispatchers.IO) {
+                    scope.launch(NzikDispatchers.DATA) {
                         kotlinx.coroutines.delay(5000)
                         try {
                             Database.asyncTransaction {

@@ -7,7 +7,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.ServiceCompat
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,7 +37,7 @@ import java.net.ConnectException
 
 class HomeSyncService : Service() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val serviceScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
     private var activeSyncs = 0
 
     companion object {
@@ -141,7 +141,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ ARTIST SYNC START ══════ Total: $totalArtists (YT: ${ytArtists.size}, Local/Fallback: ${localArtists.size})")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (totalArtists > 0) Toaster.i(appContext().getString(R.string.refreshing_artists, totalArtists))
             if (ids == null && totalArtists == 0) Toaster.w(appContext().getString(R.string.sync_no_items))
         }
@@ -300,7 +300,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ ARTIST SYNC END ══════ success=$successCount failed=$failedCount total=$totalArtists")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (abortSync) {
                 Toaster.e(appContext().getString(R.string.sync_failed))
                 HomeSyncState.showSyncNotification(appContext().getString(R.string.sync_failed), "Sync aborted due to network error.", resultNotificationId)
@@ -344,7 +344,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ ALBUM SYNC START ══════ Total: $totalAlbums (YT: ${ytAlbums.size}, Local/Fallback: ${localAlbums.size})")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (totalAlbums > 0) Toaster.i(appContext().getString(R.string.refreshing_albums, totalAlbums))
             if (ids == null && totalAlbums == 0) Toaster.w(appContext().getString(R.string.sync_no_items))
         }
@@ -538,7 +538,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ ALBUM SYNC END ══════ success=$successCount failed=$failedCount total=$totalAlbums")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (abortSync) {
                 Toaster.e(appContext().getString(R.string.sync_failed))
                 HomeSyncState.showSyncNotification(appContext().getString(R.string.sync_failed), "Sync aborted due to network error.", resultNotificationId)
@@ -582,7 +582,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ PLAYLIST SYNC START ══════ Total filtered: ${ytPlaylists.size}")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (ytPlaylists.isNotEmpty()) Toaster.i(appContext().getString(R.string.refreshing_playlists, ytPlaylists.size))
         }
 
@@ -663,7 +663,7 @@ class HomeSyncService : Service() {
 
         Timber.tag("HomeSyncService").d("══════ PLAYLIST SYNC END ══════ success=$successCount failed=$failedCount skipped=$skippedCount total=${ytPlaylists.size}")
 
-        withContext(Dispatchers.Main) {
+        withContext(NzikDispatchers.UI) {
             if (abortSync) {
                 Toaster.e(appContext().getString(R.string.sync_failed))
                 HomeSyncState.showSyncNotification(appContext().getString(R.string.sync_failed), "Sync aborted due to network error.", resultNotificationId)

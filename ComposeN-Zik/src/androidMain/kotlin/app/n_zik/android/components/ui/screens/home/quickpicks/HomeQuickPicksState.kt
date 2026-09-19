@@ -15,7 +15,7 @@ import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -56,7 +56,7 @@ class HomeQuickPicksState(
         // Outlives the composable so a Quick Picks load keeps running when the
         // user switches pages; on return the results are already there instead
         // of a cancelled load forcing a full reload.
-        private val loadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val loadScope = CoroutineScope(SupervisorJob() + NzikDispatchers.DATA)
 
         @Volatile
         private var sharedLoadJob: Job? = null
@@ -84,13 +84,13 @@ class HomeQuickPicksState(
         runCatching {
             // Phase 1: Parallel network calls for charts, discover, quick picks
             supervisorScope {
-                val chartsDeferred = async(Dispatchers.IO) {
+                val chartsDeferred = async(NzikDispatchers.DATA) {
                     Innertube.chartsPageComplete(countryCode = selectedCountryCode.name)
                 }
-                val discoverDeferred = async(Dispatchers.IO) {
+                val discoverDeferred = async(NzikDispatchers.DATA) {
                     Innertube.discoverPage()
                 }
-                val quickPicksDeferred = async(Dispatchers.IO) {
+                val quickPicksDeferred = async(NzikDispatchers.DATA) {
                     if (isYouTubeLoggedIn() && Innertube.useLoginForBrowse) {
                         YtMusic.getQuickPicks(setLogin = true).getOrNull()
                     } else null
@@ -130,7 +130,7 @@ class HomeQuickPicksState(
 
             // Phase 2: Database observation with related page fetch (coupled as before)
             dbJob?.cancel()
-            dbJob = loadScope.launch(Dispatchers.IO) {
+            dbJob = loadScope.launch(NzikDispatchers.DATA) {
                 when (playEventType) {
                     PlayEventsType.MostPlayed ->
                         Database.eventTable

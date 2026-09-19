@@ -72,7 +72,6 @@ import app.it.fast4x.rimusic.utils.mbCircuitOpenUntilKey
 import app.it.fast4x.rimusic.utils.mbCircuitFailuresKey
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -225,7 +224,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         }
 
         // Prewarm InnerTubeX in background — wait for visitorData like Metrolist
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        CoroutineScope(SupervisorJob() + NzikDispatchers.DATA).launch {
             try {
                 // Wait up to 12s for visitorData (like Metrolist)
                 var waitedMs = 0

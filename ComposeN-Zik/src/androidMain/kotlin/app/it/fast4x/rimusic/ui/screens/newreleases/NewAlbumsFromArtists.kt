@@ -59,7 +59,7 @@ import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.showSearchTabKey
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @ExperimentalTextApi
@@ -106,7 +106,7 @@ fun NewAlbumsFromArtists(
                 Database.artistTable
                         .sortFollowingByName()
                         .distinctUntilChanged()
-            }.collectAsState( emptyList(), Dispatchers.IO )
+            }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
             var newReleaseAlbumsFiltered by persistList<Innertube.AlbumItem>("home/shared/newalbumsartist")
             page.newReleaseAlbums.forEach { album ->

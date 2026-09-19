@@ -91,7 +91,7 @@ import app.it.fast4x.rimusic.utils.playlistindicatorKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.components.menu.song.SongItemMenu
 import app.n_zik.android.components.tab.ItemSelector
@@ -274,7 +274,7 @@ fun SongItem(
                     Database.songTable
                         .likeState( displaySong.id )
                         .distinctUntilChanged()
-                }.collectAsState( null, Dispatchers.IO )
+                }.collectAsState( null, NzikDispatchers.DATA )
             }
 
             // Only show icon for liked (true) or disliked (false), NEVER for neutral (null)

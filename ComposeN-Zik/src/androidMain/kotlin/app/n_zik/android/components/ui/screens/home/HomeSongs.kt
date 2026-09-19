@@ -81,7 +81,7 @@ import app.n_zik.android.thumbnailShape
 import app.n_zik.android.typography
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.requests.relatedSongs
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -157,7 +157,7 @@ fun HomeSongs(
 
     LaunchedEffect(builtInPlaylist) {
         if (builtInPlaylist == BuiltInPlaylist.Offline) {
-            withContext(Dispatchers.IO) {
+            withContext(NzikDispatchers.DATA) {
                 Database.formatTable.allWithSongs().first().mapNotNull { format ->
                     val contentLength = format.format.contentLength ?: return@mapNotNull null
                     if (binder?.cache?.isCached(format.song.id, 0, contentLength) == true) {
@@ -325,7 +325,7 @@ fun HomeSongs(
             }
         }
 
-        retrievedSongs.flowOn( Dispatchers.IO )
+        retrievedSongs.flowOn( NzikDispatchers.DATA )
             .distinctUntilChanged()
             .collect {
                 items = when(filterBy) {
@@ -487,7 +487,7 @@ fun HomeSongs(
     val songIds = remember(itemsOnDisplay) { itemsOnDisplay.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), Dispatchers.IO)
+    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
 
     // Hoisted swipe action preferences
     val playlistSwipeLeftAction by rememberPreference(playlistSwipeLeftActionKey, PlaylistSwipeAction.Favourite)

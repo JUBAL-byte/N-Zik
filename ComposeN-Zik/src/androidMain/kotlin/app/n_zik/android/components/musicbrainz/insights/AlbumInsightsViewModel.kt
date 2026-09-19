@@ -13,7 +13,7 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.ArtistSection
 import timber.log.Timber
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,22 +49,22 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
         viewModelScope.launch {
             _state.value = AlbumDetailUiState(isLoading = true)
 
-            val album = withContext(Dispatchers.IO) {
+            val album = withContext(NzikDispatchers.DATA) {
                 albumTable.findByIdDirect(albumId)
             } ?: return@launch
 
-            val tracks = withContext(Dispatchers.IO) {
+            val tracks = withContext(NzikDispatchers.DATA) {
                 songAlbumMapTable.allSongsOfDirect(albumId)
             }
 
-            val topTracks = withContext(Dispatchers.IO) {
+            val topTracks = withContext(NzikDispatchers.DATA) {
                 // Same tracks, reordered by the album's total play time per song
                 // instead of disc position; drop songs that were never listened to.
                 songAlbumMapTable.getTopSongsOfDirect(albumId)
                     .filter { it.totalPlayTimeMs >= 1 }
             }
 
-            val artist = withContext(Dispatchers.IO) {
+            val artist = withContext(NzikDispatchers.DATA) {
                 val authors = album.authorsText?.trim().orEmpty()
                 val byName = if (authors.isNotBlank()) artistTable.findByNameDirect(authors) else null
                 // Name matching is fragile (casing, "feat.", collab text); fall back to the
@@ -79,7 +79,7 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
             // "EP", "Live", "Compilation", "Remix"); split on it so a local single/EP
             // lands in the same section as its online counterpart. Albums never matched
             // against MusicBrainz have a null albumType and default to "Other albums".
-            val (localOtherAlbums, localSinglesAndEps) = withContext(Dispatchers.IO) {
+            val (localOtherAlbums, localSinglesAndEps) = withContext(NzikDispatchers.DATA) {
                 val artistName = album.authorsText?.trim().orEmpty()
                 if (artistName.isBlank()) {
                     emptyList<Album>() to emptyList()
@@ -95,7 +95,7 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
             // fetch the artist's YouTube Music page to fill in what's missing: full
             // albums go into "Other albums", singles/EPs into their own section
             // (YTM bundles EPs with singles under "Singles & EPs", no way to split them).
-            val (missingAlbums, missingSinglesAndEps) = withContext(Dispatchers.IO) {
+            val (missingAlbums, missingSinglesAndEps) = withContext(NzikDispatchers.DATA) {
                 val artistId = artist?.id?.takeIf { it.isNotBlank() && !it.startsWith("local:") }
                 if (artistId == null) {
                     Timber.tag("AlbumInsights").d(
@@ -155,7 +155,7 @@ class AlbumInsightsViewModel(application: Application) : AndroidViewModel(applic
             val otherAlbums = localOtherAlbums + missingAlbums
             val singlesAndEps = localSinglesAndEps + missingSinglesAndEps
 
-            val stats = withContext(Dispatchers.IO) {
+            val stats = withContext(NzikDispatchers.DATA) {
                 val likedSongs = tracks.count { it.likedAt != null }
                 val totalPlayTimeMs = eventTable.getAlbumTotalPlayTime(albumId).first()
                 val playCount = eventTable.getAlbumPlayCount(albumId).first()

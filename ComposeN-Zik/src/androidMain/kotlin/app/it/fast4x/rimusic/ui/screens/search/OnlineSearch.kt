@@ -101,7 +101,6 @@ import app.it.fast4x.rimusic.utils.pauseSearchHistoryKey
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.searchDisplayOrderKey
 import app.it.fast4x.rimusic.utils.secondary
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
@@ -137,7 +136,7 @@ fun OnlineSearch(
                 .findAllContain( textFieldValue.text )
                 .distinctUntilChanged()
                 .map{ list -> list.reversed() }
-    }.collectAsState( emptyList(), Dispatchers.IO )
+    }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
     //var suggestionsResult by persist<Result<List<String>?>?>("search/online/suggestionsResult")
     var suggestionsResult by remember {
