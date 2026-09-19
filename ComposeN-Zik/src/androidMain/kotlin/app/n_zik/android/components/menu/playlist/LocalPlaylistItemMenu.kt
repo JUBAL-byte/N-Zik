@@ -165,6 +165,8 @@ class LocalPlaylistItemMenu private constructor(
         onBookmarkToggle: () -> Unit,
         modifier: Modifier = Modifier
     ) {
+        // Bookmarking saves to the YouTube Music library: meaningless for a local playlist
+        val canBookmark = playlistPreview.playlist.canBeBookmarked()
         val disableScrollingText by rememberPreference(disableScrollingTextKey, false)
         val context = LocalContext.current
         
@@ -251,7 +253,7 @@ class LocalPlaylistItemMenu private constructor(
                         }
                     }
 
-                    if (isBookmarked)
+                    if (canBookmark && isBookmarked)
                         HeaderIconButton(
                             onClick = {},
                             icon = R.drawable.bookmark,
@@ -290,14 +292,15 @@ class LocalPlaylistItemMenu private constructor(
                     Modifier.width(48.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    IconButton(
-                        icon = if (isBookmarked) R.drawable.bookmark else R.drawable.bookmark_outline,
-                        color = colorPalette().favoritesIcon,
-                        onClick = { onBookmarkToggle() },
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(20.dp)
-                    )
+                    if (canBookmark)
+                        IconButton(
+                            icon = if (isBookmarked) R.drawable.bookmark else R.drawable.bookmark_outline,
+                            color = colorPalette().favoritesIcon,
+                            onClick = { onBookmarkToggle() },
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(20.dp)
+                        )
 
                     IconButton(
                         icon = R.drawable.open,

@@ -119,7 +119,7 @@ class NewPlaylistDialog private constructor(
                         val newId = playlistTable.insert( playlist )
                         onPlaylistCreated(playlist.copy(id = newId))
                     }
-                    Toaster.s( R.string.added_to_favorites )
+                    Toaster.done()
                     Timber.tag("NewPlaylistDialog").d("Playlist created: ${playlist.name}, browseId=${playlist.browseId}")
                 }
             } else {
@@ -138,6 +138,6 @@ class NewPlaylistDialog private constructor(
             val newId = playlistTable.insert( playlist )
             onPlaylistCreated(playlist.copy(id = newId))
         }
-        Toaster.s( R.string.added_to_favorites )
+        Toaster.done()
     }
 }

@@ -1300,8 +1300,11 @@ fun LocalPlaylistSongs(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         shuffle.ToolBarButton()
-                        Spacer(modifier = Modifier.height(10.dp))
-                        bookmark.ToolBarButton()
+                        // Bookmarking saves to the YouTube Music library: meaningless for a local playlist
+                        if (playlist?.canBeBookmarked() == true) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            bookmark.ToolBarButton()
+                        }
                     }
                 }
 

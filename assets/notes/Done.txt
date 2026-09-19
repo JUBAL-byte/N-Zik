@@ -1157,3 +1157,10 @@ fix(threading): move the 5 remaining Main-thread blocks found by the re-audit of
   - Tests (19 across 5 classes): `PlaylistFilterTest` (8), `PlaylistDownloadBatchOffMainTest` (4), `ClearAudioCacheOffMainTest` (2), `SmartTrashDeleteDownloadsTest` (2), `MediaDownloadBatchOffMainTest` (3, teardown now `@AfterEach` so `unmockkAll()` really runs under JUnit 5)
   - Code review (bmad-code-review): 1 decision + 3 patches applied (H1 base list, ArtistLocalSongs ordering, JUnit teardown, redundant late `onDismiss`); known gap: the dialog-level wiring (call sites) has no automated test
   - Verification: `:ComposeN-Zik:assembleDebug` + `:ComposeN-Zik:test` green. NOT run on a device: playlist with parental control (batch actions vs displayed list), download-all on a large playlist, SmartTrash "Downloaded" clear, stream client change with a large audio cache
+
+fix(playlist): hide the YouTube Music bookmark on local playlists and stop the "added to favorites" toast on playlist creation
+  - `Playlist.kt`: new `canBeBookmarked()` - true only for playlists linked to a real YouTube Music `browseId` (false for purely local playlists, for locally modified ones with `MODIFIED_PREFIX`, and for stray `isYoutubePlaylist` flags left by older versions)
+  - `LocalPlaylistSongs.kt` / `LocalPlaylistItemMenu.kt`: the bookmark toolbar button, the bookmark toggle and the bookmarked badge are only shown when `canBeBookmarked()` is true (bookmarking saves to the YouTube Music library, which is meaningless for a local playlist)
+  - `NewPlaylistDialog.kt`: creating a playlist now shows the generic `Toaster.done()` instead of the wrong `added_to_favorites` message (2 sites)
+  - Tests: `PlaylistTest` (4 - local, YouTube-linked with and without `VL` prefix, locally modified, stray youtube flag)
+  - Verification: `:ComposeN-Zik:assembleDebug` + `:ComposeN-Zik:test` green. NOT run on a device: open a local playlist and a YouTube-imported one (bookmark button visible only on the latter), create a new playlist (toast)
