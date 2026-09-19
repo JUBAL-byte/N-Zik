@@ -1894,6 +1894,7 @@
     <string name="rescue_no_logs">No log files found</string>
     <string name="rescue_no_backup">No backup available</string>
     <string name="rescue_main_process_running">Close the main app before performing this action</string>
+    <string name="rescue_encrypted_unavailable_warning">Saved credentials could not be accessed (keystore unavailable). Only regular settings were processed.</string>
     <string name="rescue_confirm_import_database">Replace the current database? This cannot be undone.</string>
     <string name="rescue_confirm_import_settings">Replace current settings with the imported values?</string>
     <string name="rescue_confirm_clear_cache">Clear all cache? Downloaded songs will not be affected.</string>
