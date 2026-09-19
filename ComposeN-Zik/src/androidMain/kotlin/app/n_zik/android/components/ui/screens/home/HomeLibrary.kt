@@ -44,6 +44,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.MutableFloatState
+import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -568,12 +570,14 @@ fun HomeLibrary(
                     }
                 }
 
-                val header: @Composable () -> Unit = {
+                val header: @Composable (MutableFloatState, MutableIntState) -> Unit = { titleOffsetState, titleHeightState ->
                     Column {
                         Column {
-                            TabHeader( R.string.playlists ) {
-                        HeaderInfo( items.size.toString(), R.drawable.playlist )
-                    }
+                            CollapsibleTitleRow( titleOffsetState, titleHeightState ) {
+                                TabHeader( R.string.playlists ) {
+                                    HeaderInfo( items.size.toString(), R.drawable.playlist )
+                                }
+                            }
                     exportDialog.Render()
                     
                     if (showDeleteConfirmDialog) {
@@ -659,8 +663,10 @@ fun HomeLibrary(
             }
 
             Box(modifier = Modifier.fillMaxSize()) {
-                    var headerHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                    var headerOffset by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                    val headerHeightState = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                    var headerHeight by headerHeightState
+                    val headerOffsetState = remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+                    var headerOffset by headerOffsetState
                     val headerAlpha by remember(headerHeight) {
                         androidx.compose.runtime.derivedStateOf {
                             if (headerHeight == 0) 1f
@@ -668,15 +674,7 @@ fun HomeLibrary(
                         }
                     }
 
-                    val nestedScrollConnection = remember(headerHeight) {
-                        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-                            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-                                val delta = available.y
-                                headerOffset = (headerOffset + delta).coerceIn(-headerHeight.toFloat(), 0f)
-                                return androidx.compose.ui.geometry.Offset.Zero
-                            }
-                        }
-                    }
+                    val nestedScrollConnection = rememberCollapsibleHeaderConnection(headerHeight, headerOffsetState, filteredItems.isNotEmpty())
 
                     Box(modifier = Modifier.fillMaxSize().nestedScroll(nestedScrollConnection)) {
                         val headerPadding = with(androidx.compose.ui.platform.LocalDensity.current) { headerHeight.toDp() }
@@ -844,12 +842,13 @@ fun HomeLibrary(
 
                         Box(
                             modifier = Modifier
-                                .graphicsLayer { alpha = headerAlpha }
-                                .background(colorPalette().background0)
                                 .onGloballyPositioned { headerHeight = it.size.height }
                                 .offset { androidx.compose.ui.unit.IntOffset(0, kotlin.math.round(headerOffset).toInt()) }
+                                .background(colorPalette().background0)
                         ) {
-                            header()
+                            Box( Modifier.graphicsLayer { alpha = headerAlpha } ) {
+                                header( headerOffsetState, headerHeightState )
+                            }
                         }
             }
             }

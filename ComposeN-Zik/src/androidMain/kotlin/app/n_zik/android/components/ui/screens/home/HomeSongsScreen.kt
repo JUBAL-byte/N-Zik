@@ -567,9 +567,10 @@ fun HomeSongsScreen(navController: NavController ) {
         }
     }
 
-    val header: @Composable () -> Unit = {
+    val header: @Composable (MutableFloatState, MutableIntState) -> Unit = { titleOffsetState, titleHeightState ->
         Column {
-            TabHeader( R.string.songs ) {
+            CollapsibleTitleRow( titleOffsetState, titleHeightState ) {
+                TabHeader( R.string.songs ) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 HeaderInfo( itemsOnDisplayState.size.toString(), R.drawable.musical_notes )
@@ -608,6 +609,7 @@ fun HomeSongsScreen(navController: NavController ) {
                             }
                         }
                     }
+                }
 
                     importMenu.Render()
                     exportDialog.Render()
@@ -780,8 +782,10 @@ fun HomeSongsScreen(navController: NavController ) {
                 }
     }
 
-    var headerHeight by remember { mutableIntStateOf(0) }
-    var headerOffset by remember { mutableFloatStateOf(0f) }
+    val headerHeightState = remember { mutableIntStateOf(0) }
+    var headerHeight by headerHeightState
+    val headerOffsetState = remember { mutableFloatStateOf(0f) }
+    var headerOffset by headerOffsetState
     val headerAlpha by remember(headerHeight) {
         derivedStateOf {
             if (headerHeight == 0) 1f
@@ -789,15 +793,7 @@ fun HomeSongsScreen(navController: NavController ) {
         }
     }
 
-    val nestedScrollConnection = remember(headerHeight) {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-                val delta = available.y
-                headerOffset = (headerOffset + delta).coerceIn(-headerHeight.toFloat(), 0f)
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
-    }
+    val nestedScrollConnection = rememberCollapsibleHeaderConnection(headerHeight, headerOffsetState, itemsOnDisplayState.isNotEmpty())
 
     Box(
         modifier = Modifier.background( colorPalette().background0 )
@@ -813,14 +809,17 @@ fun HomeSongsScreen(navController: NavController ) {
             }
         }
 
+        // Background sits after the offset so it slides away with the header; only the
+        // content fades, otherwise the black backdrop stays put and turns transparent.
         Box(
             modifier = Modifier
-                .graphicsLayer { alpha = headerAlpha }
-                .background(colorPalette().background0)
                 .onGloballyPositioned { headerHeight = it.size.height }
                 .offset { androidx.compose.ui.unit.IntOffset(0, kotlin.math.round(headerOffset).toInt()) }
+                .background(colorPalette().background0)
         ) {
-            header()
+            Box( Modifier.graphicsLayer { alpha = headerAlpha } ) {
+                header( headerOffsetState, headerHeightState )
+            }
         }
         FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
 

@@ -1173,7 +1173,6 @@ class MainActivity :
             val safeDrawingInsets = WindowInsets.safeDrawing
 
             val currentRoute by app.n_zik.android.extensions.discord.DiscordUiState.currentRoute.collectAsState()
-            val currentHomeTab by app.n_zik.android.extensions.discord.DiscordUiState.currentHomeTab.collectAsState()
             
             val isScrollableRoute = currentRoute == "home" ||
                     currentRoute?.startsWith("artist") == true ||
@@ -1183,23 +1182,14 @@ class MainActivity :
                     currentRoute?.startsWith("searchResults") == true ||
                     currentRoute?.startsWith("settings") == true
                     
-            val isLandscapeHiddenRoute = currentRoute == "home" && currentHomeTab != "quickpicks"
-
-            LaunchedEffect(isLandscape, isViMusic, isScrollableRoute, isLandscapeHiddenRoute, density, safeDrawingInsets) {
-                val statusBarsTopPx = safeDrawingInsets.getTop(density)
-                val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx
-                
-                if (isLandscape && isLandscapeHiddenRoute) {
-                    topBarOffset = -topBarHeightPx.toFloat()
-                } else {
-                    topBarOffset = 0f
-                }
+            LaunchedEffect(isLandscape, isViMusic, isScrollableRoute, density, safeDrawingInsets) {
+                topBarOffset = 0f
                 bottomBarOffset = 0f
-                
+
                 isBarsVisible = true
             }
 
-            val nestedScrollConnection = remember(isLandscape, isViMusic, isScrollableRoute, isLandscapeHiddenRoute, density, safeDrawingInsets, showQueueOverlay) {
+            val nestedScrollConnection = remember(isLandscape, isViMusic, isScrollableRoute, density, safeDrawingInsets, showQueueOverlay) {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                         // Disable scroll-hide while the full player sheet is on screen or the queue is open
@@ -1220,12 +1210,9 @@ class MainActivity :
                         offsetAnimationJob.value = null
 
                         // Move bars with finger in both directions synchronously
-                        var consumedY = 0f
-                        if (!(isLandscape && isLandscapeHiddenRoute)) {
-                            val previousTopOffset = topBarOffset
-                            topBarOffset = (topBarOffset + delta).coerceIn(-topBarHeightPx.toFloat(), 0f)
-                            consumedY = topBarOffset - previousTopOffset
-                        }
+                        val previousTopOffset = topBarOffset
+                        topBarOffset = (topBarOffset + delta).coerceIn(-topBarHeightPx.toFloat(), 0f)
+                        val consumedY = topBarOffset - previousTopOffset
 
                         bottomBarOffset = (bottomBarOffset - delta).coerceIn(0f, bottomBarHeightPx)
 
