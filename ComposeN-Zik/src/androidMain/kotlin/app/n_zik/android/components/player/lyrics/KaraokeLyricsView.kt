@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.n_zik.android.components.player.lyricsThemeColor
 import app.n_zik.android.enums.lyrics.LyricsBackground
 import app.n_zik.android.enums.lyrics.LyricsColor
 import app.n_zik.android.enums.lyrics.LyricsFontSize
@@ -41,7 +42,6 @@ import app.n_zik.android.enums.lyrics.LyricsOutline
 import app.n_zik.android.colorPalette
 import app.n_zik.android.typography
 import app.n_zik.android.uiRoundnessShape
-import app.it.fast4x.rimusic.ui.styling.PureBlackColorPalette
 import app.it.fast4x.rimusic.utils.verticalFadingEdge
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -608,7 +608,7 @@ fun KaraokeLyricsView(
         LyricsColor.White -> Color.White
         LyricsColor.Cover -> Color(dominantColor)
         LyricsColor.Custom -> Color(lyricsCustomColor)
-        LyricsColor.Thememode -> if (showlyricsthumbnail) PureBlackColorPalette.text else colorPalette().text
+        LyricsColor.Thememode -> lyricsThemeColor(colorPalette(), showBackgroundLyrics && showlyricsthumbnail)
     }
 
     val inactiveColor = accentColor.copy(alpha = 0.4f)

@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.n_zik.android.components.player.lyricsThemeColor
 import app.n_zik.android.enums.lyrics.LyricsAlignment
 import app.n_zik.android.enums.lyrics.LyricsBackground
 import app.n_zik.android.enums.lyrics.LyricsColor
@@ -37,7 +38,6 @@ import app.n_zik.android.components.player.lyrics.utils.SynchronizedLyrics
 import app.it.fast4x.rimusic.utils.verticalFadingEdge
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.colorPalette
-import app.it.fast4x.rimusic.ui.styling.PureBlackColorPalette
 import dev.rebelonion.translator.Language
 import dev.rebelonion.translator.Translator
 import it.fast4x.lrclib.LrcLib
@@ -405,7 +405,7 @@ if (showBackgroundLyrics && showlyricsthumbnail) modifierBG =
         LyricsColor.White -> Color.White
         LyricsColor.Cover -> Color(dominantColor)
         LyricsColor.Custom -> Color(lyricsCustomColor)
-        LyricsColor.Thememode -> if (showlyricsthumbnail) PureBlackColorPalette.text else colorPalette().text
+        LyricsColor.Thememode -> lyricsThemeColor(colorPalette(), showBackgroundLyrics && showlyricsthumbnail)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -481,6 +481,7 @@ if (showBackgroundLyrics && showlyricsthumbnail) modifierBG =
                             dominantColor = dominantColor,
                             lyricsHighlight = lyricsHighlight,
                             clickLyricsText = clickLyricsText,
+                            textOnAccentBackground = showBackgroundLyrics && showlyricsthumbnail,
                             onClick = {
                                 if (clickLyricsText) onSeekTo(sentence.timeMs) else onDismiss()
                             }

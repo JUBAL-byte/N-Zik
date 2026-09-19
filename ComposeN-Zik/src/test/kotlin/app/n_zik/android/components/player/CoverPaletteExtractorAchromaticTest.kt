@@ -9,6 +9,7 @@ import app.it.fast4x.rimusic.ui.styling.DefaultDarkColorPalette
 import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -238,5 +239,73 @@ class CoverPaletteExtractorAchromaticTest {
                 assertEquals("player surface must render a neutral gray (isDark=$isDark)", 0f, hslOf(rgb)[1], 0.001f)
             }
         }
+    }
+
+    @Test
+    fun `the dynamic theme tone follows the cover lightness for achromatic covers`() = runBlocking {
+        val darkGray = solidBitmap(android.graphics.Color.rgb(58, 56, 54))
+        val offWhite = solidBitmap(android.graphics.Color.rgb(235, 233, 228))
+
+        // Light theme + dark cover: the tone must flip to dark (previously the theme stayed white).
+        val lightModeDarkCover = m3eDynamicColorPaletteOf(darkGray, false)
+        assertNotNull("expected a palette for a dark achromatic cover (light theme)", lightModeDarkCover)
+        assertEquals("dark cover must yield a dark tone", true, lightModeDarkCover!!.isDark)
+        assertEquals(0.10f, hslOf(lightModeDarkCover.background0.toArgb())[2], 0.02f)
+        assertEquals(0.88f, hslOf(lightModeDarkCover.text.toArgb())[2], 0.02f)
+
+        // Dark theme + off-white cover: the tone must flip to light.
+        val darkModeOffWhiteCover = m3eDynamicColorPaletteOf(offWhite, true)
+        assertNotNull("expected a palette for an off-white achromatic cover (dark theme)", darkModeOffWhiteCover)
+        assertEquals("off-white cover must yield a light tone", false, darkModeOffWhiteCover!!.isDark)
+        assertEquals(0.925f, hslOf(darkModeOffWhiteCover.background0.toArgb())[2], 0.02f)
+        assertEquals(0.12f, hslOf(darkModeOffWhiteCover.text.toArgb())[2], 0.02f)
+
+        // Matching tones are unchanged.
+        assertEquals(true, m3eDynamicColorPaletteOf(darkGray, true)!!.isDark)
+        assertEquals(false, m3eDynamicColorPaletteOf(offWhite, false)!!.isDark)
+    }
+
+    @Test
+    fun `the dynamic theme tone follows the requested mode for colored covers`() = runBlocking {
+        val blue = solidBitmap(android.graphics.Color.rgb(30, 120, 200))
+        assertEquals("light mode must keep the light tone", false, m3eDynamicColorPaletteOf(blue, false)!!.isDark)
+        assertEquals("dark mode must keep the dark tone", true, m3eDynamicColorPaletteOf(blue, true)!!.isDark)
+    }
+
+    @Test
+    fun `the lyrics theme color is the theme accent for achromatic themes`() = runBlocking {
+        for (bitmap in listOf(
+            solidBitmap(android.graphics.Color.rgb(58, 56, 54)),
+            solidBitmap(android.graphics.Color.rgb(235, 233, 228)),
+        )) {
+            for (isDark in listOf(true, false)) {
+                val palette = m3eDynamicColorPaletteOf(bitmap, isDark)
+                assertNotNull("expected a palette (isDark=$isDark)", palette)
+                assertEquals(
+                    "lyrics theme color must be the neutral accent (isDark=$isDark)",
+                    palette!!.accent,
+                    lyricsThemeColor(palette)
+                )
+                assertEquals("the lyrics color must be a neutral gray (isDark=$isDark)", 0f, hslOf(palette.accent.toArgb())[1], 0.001f)
+            }
+        }
+    }
+
+    @Test
+    fun `the lyrics theme color is the theme accent, not the text, for colored themes`() = runBlocking {
+        for (isDark in listOf(true, false)) {
+            val palette = m3eDynamicColorPaletteOf(solidBitmap(android.graphics.Color.rgb(30, 120, 200)), isDark)
+            assertNotNull("expected a palette for a colored cover (isDark=$isDark)", palette)
+            assertNotEquals("accent must differ from the text (isDark=$isDark)", palette!!.text, palette.accent)
+            assertEquals("lyrics theme color must be the theme accent (isDark=$isDark)", palette.accent, lyricsThemeColor(palette))
+            assertNotEquals("lyrics theme color must not be the theme text (isDark=$isDark)", palette.text, lyricsThemeColor(palette))
+        }
+    }
+
+    @Test
+    fun `the lyrics theme color is the theme text on an accent background`() = runBlocking {
+        val palette = m3eDynamicColorPaletteOf(solidBitmap(android.graphics.Color.rgb(30, 120, 200)), true)
+        assertNotNull("expected a palette for a colored cover", palette)
+        assertEquals("lyrics theme color must be the theme text", palette!!.text, lyricsThemeColor(palette, onAccentBackground = true))
     }
 }

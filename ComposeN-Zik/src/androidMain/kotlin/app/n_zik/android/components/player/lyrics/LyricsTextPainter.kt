@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
+import app.n_zik.android.components.player.lyricsThemeColor
 import app.n_zik.android.enums.lyrics.LyricsAlignment
 import app.n_zik.android.enums.lyrics.LyricsColor
 import app.n_zik.android.enums.lyrics.LyricsFontSize
@@ -62,6 +63,7 @@ fun LyricsTextPainter(
     dominantColor: Int,
     lyricsHighlight: LyricsHighlight,
     clickLyricsText: Boolean,
+    textOnAccentBackground: Boolean = false,
     onClick: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition()
@@ -268,7 +270,7 @@ fun LyricsTextPainter(
                             Color.White.copy(0.3f) else Color.Transparent,
                         shadow = Shadow(
                             color = if (isCurrentIndex)
-                                if (lyricsColor == LyricsColor.Thememode) Color.White.copy(0.3f).compositeOver(colorPalette().text)
+                                if (lyricsColor == LyricsColor.Thememode) Color.White.copy(0.3f).compositeOver(lyricsThemeColor(colorPalette(), textOnAccentBackground))
                                 else if (lyricsColor == LyricsColor.White) Color.White.copy(0.3f).compositeOver(Color.White)
                                 else if (lyricsColor == LyricsColor.Cover) Color.White.copy(0.3f).compositeOver(Color(dominantColor))
                                 else if (lyricsColor == LyricsColor.Custom) Color.White.copy(0.3f).compositeOver(Color(lyricsCustomColor))
@@ -305,12 +307,12 @@ fun LyricsTextPainter(
                     color = if (isCurrentIndex) {
                         if (lyricsColor == LyricsColor.White) Color.White
                         else if (lyricsColor == LyricsColor.Cover) Color(dominantColor)
-                        else if (lyricsColor == LyricsColor.Thememode) PureBlackColorPalette.text
+                        else if (lyricsColor == LyricsColor.Thememode) lyricsThemeColor(colorPalette(), textOnAccentBackground)
                         else Color(lyricsCustomColor)
                     } else {
                         if (lyricsColor == LyricsColor.White) Color.White
                         else if (lyricsColor == LyricsColor.Cover) Color(dominantColor)
-                        else if (lyricsColor == LyricsColor.Thememode) PureBlackColorPalette.text
+                        else if (lyricsColor == LyricsColor.Thememode) lyricsThemeColor(colorPalette(), textOnAccentBackground)
                         else Color(lyricsCustomColor)
                     },
                     fontSize = when (fontSize) {
@@ -351,7 +353,7 @@ fun LyricsTextPainter(
                     fontWeight = FontWeight.Medium,
                     color = if (lyricsColor == LyricsColor.White) Color.White
                     else if (lyricsColor == LyricsColor.Cover) Color(dominantColor)
-                    else if (lyricsColor == LyricsColor.Thememode) colorPalette().text
+                    else if (lyricsColor == LyricsColor.Thememode) lyricsThemeColor(colorPalette(), textOnAccentBackground)
                     else Color(lyricsCustomColor),
                     fontSize = when (fontSize) {
                         LyricsFontSize.Light -> typography().m.fontSize

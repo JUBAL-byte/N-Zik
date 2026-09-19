@@ -144,12 +144,26 @@ internal fun M3ECoverColors.m3eNeutralizeIfAchromatic(
 }
 
 /**
+ * Whether every swatch is neutral (channel spread below [ACHROMATIC_CHANNEL_DELTA_THRESHOLD]) —
+ * true for covers neutralized by [m3eNeutralizeIfAchromatic].
+ */
+val M3ECoverColors.allAchromatic: Boolean
+    get() = listOf(dominant, vibrant, lightVibrant, darkVibrant, muted, lightMuted, darkMuted)
+        .all { channelDelta(it) < ACHROMATIC_CHANNEL_DELTA_THRESHOLD }
+
+/**
  * Builds the dynamic [ColorPalette] consumed by the mini-player and the app-wide dynamic theme,
  * from the M3E cover extraction: the HSL of the vibrant swatch (identical extraction to
  * [extractM3ECoverColors]) is injected into the existing capped construction
  * [dynamicColorPaletteOf] -- same saturation caps (<=0.1/0.3/0.4/0.5) and fixed lightnesses.
  * Unlike the legacy dominant-based path, it reads the vibrant swatch's HSL directly (no 8-color
  * cap, no low-saturation rescue).
+ *
+ * Nearly achromatic (neutralized) covers pick the palette's tone (dark or light ramp) from the
+ * cover's dominant lightness instead of [isDark] (renegotiated `NEUTRAL_COVER` case,
+ * 2026-09-19), so the theme renders a gray of the cover's family instead of staying light in
+ * light mode or dark in dark mode regardless of the cover; the ramp/text pairing of the chosen
+ * tone keeps the legacy contrast.
  *
  * @param bitmap the cover bitmap
  * @param isDark whether the palette targets a dark theme
@@ -159,8 +173,27 @@ suspend fun m3eDynamicColorPaletteOf(bitmap: Bitmap, isDark: Boolean): ColorPale
     val colors = extractM3ECoverColors(bitmap, isDark) ?: return null
     val vibrantHsl = FloatArray(3)
     colorToHSL(colors.vibrant, vibrantHsl)
-    return dynamicColorPaletteOf(vibrantHsl, isDark)
+    val toneIsDark = if (colors.allAchromatic) {
+        val dominantHsl = FloatArray(3)
+        colorToHSL(colors.dominant, dominantHsl)
+        dominantHsl[2] < 0.5f
+    } else {
+        isDark
+    }
+    return dynamicColorPaletteOf(vibrantHsl, toneIsDark)
 }
+
+/**
+ * The lyrics color for the `Thememode` option: the theme's [ColorPalette.accent], the same
+ * color the visualizer's `Theme` option uses, for colored and achromatic themes alike.
+ *
+ * @param palette the current theme palette
+ * @param onAccentBackground whether the lyrics background is itself painted with the accent
+ * (`showBackgroundLyrics` with the cover shown); the theme's [ColorPalette.text] is returned
+ * instead so the lyrics stay readable on it
+ */
+fun lyricsThemeColor(palette: ColorPalette, onAccentBackground: Boolean = false): Color =
+    if (onAccentBackground) palette.text else palette.accent
 
 /**
  * The flat "Match song cover" player background color (`Player.kt`, `CoverColor`): the same
