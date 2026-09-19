@@ -21,8 +21,11 @@ import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.preferences
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.n_zik.android.components.ImportFromFile
 import app.n_zik.android.components.dialog.common.RestartAppDialog
+import app.kreate.android.me.knighthat.utils.Toaster
+import timber.log.Timber
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -48,107 +51,118 @@ class ImportMigration private constructor(
                     binder ?: return@rememberLauncherForActivityResult
 
                     NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                        context.contentResolver
-                               .openInputStream( uri )
-                               ?.use { inStream ->         // Use [use] because it closes stream on exit
-                                   ZipInputStream( inStream ).use { zipIn ->
-                                       var entry: ZipEntry? = zipIn.nextEntry
+                        runGuardedImport(
+                            onFailure = { e ->
+                                Timber.tag("ImportMigration").e(e, "Import failed")
+                                withContext(NzikDispatchers.UI) {
+                                    Toaster.e("Import failed: ${e.message}")
+                                }
+                            },
+                            isDatabaseClosed = { Database.isClosed },
+                            showRestartPrompt = { RestartAppDialog.showDialog() }
+                        ) {
+                            context.contentResolver
+                                   .openInputStream( uri )
+                                   ?.use { inStream ->         // Use [use] because it closes stream on exit
+                                       ZipInputStream( inStream ).use { zipIn ->
+                                           var entry: ZipEntry? = zipIn.nextEntry
 
-                                       val cacheDir = when( context.preferences.getEnum( exoPlayerDiskCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
-                                           // Temporary directory deletes itself after close
-                                           // It means songs remain on device as long as it's open
-                                           ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( PlayerServiceModern.CACHE_DIRNAME ).toFile()
+                                           val cacheDir = when( context.preferences.getEnum( exoPlayerDiskCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
+                                               // Temporary directory deletes itself after close
+                                               // It means songs remain on device as long as it's open
+                                               ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( PlayerServiceModern.CACHE_DIRNAME ).toFile()
 
-                                           else                               ->
-                                               // Looks a bit ugly but what it does is
-                                               // check location set by user and return
-                                               // appropriate path with [CACHE_DIRNAME] appended.
-                                               when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
-                                                   ExoPlayerCacheLocation.System -> context.cacheDir
-                                                   ExoPlayerCacheLocation.Private -> context.filesDir
-                                               }.resolve( PlayerServiceModern.CACHE_DIRNAME )
-                                       }
-                                       // Ensure folder is empty
-                                       cacheDir.listFiles()?.forEach( File::deleteRecursively )
-
-                                       val downloadDir = when( context.preferences.getEnum( exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
-                                           // Temporary directory deletes itself after close
-                                           // It means songs remain on device as long as it's open
-                                           ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( MyDownloadHelper.CACHE_DIRNAME ).toFile()
-
-                                           else                               ->
-                                               // Looks a bit ugly but what it does is
-                                               // check location set by user and return
-                                               // appropriate path with [CACHE_DIRNAME] appended.
-                                               when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
-                                                   ExoPlayerCacheLocation.System -> context.cacheDir
-                                                   ExoPlayerCacheLocation.Private -> context.filesDir
-                                               }.resolve( MyDownloadHelper.CACHE_DIRNAME )
-                                       }
-                                       // Ensure folder is empty
-                                       downloadDir.listFiles()?.forEach( File::deleteRecursively )
-
-                                       while( entry != null ) {
-                                           //<editor-fold desc="Import cached songs">
-                                           if( !entry.isDirectory && entry.name.startsWith( "cached/", true ) ) {
-                                               val relPath = entry.name.substringAfter( "cached/" )
-
-                                               val dest = File(cacheDir, relPath)
-                                               dest.parentFile?.mkdirs()
-
-                                               FileOutputStream(dest).use { fileOut ->
-                                                   zipIn.copyTo( fileOut )
-                                               }
+                                               else                               ->
+                                                   // Looks a bit ugly but what it does is
+                                                   // check location set by user and return
+                                                   // appropriate path with [CACHE_DIRNAME] appended.
+                                                   when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
+                                                       ExoPlayerCacheLocation.System -> context.cacheDir
+                                                       ExoPlayerCacheLocation.Private -> context.filesDir
+                                                   }.resolve( PlayerServiceModern.CACHE_DIRNAME )
                                            }
+                                           // Ensure folder is empty
+                                           cacheDir.listFiles()?.forEach( File::deleteRecursively )
 
-                                           if( !entry.isDirectory && entry.name.startsWith( "downloaded/", true ) ) {
-                                               val relPath = entry.name.substringAfter( "downloaded/" )
+                                           val downloadDir = when( context.preferences.getEnum( exoPlayerDiskDownloadCacheMaxSizeKey, ExoPlayerDiskCacheMaxSize.`2GB` ) ) {
+                                               // Temporary directory deletes itself after close
+                                               // It means songs remain on device as long as it's open
+                                               ExoPlayerDiskCacheMaxSize.Disabled -> createTempDirectory( MyDownloadHelper.CACHE_DIRNAME ).toFile()
 
-                                               val dest = File(downloadDir, relPath)
-                                               dest.parentFile?.mkdirs()
-
-                                               FileOutputStream(dest).use { fileOut ->
-                                                   zipIn.copyTo( fileOut )
-                                               }
+                                               else                               ->
+                                                   // Looks a bit ugly but what it does is
+                                                   // check location set by user and return
+                                                   // appropriate path with [CACHE_DIRNAME] appended.
+                                                   when( context.preferences.getEnum( exoPlayerCacheLocationKey, ExoPlayerCacheLocation.System ) ) {
+                                                       ExoPlayerCacheLocation.System -> context.cacheDir
+                                                       ExoPlayerCacheLocation.Private -> context.filesDir
+                                                   }.resolve( MyDownloadHelper.CACHE_DIRNAME )
                                            }
-                                           //</editor-fold>
+                                           // Ensure folder is empty
+                                           downloadDir.listFiles()?.forEach( File::deleteRecursively )
 
-                                           //<editor-fold desc="Import databases">
-                                           if( entry.name.equals( "database.db", true ) ) {
-                                               Database.checkpoint()
-                                               Database.close()
+                                           while( entry != null ) {
+                                               //<editor-fold desc="Import cached songs">
+                                               if( !entry.isDirectory && entry.name.startsWith( "cached/", true ) ) {
+                                                   val relPath = entry.name.substringAfter( "cached/" )
 
-                                               val dbFile = context.getDatabasePath( Database.FILE_NAME )
-                                               FileOutputStream(dbFile).use { dbOut ->
-                                                   zipIn.copyTo( dbOut )
+                                                   val dest = File(cacheDir, relPath)
+                                                   dest.parentFile?.mkdirs()
+
+                                                   FileOutputStream(dest).use { fileOut ->
+                                                       zipIn.copyTo( fileOut )
+                                                   }
                                                }
+
+                                               if( !entry.isDirectory && entry.name.startsWith( "downloaded/", true ) ) {
+                                                   val relPath = entry.name.substringAfter( "downloaded/" )
+
+                                                   val dest = File(downloadDir, relPath)
+                                                   dest.parentFile?.mkdirs()
+
+                                                   FileOutputStream(dest).use { fileOut ->
+                                                       zipIn.copyTo( fileOut )
+                                                   }
+                                               }
+                                               //</editor-fold>
+
+                                               //<editor-fold desc="Import databases">
+                                               if( entry.name.equals( "database.db", true ) ) {
+                                                   Database.checkpoint()
+                                                   Database.close()
+
+                                                   val dbFile = context.getDatabasePath( Database.FILE_NAME )
+                                                   FileOutputStream(dbFile).use { dbOut ->
+                                                       zipIn.copyTo( dbOut )
+                                                   }
+                                               }
+
+                                               if( entry.name.equals( "exoplayer_internal.db", true ) )
+                                                   FileOutputStream(context.getDatabasePath( "exoplayer_internal.db" )).use { dbOut ->
+                                                       zipIn.copyTo( dbOut )
+                                                   }
+                                               //</editor-fold>
+
+                                               if( entry.name.equals( "settings.csv", true ) ) {
+                                                   // CsvWriter closes ZipInputStream after use.
+                                                   // Must create a copy to prevent stream close prematurely
+                                                   val settingsFile = kotlin.io.path.createTempFile( "settings", "csv" ).toFile()
+                                                   FileOutputStream(settingsFile).use { fileOut ->
+                                                       zipIn.copyTo( fileOut )
+                                                   }
+
+                                                   FileInputStream(settingsFile).use { fileIn ->
+                                                       ImportSettings.onImport( context, fileIn )
+                                                   }
+                                               }
+
+                                               entry = zipIn.nextEntry
                                            }
-
-                                           if( entry.name.equals( "exoplayer_internal.db", true ) )
-                                               FileOutputStream(context.getDatabasePath( "exoplayer_internal.db" )).use { dbOut ->
-                                                   zipIn.copyTo( dbOut )
-                                               }
-                                           //</editor-fold>
-
-                                           if( entry.name.equals( "settings.csv", true ) ) {
-                                               // CsvWriter closes ZipInputStream after use.
-                                               // Must create a copy to prevent stream close prematurely
-                                               val settingsFile = kotlin.io.path.createTempFile( "settings", "csv" ).toFile()
-                                               FileOutputStream(settingsFile).use { fileOut ->
-                                                   zipIn.copyTo( fileOut )
-                                               }
-
-                                               FileInputStream(settingsFile).use { fileIn ->
-                                                   ImportSettings.onImport( context, fileIn )
-                                               }
-                                           }
-
-                                           entry = zipIn.nextEntry
                                        }
                                    }
-                               }
 
-                        RestartAppDialog.showDialog()
+                            RestartAppDialog.showDialog()
+                        }
                     }
                 }
             )

@@ -1,3 +1,9 @@
+fix(settings): failed backup import now offers a restart instead of leaving the database closed
+  - New `GuardedImport.kt` helper `runGuardedImport`: runs the import block, and on failure checks `Database.isClosed` to show `RestartAppDialog`; `onFailure` is wrapped in `runCatching` so its own crash cannot skip the restart prompt
+  - `ImportDatabase.kt`: the manual try/catch is replaced by `runGuardedImport`; behavior on success is unchanged
+  - `ImportMigration.kt`: the import body (lines 51-151) is wrapped in `runGuardedImport`; previously there was no try/catch at all, so a failed import only logged to the coroutine scope
+  - `GuardedImportTest.kt`: 6 unit tests (success, failure with open DB, failure with closed DB, ordering, cancellation rethrown, onFailure that throws)
+  - Verification: `:ComposeN-Zik:testDebugUnitTest` GuardedImportTest 6/6, `:ComposeN-Zik:assembleDebug` OK. NOT run on a device: import a corrupted/truncated database backup
 refactor(threading): last leftovers moved under NzikDispatchers - Goal G6 (issue https://github.com/N-Zik-Group/N-Zik/issues/606)
   - `YouTubeLogin.kt` (legacy, explicit user derogation): the post-login `GlobalScope.launch` (implicit `Dispatchers.Default`, network `accountInfo()`) now runs on `NzikDispatchers.fireAndForget(NzikDispatchers.DATA)`; the dead `@OptIn(DelicateCoroutinesApi)` and its import are removed
   - Main-looper `Handler` timers converted to `fireAndForget(UI)` + `delay`: `RescueScreen` (the delayed `:rescue` process exit; `killProcess` now sits in a `finally` so it still runs if `finishAndRemoveTask()` throws, as the old Handler runnable did), `PoTokenWebView.close()` (teardown posted to Main from the JavaBridge thread), `AudioDeviceMenu` (the 1 s / 2.5 s Bluetooth refreshes and the 30 s poll, cancelled in `onDispose`)

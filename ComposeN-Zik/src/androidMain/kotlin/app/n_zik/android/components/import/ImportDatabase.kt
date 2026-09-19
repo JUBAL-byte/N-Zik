@@ -33,7 +33,16 @@ class ImportDatabase private constructor(
                     uri ?: return@rememberLauncherForActivityResult
 
                     NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                        try {
+                        runGuardedImport(
+                            onFailure = { e ->
+                                Timber.tag("ImportDatabase").e(e, "Import failed")
+                                withContext(NzikDispatchers.UI) {
+                                    Toaster.e("Import failed: ${e.message}")
+                                }
+                            },
+                            isDatabaseClosed = { Database.isClosed },
+                            showRestartPrompt = { RestartAppDialog.showDialog() }
+                        ) {
                             Timber.tag("ImportDatabase").d("Starting database import...")
                             Database.checkpoint()
                             Timber.tag("ImportDatabase").d("Database checkpoint done")
@@ -74,11 +83,6 @@ class ImportDatabase private constructor(
                                 } else {
                                     RestartAppDialog.showDialog()
                                 }
-                            }
-                        } catch (e: Exception) {
-                            Timber.tag("ImportDatabase").e(e, "Import failed")
-                            withContext(NzikDispatchers.UI) {
-                                Toaster.e("Import failed: ${e.message}")
                             }
                         }
                     }
