@@ -36,8 +36,6 @@ import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.PresetReverb
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import androidx.annotation.MainThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -274,7 +272,6 @@ class PlayerServiceModern : MediaLibraryService(),
     OnAudioVolumeChangedListener {
 
     private val coroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
-    private val handler = Handler(Looper.getMainLooper())
     private lateinit var mediaSession: MediaLibrarySession
     private var mediaLibrarySessionCallback: AutoSessionCallback =
         AutoSessionCallback(this, Database, MyDownloadHelper)
@@ -1662,7 +1659,7 @@ class PlayerServiceModern : MediaLibraryService(),
                 override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) = Unit
             }
 
-            audioManager?.registerAudioDeviceCallback(audioDeviceCallback, handler)
+            audioManager?.registerAudioDeviceCallback(audioDeviceCallback, null) // null = main looper
 
         } else {
             audioManager?.unregisterAudioDeviceCallback(audioDeviceCallback)

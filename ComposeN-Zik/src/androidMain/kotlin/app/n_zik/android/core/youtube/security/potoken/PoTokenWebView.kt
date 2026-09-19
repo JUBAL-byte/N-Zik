@@ -1,7 +1,6 @@
 package app.n_zik.android.core.security.potoken
 
 import android.content.Context
-import android.os.Handler
 import android.os.Looper
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
@@ -431,7 +430,7 @@ class PoTokenWebView private constructor(
         if (Looper.myLooper() == Looper.getMainLooper()) {
             destroyWebView()
         } else {
-            Handler(Looper.getMainLooper()).post { destroyWebView() }
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch { destroyWebView() }
         }
     }
 

@@ -5,8 +5,6 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.content.Context
 import android.media.MediaRouter2
 import timber.log.Timber
@@ -31,7 +29,6 @@ class AudioOutputManager(private val context: Context, private val audioManager:
             get() = getAudioDeviceIcon(type, name, isCar)
     }
 
-    private val handler = Handler(Looper.getMainLooper())
     private var deviceCallback: AudioDeviceCallback? = null
     private var playbackCallback: Any? = null // AudioManager.AudioPlaybackCallback
     private var mediaRouter2Callback: Any? = null // MediaRouter2.ControllerCallback
@@ -208,7 +205,7 @@ class AudioOutputManager(private val context: Context, private val audioManager:
                 callback(getAvailableDevices())
             }
         }
-        audioManager.registerAudioDeviceCallback(deviceCallback, handler)
+        audioManager.registerAudioDeviceCallback(deviceCallback, null) // null = main looper
 
         val observer = Observer<Int> { type ->
             Timber.tag("AudioOutputManager").d("CarConnection type changed: $type")
@@ -230,7 +227,7 @@ class AudioOutputManager(private val context: Context, private val audioManager:
                 }
             }
             playbackCallback = pbCallback
-            audioManager.registerAudioPlaybackCallback(pbCallback, handler)
+            audioManager.registerAudioPlaybackCallback(pbCallback, null) // null = main looper
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

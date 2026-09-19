@@ -44,12 +44,10 @@ import app.it.fast4x.rimusic.utils.rememberEncryptedPreference
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
 import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-@OptIn(DelicateCoroutinesApi::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeLogin(
@@ -94,7 +92,7 @@ fun YouTubeLogin(
                                 cookie = CookieManager.getInstance().getCookie(url)
                                 hasCompletedLogin = true
 
-                                GlobalScope.launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                     kotlinx.coroutines.delay(500)
 
                                     Innertube.cookie = cookie

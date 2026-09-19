@@ -41,8 +41,6 @@ import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -131,6 +129,8 @@ import app.n_zik.android.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.AudioQualityFormat
 import app.it.fast4x.rimusic.utils.audioQualityFormatKey
 import app.it.fast4x.rimusic.utils.rememberPreference
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
@@ -277,7 +277,8 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
             }
         }
 
-        val handler = Handler(Looper.getMainLooper())
+        // Timers below; cancelled in onDispose.
+        val timerScope = NzikDispatchers.fireAndForget(NzikDispatchers.UI)
 
         val audioDeviceCallback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             object : AudioDeviceCallback() {
@@ -291,14 +292,14 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
         } else null
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && audioDeviceCallback != null) {
-            audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler)
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, null) // null = main looper
         }
 
         val bluetoothReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 refreshDevices()
-                handler.postDelayed({ refreshDevices() }, 1000)
-                handler.postDelayed({ refreshDevices() }, 2500)
+                timerScope.launch { delay(1000); refreshDevices() }
+                timerScope.launch { delay(2500); refreshDevices() }
             }
         }
 
@@ -310,15 +311,15 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
             }
         )
 
-        val batteryPollingRunnable = object : Runnable {
-            override fun run() {
+        timerScope.launch {
+            while (true) {
+                delay(30000)
                 refreshDevices()
-                handler.postDelayed(this, 30000)
             }
         }
-        handler.postDelayed(batteryPollingRunnable, 30000)
 
         onDispose {
+            timerScope.cancel()
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && audioDeviceCallback != null) {
                     audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
@@ -326,7 +327,6 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
                 context.unregisterReceiver(volumeChangeReceiver)
                 context.unregisterReceiver(audioDeviceReceiver)
                 context.unregisterReceiver(bluetoothReceiver)
-                handler.removeCallbacksAndMessages(null)
             } catch (e: IllegalArgumentException) {
             }
         }

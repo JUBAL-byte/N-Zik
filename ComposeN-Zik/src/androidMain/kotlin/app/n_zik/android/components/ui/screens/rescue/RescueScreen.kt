@@ -2,8 +2,6 @@ package app.n_zik.android.components.ui.screens.rescue
 
 import android.app.Activity
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import android.os.Process
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -55,6 +53,7 @@ import app.n_zik.android.core.rescue.RescueFiles
 import kotlinx.coroutines.CoroutineStart
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -563,10 +562,16 @@ fun RescueScreen() {
                                     // on the main looper, not in the composition scope: leaving the
                                     // screen or recreating the activity cannot cancel it.
                                     exitPending = true
-                                    Handler(Looper.getMainLooper()).postDelayed({
-                                        (context as? Activity)?.finishAndRemoveTask()
-                                        Process.killProcess(Process.myPid())
-                                    }, PROCESS_EXIT_DELAY_MS)
+                                    NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
+                                        delay(PROCESS_EXIT_DELAY_MS)
+                                        // The kill must run even if finishing the task throws: the
+                                        // old Handler runnable ended the process on any exception.
+                                        try {
+                                            (context as? Activity)?.finishAndRemoveTask()
+                                        } finally {
+                                            Process.killProcess(Process.myPid())
+                                        }
+                                    }
                                 }
                             }
                         }
