@@ -12,10 +12,7 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import it.fast4x.innertube.Innertube
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
@@ -34,9 +31,10 @@ object Store {
     private val fetchMutex = Mutex()
     private val visitorMutex = Mutex()
 
-    // Shared scope for prefetchCookie's fire-and-forget warmup (issue #606): a SupervisorJob
-    // so a failed prefetch never prevents a later call to prefetchCookie from running.
-    internal val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+    // Shared scope for prefetchCookie's fire-and-forget warmup (issue #606): SupervisorJob
+    // (via NzikDispatchers.fireAndForget) so a failed prefetch never prevents a later call
+    // to prefetchCookie from running.
+    internal val scope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
     private var ghostResponseHeaders: Headers? = null
     private var ghostResponseBody: String? = null

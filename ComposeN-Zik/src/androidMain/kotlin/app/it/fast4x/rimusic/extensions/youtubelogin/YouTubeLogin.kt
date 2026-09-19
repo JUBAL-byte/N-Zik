@@ -47,7 +47,6 @@ import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
 @OptIn(DelicateCoroutinesApi::class)

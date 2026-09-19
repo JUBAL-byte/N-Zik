@@ -2,7 +2,6 @@ package app.it.fast4x.rimusic.enums
 
 import androidx.annotation.AnyThread
 import androidx.navigation.NavController
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 
@@ -48,7 +47,7 @@ enum class NavRoutes {
      */
     @AnyThread
     fun navigateHere( navController: NavController, path: String = "" ) {
-        CoroutineScope( NzikDispatchers.UI ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             if( path.isBlank() )
                 navController.navigate( name )
             else

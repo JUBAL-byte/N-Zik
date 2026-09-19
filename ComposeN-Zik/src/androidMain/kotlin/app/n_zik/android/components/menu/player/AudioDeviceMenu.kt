@@ -131,7 +131,6 @@ import app.n_zik.android.LocalPlayerServiceBinder
 import app.it.fast4x.rimusic.enums.AudioQualityFormat
 import app.it.fast4x.rimusic.utils.audioQualityFormatKey
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey

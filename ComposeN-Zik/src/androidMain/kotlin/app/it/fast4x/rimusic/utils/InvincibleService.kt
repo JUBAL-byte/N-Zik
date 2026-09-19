@@ -9,9 +9,13 @@ import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.core.app.ServiceCompat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 // https://stackoverflow.com/q/53502244/16885569
@@ -22,8 +26,6 @@ import timber.log.Timber
 // 3 - Lower the targetSdk (e.g. to 23) - security concerns;
 // 4 - Host the service in a separate process - overkill and pathetic.
 abstract class InvincibleService : Service() {
-
-    protected val handler = Handler(Looper.getMainLooper())
 
     protected abstract val isInvincibilityEnabled: Boolean
 
@@ -71,17 +73,27 @@ abstract class InvincibleService : Service() {
 
     protected abstract fun notification(): Notification?
 
-    private inner class Invincibility : BroadcastReceiver(), Runnable {
+    private inner class Invincibility : BroadcastReceiver() {
         private var isStarted = false
         private val intervalMs = 30_000L
+        private val tickScope = NzikDispatchers.fireAndForget(NzikDispatchers.UI)
+        private var tickJob: Job? = null
 
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
-                Intent.ACTION_SCREEN_ON -> handler.post(this)
-                Intent.ACTION_SCREEN_OFF -> notification()?.let { notification ->
-                    handler.removeCallbacks(this)
-                    runCatching {
-                        //startForeground(notificationId, notification)
+                Intent.ACTION_SCREEN_ON -> {
+                    // Equivalent of the former `handler.post(this)`: run a tick now, then
+                    // keep ticking. Restarting the loop (instead of posting one more
+                    // callback) also fixes a former quirk where a still-pending delayed
+                    // tick could double the tick chain.
+                    tickJob?.cancel()
+                    tickJob = tickScope.launch { runTickLoop() }
+                }
+                Intent.ACTION_SCREEN_OFF -> {
+                    // Equivalent of the former `handler.removeCallbacks(this)`
+                    tickJob?.cancel()
+                    notification()?.let { notification ->
+                        runCatching {
                             ServiceCompat.startForeground(
                                 this@InvincibleService,
                                 notificationId,
@@ -92,8 +104,9 @@ abstract class InvincibleService : Service() {
                                     0
                                 }
                             )
-                    }.onFailure {
-                        Timber.tag("InvincibleService").e("Failed startForeground onReceive ${it.stackTraceToString()}")
+                        }.onFailure {
+                            Timber.tag("InvincibleService").e("Failed startForeground onReceive ${it.stackTraceToString()}")
+                        }
                     }
                 }
             }
@@ -103,7 +116,12 @@ abstract class InvincibleService : Service() {
         fun start() {
             if (!isStarted) {
                 isStarted = true
-                handler.postDelayed(this, intervalMs)
+                // First tick after one interval (equivalent of the former
+                // `handler.postDelayed(this, intervalMs)`), then every interval.
+                tickJob = tickScope.launch {
+                    delay(intervalMs)
+                    runTickLoop()
+                }
                 registerReceiver(this, IntentFilter().apply {
                     addAction(Intent.ACTION_SCREEN_ON)
                     addAction(Intent.ACTION_SCREEN_OFF)
@@ -114,17 +132,29 @@ abstract class InvincibleService : Service() {
         @Synchronized
         fun stop() {
             if (isStarted) {
-                handler.removeCallbacks(this)
+                // Cancel the tick loop only: the scope itself stays usable so a later
+                // start() can launch a new tick (same reusability as the former Handler).
+                tickJob?.cancel()
                 unregisterReceiver(this)
                 isStarted = false
             }
         }
 
-        override fun run() {
+        private suspend fun runTickLoop() {
+            while (currentCoroutineContext().isActive) {
+                // A failure in the subclass hooks (shouldBeInvincible/notification) must not
+                // silently kill the keep-alive loop: log it and keep ticking.
+                runCatching { tick() }.onFailure {
+                    Timber.tag("InvincibleService").e(it, "Keep-alive tick failed")
+                }
+                delay(intervalMs)
+            }
+        }
+
+        private fun tick() {
             if (shouldBeInvincible() && isAllowedToStartForegroundServices) {
                 notification()?.let { notification ->
                     runCatching {
-                        //startForeground(notificationId, notification)
                         ServiceCompat.startForeground(
                             this@InvincibleService,
                             notificationId,
@@ -143,12 +173,8 @@ abstract class InvincibleService : Service() {
                     }.onFailure {
                         Timber.tag("InvincibleService").e("Failed stopForeground run ${it.stackTraceToString()}")
                     }
-                    handler.postDelayed(this, intervalMs)
                 }
             }
         }
     }
 }
-
-
-

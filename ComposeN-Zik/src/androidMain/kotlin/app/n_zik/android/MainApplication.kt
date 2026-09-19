@@ -50,6 +50,7 @@ import app.n_zik.android.core.network.client.Store
 import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import me.knighthat.invidious.Invidious
+import com.metrolist.music.discordrpc.DiscordRpc
 import utils.VisualizerHelper
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.download.utils.MyDownloadHelper
@@ -71,8 +72,6 @@ import app.n_zik.android.musicbrainz.MusicBrainz
 import app.it.fast4x.rimusic.utils.mbCircuitOpenUntilKey
 import app.it.fast4x.rimusic.utils.mbCircuitFailuresKey
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -142,6 +141,10 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         // Same seam pattern (issue #606, Goal D Lot 1): extensions/innertube is a pure kotlin("jvm")
         // module and can't depend on NzikDispatchers either.
         Invidious.backgroundDispatcher = NzikDispatchers.DATA
+
+        // Same seam pattern (issue #606, Goal G5): modules/discordrpc is a forked submodule
+        // and can't depend on NzikDispatchers either.
+        DiscordRpc.backgroundDispatcher = NzikDispatchers.DATA
 
         migrateCredentialsToEncrypted()
         InnerTubeXPlayer.initialize(this)
@@ -224,7 +227,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         }
 
         // Prewarm InnerTubeX in background — wait for visitorData like Metrolist
-        CoroutineScope(SupervisorJob() + NzikDispatchers.DATA).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             try {
                 // Wait up to 12s for visitorData (like Metrolist)
                 var waitedMs = 0

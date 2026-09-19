@@ -5,8 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -27,20 +25,22 @@ class VoiceSearchUtils(
     private var isListening = false
     private var hasReceivedResults = false
     private var isCancelled = false
-    private val mainHandler = Handler(Looper.getMainLooper())
 
+    // The SpeechRecognizer is created inside startListening() on the main thread
+    // (SpeechRecognizer.createSpeechRecognizer binds its callbacks to the caller's looper),
+    // so every RecognitionListener callback below already runs on Main — no Handler needed.
     private val recognitionListener = object : RecognitionListener {
         override fun onReadyForSpeech(params: Bundle?) {
             Timber.tag("VoiceSearchUtils").d("Ready")
             hasReceivedResults = false
             isCancelled = false
             isListening = true
-            mainHandler.post { onListeningStateChanged(true) }
+            onListeningStateChanged(true)
         }
 
         override fun onBeginningOfSpeech() {
             Timber.tag("VoiceSearchUtils").d("Speech detected")
-            mainHandler.post { onSpeechDetected() }
+            onSpeechDetected()
         }
 
         override fun onRmsChanged(rmsdB: Float) {}
@@ -50,7 +50,7 @@ class VoiceSearchUtils(
         override fun onEndOfSpeech() {
             Timber.tag("VoiceSearchUtils").d("End of speech")
             if (!isCancelled) {
-                mainHandler.post { onListeningStateChanged(false) }
+                onListeningStateChanged(false)
             }
             speechRecognizer?.stopListening()
         }
@@ -62,10 +62,8 @@ class VoiceSearchUtils(
             }
             Timber.tag("VoiceSearchUtils").e("Error: %d", error)
             isListening = false
-            mainHandler.post {
-                onListeningStateChanged(false)
-                onError()
-            }
+            onListeningStateChanged(false)
+            onError()
             speechRecognizer?.stopListening()
             speechRecognizer?.destroy()
             speechRecognizer = null
@@ -75,11 +73,11 @@ class VoiceSearchUtils(
             Timber.tag("VoiceSearchUtils").d("Results")
             hasReceivedResults = true
             isListening = false
-            mainHandler.post { onListeningStateChanged(false) }
+            onListeningStateChanged(false)
             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (!matches.isNullOrEmpty()) {
                 Timber.tag("VoiceSearchUtils").d("Result: %s, Language: %s", matches[0], Locale.getDefault())
-                mainHandler.post { onResult(matches[0]) }
+                onResult(matches[0])
             }
             speechRecognizer?.stopListening()
         }
@@ -87,7 +85,7 @@ class VoiceSearchUtils(
         override fun onPartialResults(partialResults: Bundle?) {
             val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
             if (!matches.isNullOrEmpty()) {
-                mainHandler.post { onPartialResult(matches[0]) }
+                onPartialResult(matches[0])
             }
         }
 
@@ -101,12 +99,12 @@ class VoiceSearchUtils(
         }
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            mainHandler.post { onError() }
+            onError()
             return
         }
 
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            mainHandler.post { onError() }
+            onError()
             return
         }
 
@@ -127,7 +125,7 @@ class VoiceSearchUtils(
     fun stopListening() {
         isCancelled = true
         isListening = false
-        mainHandler.post { onListeningStateChanged(false) }
+        onListeningStateChanged(false)
         try {
             speechRecognizer?.cancel()
             speechRecognizer?.destroy()

@@ -36,7 +36,6 @@ import app.n_zik.android.appContext
 import app.it.fast4x.rimusic.utils.preferences
 import app.kreate.android.me.knighthat.utils.Toaster
 import it.fast4x.innertube.YtMusic
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -122,7 +121,7 @@ fun AlbumBookmark(
         get() = stringResource( messageId )
 
     override fun onShortClick() {
-        CoroutineScope( NzikDispatchers.DATA ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             val pushAlbumBookmark = appContext().preferences.getBoolean(syncPushAlbumBookmarkKey, false)
             val syncDir = getSyncDirection()
             // Only sync to YouTube if NOT disliked (dislike is local only)

@@ -41,9 +41,7 @@ import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.parseArtists
 
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
@@ -78,11 +76,12 @@ private val UNSATISFIED_CONTENT_RANGE = Regex("""bytes\s+\*/(\d+)""", RegexOptio
 
 /**
  * Process-lifetime scope for background tasks (caching, metadata upsert).
- * SupervisorJob so one unhandled failure cannot cancel it for the process lifetime;
+ * SupervisorJob (via NzikDispatchers.fireAndForget) so one unhandled failure
+ * cannot cancel it for the process lifetime;
  * must never be cancelled from component lifecycle code (Activity/Service onDestroy).
  * Internal for testing only — production callers stay within this file.
  */
-internal val scope = CoroutineScope(NzikDispatchers.PLAYBACK + SupervisorJob())
+internal val scope = NzikDispatchers.fireAndForget(NzikDispatchers.PLAYBACK)
 
 // PoTokenGenerator for metadata-only requests (playerResponseForMetadata).
 // Stream playback uses InnerTubeXPlayer's own PoTokenGenerator instance.

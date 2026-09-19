@@ -295,13 +295,13 @@ class VideoItemMenu private constructor(
             // MenuComponent.kt hides the menu (cancelling its rememberCoroutineScope()) right after
             // onShortClick() returns, so a coroutineScope.launch here could be cancelled mid-flight
             // before player.addNextOffMain ever runs, silently dropping the tap.
-            CoroutineScope(NzikDispatchers.UI).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                 val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
                 binder?.player?.addNextOffMain( listOf(mediaItem), appContext() )
             }
         }
         val enqueue = Enqueue {
-            CoroutineScope(NzikDispatchers.UI).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                 val mediaItem = withContext(NzikDispatchers.DATA) { song.asMediaItem }
                 binder?.player?.enqueueOffMain( listOf(mediaItem), appContext() )
             }

@@ -1,8 +1,16 @@
 package app.n_zik.android.utils.coroutines
 
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import timber.log.Timber
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
@@ -60,6 +68,45 @@ object NzikDispatchers {
     val ROOM_TX_EXECUTOR: Executor by lazy {
         val pool = Executors.newFixedThreadPool(4, indexedThreadFactory("nzik-room-tx"))
         Executor { runnable -> pool.execute(runnable) }
+    }
+
+    /**
+     * Creates a hardened fire-and-forget scope (issue #606, Goal G5).
+     *
+     * Every bare `CoroutineScope(dispatcher)` left uncancelled by design gets exactly two
+     * additions here: a [SupervisorJob] (an exception in one coroutine can no longer cancel
+     * its siblings) and a [CoroutineExceptionHandler] that turns an otherwise unhandled
+     * exception (which on Android crashes the process or silently kills sibling coroutines)
+     * into a Timber log. The scope itself is still never cancelled by this helper — callers
+     * that used to cancel their scope keep doing so on the returned [CoroutineScope].
+     *
+     * @param dispatcher the exact dispatcher this scope must run on (never changed by this helper)
+     * @return a `CoroutineScope` on [dispatcher] with `SupervisorJob()` + Timber exception handler
+     */
+    fun fireAndForget(dispatcher: CoroutineDispatcher): CoroutineScope =
+        CoroutineScope(dispatcher + SupervisorJob() + fireAndForgetExceptionHandler)
+
+    /**
+     * Same as [fireAndForget] for scopes whose context carries extra elements beside the
+     * dispatcher (e.g. a parent [kotlinx.coroutines.Job] that must stay the cancellation
+     * root, or a [kotlinx.coroutines.CoroutineName] for traceability).
+     *
+     * A [Job] already present in [context] is kept as the cancellation root; a
+     * [SupervisorJob] is only added when [context] carries none. A dispatcher-less context
+     * (e.g. a [SupervisorJob] alone) is allowed: launches then need an explicit dispatcher,
+     * otherwise they run on the caller's thread.
+     */
+    fun fireAndForget(context: CoroutineContext): CoroutineScope =
+        CoroutineScope(context + (context[Job] ?: SupervisorJob()) + fireAndForgetExceptionHandler)
+
+    private val fireAndForgetExceptionHandler = CoroutineExceptionHandler { context, e ->
+        // Name + dispatcher identify the failing site for this shared handler.
+        Timber.tag("FireAndForget").e(
+            e,
+            "Unhandled exception in fire-and-forget scope (name=%s, dispatcher=%s)",
+            context[CoroutineName]?.name,
+            context[ContinuationInterceptor],
+        )
     }
 
     private fun namedThreadFactory(name: String) = ThreadFactory { runnable ->

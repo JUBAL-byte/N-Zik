@@ -15,7 +15,6 @@ import app.n_zik.android.appContext
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
 import app.it.fast4x.rimusic.utils.preferences
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import org.intellij.lang.annotations.MagicConstant
@@ -93,7 +92,7 @@ object Toaster {
         background: Int,
         foreground: Int
     ) {
-        CoroutineScope( NzikDispatchers.UI ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             val toast = Toasty.custom(
                 appContext(), message, icon, background, foreground, duration, icon != Type.NORMAL.icon, true
             )

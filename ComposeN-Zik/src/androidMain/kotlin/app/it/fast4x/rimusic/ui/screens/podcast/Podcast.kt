@@ -124,7 +124,6 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
@@ -456,7 +455,7 @@ fun Podcast(
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
                                             podcastPage?.listEpisode?.map(Innertube.Podcast.EpisodeItem::asMediaItem)?.let { mediaItems ->
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     val filtered = withContext(NzikDispatchers.DATA) {
                                         val player = binder?.player ?: return@withContext emptyList()
                                         player.excludeMediaItems(mediaItems, context)
@@ -534,7 +533,7 @@ fun Podcast(
                                                                 mapIgnore( playlistPreview.playlist, *songs.toTypedArray() )
                                                             }
                                                         } else {
-                                                            CoroutineScope(NzikDispatchers.DATA).launch {
+                                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                                 playlistPreview.playlist.browseId?.let { id ->
                                                                     addToYtPlaylist(playlistPreview.playlist.id,
                                                                         position,
@@ -544,7 +543,7 @@ fun Podcast(
                                                             }
                                                         }
 
-                                                        CoroutineScope(NzikDispatchers.UI).launch {
+                                                        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                                             Toaster.done()
                                                         }
                                                     },

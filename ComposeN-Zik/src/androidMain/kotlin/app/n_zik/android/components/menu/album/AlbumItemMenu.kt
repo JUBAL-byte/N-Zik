@@ -463,14 +463,14 @@ class AlbumItemMenu private constructor(
             // Launch on a scope independent of the popup menu's lifecycle: MenuComponent.kt hides the menu
             // (cancelling its rememberCoroutineScope()) right after onShortClick() returns, so a scope owned
             // by the popup could cancel this coroutine before the add ever runs, silently dropping the tap.
-            CoroutineScope(NzikDispatchers.UI).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                 val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
                 binder?.player?.addNextOffMain(mediaItems, appContext())
             }
         }
         val enqueue = Enqueue {
             val currentSongs = songs
-            CoroutineScope(NzikDispatchers.UI).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                 val mediaItems = withContext(NzikDispatchers.DATA) { currentSongs.map { it.asMediaItem } }
                 binder?.player?.enqueueOffMain(mediaItems, appContext())
             }

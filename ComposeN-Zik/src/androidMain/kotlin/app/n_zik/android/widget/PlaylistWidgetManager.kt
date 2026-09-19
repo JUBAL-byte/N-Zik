@@ -31,7 +31,6 @@ import app.n_zik.android.MainActivity
 import app.n_zik.android.core.database.Database
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import java.util.concurrent.ConcurrentHashMap

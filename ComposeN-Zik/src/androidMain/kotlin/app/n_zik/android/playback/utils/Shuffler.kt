@@ -24,7 +24,6 @@ import app.it.fast4x.rimusic.enums.DislikeMode
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -36,7 +35,7 @@ object Shuffler {
     /** Test seam: overridden with `UnconfinedTestDispatcher()` in `ShufflerTest` so assertions
      *  made right after [play] stay deterministic instead of racing a real background thread. */
     internal var backgroundDispatcher: CoroutineDispatcher = NzikDispatchers.DATA
-    internal val scope = CoroutineScope(SupervisorJob())
+    internal val scope = NzikDispatchers.fireAndForget(SupervisorJob())
 
     /**
      * [onComplete] is invoked once the real work for the given exit path is actually finished,
@@ -162,7 +161,7 @@ object Shuffler {
     fun <T> shuffle(list: List<T>): List<T> = list.shuffled()
 
     fun positions(playlistId: Long) {
-        CoroutineScope(NzikDispatchers.DATA).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             try {
                 val items = Database.songPlaylistMapTable.allSongsOf(playlistId).first()
                 val count = items.size

@@ -31,7 +31,6 @@ import app.it.fast4x.rimusic.utils.updateCancelledKey
 import app.it.fast4x.rimusic.utils.lastUpdateCheckKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -289,7 +288,7 @@ object Updater {
     private const val CHANGELOG_CACHE_KEY = "cached_changelog"
     private const val CHANGELOG_VERSION_KEY = "cached_changelog_version"
 
-    fun fetchCurrentChangelog() = CoroutineScope(NzikDispatchers.DATA).launch {
+    fun fetchCurrentChangelog() = NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
         try {
             isFetchingChangelog = true
             val versionCode = BuildConfig.VERSION_CODE
@@ -409,7 +408,7 @@ object Updater {
         isForced: Boolean = false,
         checkBetaUpdates: Boolean = false,
         showDialog: Boolean = true
-    ) = CoroutineScope(NzikDispatchers.DATA).launch {
+    ) = NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
         // Update the last check timestamp at the beginning
         appContext().preferences.edit()
             .putLong(lastUpdateCheckKey, System.currentTimeMillis())

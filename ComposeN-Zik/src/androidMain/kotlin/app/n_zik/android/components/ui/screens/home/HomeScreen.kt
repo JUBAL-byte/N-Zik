@@ -35,8 +35,6 @@ import app.it.fast4x.rimusic.utils.homeScreenTabIndexKey
 import app.it.fast4x.rimusic.utils.indexNavigationTabKey
 import app.it.fast4x.rimusic.utils.preferences
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -52,8 +50,9 @@ import app.n_zik.android.components.dialog.settings.HomeTabsSettingsDialog
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 // Shared scope for fire-and-forget background work started from this screen (issue #606):
-// a SupervisorJob so one failure doesn't cancel unrelated future launches on the same scope.
-internal val homeScreenScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+// SupervisorJob (via NzikDispatchers.fireAndForget) so one failure doesn't cancel
+// unrelated future launches on the same scope.
+internal val homeScreenScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
 /**
  * Sentinel passed as [HomeScreen.openTabFromShortcut] when a launcher shortcut

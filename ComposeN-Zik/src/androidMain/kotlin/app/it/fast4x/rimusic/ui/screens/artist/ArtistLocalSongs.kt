@@ -66,7 +66,6 @@ import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
 import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
@@ -235,7 +234,7 @@ fun ArtistLocalSongs(
                     onClick = {
                         val snapshot = songs?.toList().orEmpty()
                         if (snapshot.isNotEmpty()) {
-                CoroutineScope(NzikDispatchers.UI).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                     val mediaItems = withContext(NzikDispatchers.DATA) {
                         val player = binder?.player ?: return@withContext emptyList()
                         player.excludeMediaItems(snapshot.map(Song::asMediaItem), context)
@@ -275,7 +274,7 @@ fun ArtistLocalSongs(
                         if (songs?.isNotEmpty() == true)
                             songs?.forEach {
                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                CoroutineScope(NzikDispatchers.DATA).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                     Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
                                 }
                                 manageDownload(
@@ -297,7 +296,7 @@ fun ArtistLocalSongs(
                         if (songs?.isNotEmpty() == true)
                             songs?.forEach {
                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                CoroutineScope(NzikDispatchers.DATA).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                     Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
                                 }
                                 manageDownload(
@@ -496,7 +495,7 @@ fun ArtistLocalSongs(
                                         if (songs?.isNotEmpty() == true)
                                             songs?.forEach {
                                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                CoroutineScope(NzikDispatchers.DATA).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                     Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
                                                 }
                                                 manageDownload(
@@ -532,7 +531,7 @@ fun ArtistLocalSongs(
                                         if (songs?.isNotEmpty() == true)
                                             songs?.forEach {
                                                 binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                CoroutineScope(NzikDispatchers.DATA).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                     Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
                                                 }
                                                 manageDownload(
@@ -554,7 +553,7 @@ fun ArtistLocalSongs(
                                         onClick = {
                                             val snapshot = songs?.toList().orEmpty()
                                             if (snapshot.isNotEmpty()) {
-                                                CoroutineScope(NzikDispatchers.UI).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                                     val player = binder?.player ?: return@launch
                                                     val mediaItems = withContext(NzikDispatchers.DATA) {
                                                         player.excludeMediaItems(snapshot.map(Song::asMediaItem), context)

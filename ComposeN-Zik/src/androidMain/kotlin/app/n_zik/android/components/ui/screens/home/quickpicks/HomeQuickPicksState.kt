@@ -14,14 +14,11 @@ import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import it.fast4x.innertube.requests.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -56,7 +53,7 @@ class HomeQuickPicksState(
         // Outlives the composable so a Quick Picks load keeps running when the
         // user switches pages; on return the results are already there instead
         // of a cancelled load forcing a full reload.
-        private val loadScope = CoroutineScope(SupervisorJob() + NzikDispatchers.DATA)
+        private val loadScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
         @Volatile
         private var sharedLoadJob: Job? = null

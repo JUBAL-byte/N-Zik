@@ -40,7 +40,6 @@ import app.it.fast4x.rimusic.utils.isNetworkConnected
 import app.it.fast4x.rimusic.utils.syncBackgroundGuardKey
 import app.n_zik.android.appRunningInBackground
 import app.it.fast4x.rimusic.enums.SyncDirection
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -664,8 +663,7 @@ private val _syncStatus = MutableStateFlow(SyncStatus())
 val syncStatus: StateFlow<SyncStatus> = _syncStatus
 
 private var syncChannel = Channel<SyncOperation>(Channel.BUFFERED)
-private val syncJob = kotlinx.coroutines.SupervisorJob()
-private val syncScope = CoroutineScope(NzikDispatchers.DATA + syncJob)
+private val syncScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 @Volatile private var processingJob: kotlinx.coroutines.Job? = null
 private val syncMutex = Mutex()
 private val startLock = Any()

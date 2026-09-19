@@ -98,7 +98,6 @@ import app.it.fast4x.rimusic.utils.textCopyToClipboard
 import app.n_zik.android.core.database.Database
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.it.fast4x.rimusic.utils.textoutlineKey
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -264,7 +263,7 @@ fun InfoAlbumAndArtistEssential(
                         color = if(likedAt == -1L) colorPalette().red else colorPalette().favoritesIcon,
                         icon = getLikeState(mediaId),
                         onClick = {
-                            CoroutineScope( NzikDispatchers.DATA ).launch {
+                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                 currentMediaItem?.let {
                                     YouTubeSync.rotateSongLikeState( appContext(), it )
                                 }
@@ -432,7 +431,7 @@ fun ControlsEssential(
             color = if(likedAt == -1L) colorPalette().red else colorPalette().favoritesIcon,
             icon = getLikeState(mediaId),
             onClick = {
-                CoroutineScope( NzikDispatchers.DATA ).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                     currentMediaItem?.let {
                         YouTubeSync.rotateSongLikeState( appContext(), it )
                     }

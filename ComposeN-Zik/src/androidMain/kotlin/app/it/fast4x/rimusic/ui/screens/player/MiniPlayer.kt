@@ -151,7 +151,6 @@ import app.it.fast4x.rimusic.utils.shouldBePlaying
 import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -392,7 +391,7 @@ fun MiniPlayer(
     }
 
     fun toggleLike() {
-        CoroutineScope( NzikDispatchers.DATA ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             mediaItem?.let {
                 YouTubeSync.rotateSongLikeState( context, it )
             }

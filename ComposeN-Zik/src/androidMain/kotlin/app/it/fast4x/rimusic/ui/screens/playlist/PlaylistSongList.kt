@@ -152,7 +152,6 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -343,7 +342,7 @@ fun PlaylistSongList(
             onDismiss = { showYoutubeLikeConfirmDialog = false },
             onConfirm = {
                 showYoutubeLikeConfirmDialog = false
-                CoroutineScope(NzikDispatchers.DATA).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                     addToYtLikedSongs(playlistNotLikedSongs.map {it.asMediaItem})
                 }
             }
@@ -664,7 +663,7 @@ fun PlaylistSongList(
                                                     ?.filter { it.asMediaItem.mediaId !in dislikedSongs }
                                                     ?.map(Innertube.SongItem::asMediaItem)
                                                     ?: emptyList()
-                                                CoroutineScope(NzikDispatchers.UI).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                                     val filtered = withContext(NzikDispatchers.DATA) {
                                                         val player = binder?.player ?: return@withContext emptyList()
                                                         player.excludeMediaItems(mediaItems, context)
@@ -758,7 +757,7 @@ fun PlaylistSongList(
                                                                 mapIgnore( playlistPreview.playlist, *songs.toTypedArray() )
                                                             }
                                                         } else {
-                                                            CoroutineScope(NzikDispatchers.DATA).launch {
+                                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                                 YtMusic.addPlaylistToPlaylist(
                                                                     cleanPrefix(playlistPreview.playlist.browseId ?: ""),
                                                                     browseId.substringAfter("VL")
@@ -788,7 +787,7 @@ fun PlaylistSongList(
                                             if (!isNetworkConnected(appContext()) && isYouTubeSyncEnabled()) {
                                                 Toaster.noInternet()
                                             } else if (!isYouTubeSyncEnabled()){
-                                                CoroutineScope( NzikDispatchers.DATA ).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                     val showDisliked = appContext().preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() }?.isEnabled ?: true
                                                     playlistPage!!.songs
                                                                   .map{ it.asSong.id }
@@ -818,7 +817,7 @@ fun PlaylistSongList(
                                 color = if (localPlaylist?.isYoutubePlaylist == true) colorPalette().favoritesIcon else colorPalette().text,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                 onClick = {
-                                    CoroutineScope(NzikDispatchers.DATA).launch {
+                                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                         if (localPlaylist?.isYoutubePlaylist == true) {
                                             if (isYouTubeSyncEnabled() && isNetworkConnected(context)) {
                                                 YtMusic.removelikePlaylistOrAlbum(browseId.substringAfter("VL"))

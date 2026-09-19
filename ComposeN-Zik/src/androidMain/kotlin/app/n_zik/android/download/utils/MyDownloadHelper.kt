@@ -48,8 +48,6 @@ import app.it.fast4x.rimusic.utils.removeDownload
 import app.n_zik.android.core.coil.thumbnail
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +57,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import app.it.fast4x.rimusic.utils.ExternalUris
@@ -77,9 +74,8 @@ import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 
 @UnstableApi
 object MyDownloadHelper {
-    private val coroutineScope = CoroutineScope(
+    private val coroutineScope = NzikDispatchers.fireAndForget(
         NzikDispatchers.DATA +
-                SupervisorJob() +
                 CoroutineName("MyDownloadService-Executor-Scope")
     )
 

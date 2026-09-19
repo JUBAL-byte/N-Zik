@@ -109,7 +109,7 @@ class AutoSessionCallback(
     val database: Database,
     val downloadHelper: MyDownloadHelper
 ) : MediaLibrarySession.Callback {
-    private val scope = CoroutineScope(NzikDispatchers.UI) + Job()
+    private val scope = NzikDispatchers.fireAndForget(NzikDispatchers.UI)
     private var observationJob: Job? = null
     lateinit var binder: PlayerServiceModern.Binder
     var toggleLike: () -> Unit = {}

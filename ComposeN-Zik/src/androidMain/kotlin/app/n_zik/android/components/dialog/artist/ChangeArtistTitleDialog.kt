@@ -14,8 +14,6 @@ import app.n_zik.android.components.dialog.song.RenameDialog
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.R
 import app.n_zik.android.core.database.Database
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class ChangeArtistTitleDialog private constructor(

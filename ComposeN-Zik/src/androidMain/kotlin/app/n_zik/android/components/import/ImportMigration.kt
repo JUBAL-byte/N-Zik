@@ -19,7 +19,6 @@ import app.it.fast4x.rimusic.utils.exoPlayerDiskCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.getEnum
 import app.it.fast4x.rimusic.utils.preferences
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.n_zik.android.components.ImportFromFile
@@ -48,7 +47,7 @@ class ImportMigration private constructor(
                     // Same thing with binder
                     binder ?: return@rememberLauncherForActivityResult
 
-                    CoroutineScope( NzikDispatchers.DATA ).launch {
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                         context.contentResolver
                                .openInputStream( uri )
                                ?.use { inStream ->         // Use [use] because it closes stream on exit

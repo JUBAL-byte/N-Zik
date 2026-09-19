@@ -23,7 +23,7 @@ import timber.log.Timber
 import kotlin.time.Duration.Companion.days
 
 object QuickPicksRepository {
-    private val scope = CoroutineScope(SupervisorJob() + NzikDispatchers.DATA)
+    private val scope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
     
     private val _trendingList = MutableStateFlow<List<Song>>(emptyList())
     val trendingList: StateFlow<List<Song>> = _trendingList.asStateFlow()

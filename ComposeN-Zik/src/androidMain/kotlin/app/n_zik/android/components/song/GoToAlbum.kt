@@ -17,7 +17,6 @@ import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.ui.components.MenuState
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -44,7 +43,7 @@ class GoToAlbum(
     override fun onShortClick() {
         menuState.hide()
         
-        CoroutineScope( NzikDispatchers.DATA ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             val id = Database.albumTable
                     .findBySongId( song.id )
                     .first()
@@ -58,7 +57,7 @@ class GoToAlbum(
                 } else {
                     Toaster.i( R.string.looking_up_album_from_the_internet )
                     
-                    CoroutineScope( NzikDispatchers.DATA ).launch {
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                         try {
                             val hasValidId = song.id.length == 11 && !song.id.startsWith("local:")
                             

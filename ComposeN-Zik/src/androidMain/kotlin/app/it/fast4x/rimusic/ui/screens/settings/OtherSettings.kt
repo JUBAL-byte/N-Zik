@@ -51,7 +51,6 @@ import app.n_zik.android.components.dialog.settings.SettingsInputDialog
 import app.it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
 import app.n_zik.android.components.dialog.logs.CopyLogsDialog
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.ui.styling.Dimensions
@@ -253,7 +252,7 @@ fun OtherSettings() {
                             add = { newPath: String ->
                                 blackListedPaths = blackListedPaths + newPath
                                 val snapshot = blackListedPaths.toList()
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     withContext(NzikDispatchers.DATA) {
                                         File(context.filesDir, "Blacklisted_paths.txt").writeText(snapshot.joinToString("\n"))
                                     }
@@ -262,7 +261,7 @@ fun OtherSettings() {
                             remove = { path: String ->
                                 blackListedPaths = blackListedPaths.filter { it != path }
                                 val snapshot = blackListedPaths.toList()
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     withContext(NzikDispatchers.DATA) {
                                         File(context.filesDir, "Blacklisted_paths.txt").writeText(snapshot.joinToString("\n"))
                                     }

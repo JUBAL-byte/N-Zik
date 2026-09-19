@@ -13,7 +13,6 @@ import com.metrolist.music.discordrpc.entities.Button
 import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -31,7 +30,7 @@ class DiscordPresenceManager(
     private val context: Context,
     private val getToken: () -> String?,
     private val getBrowsingEnabled: () -> Boolean = { true },
-    private val externalScope: CoroutineScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+    private val externalScope: CoroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 ) {
     companion object {
         private const val APPLICATION_ID = "1379051016007454760"

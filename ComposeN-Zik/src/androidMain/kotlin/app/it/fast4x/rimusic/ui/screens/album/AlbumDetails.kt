@@ -118,7 +118,6 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -219,7 +218,7 @@ fun AlbumDetails(
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     val mediaItems = withContext(NzikDispatchers.DATA) {
                                         val player = binder?.player ?: return@withContext emptyList()
                                         player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
@@ -233,7 +232,7 @@ fun AlbumDetails(
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     val mediaItems = withContext(NzikDispatchers.DATA) {
                                         val player = binder?.player ?: return@withContext emptyList()
                                         player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())

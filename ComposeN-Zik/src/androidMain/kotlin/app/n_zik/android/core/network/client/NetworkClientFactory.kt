@@ -4,11 +4,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import okhttp3.Cache
 import okhttp3.OkHttpClient
-import timber.log.Timber
 import java.io.File
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
-import okhttp3.Request
 
 object NetworkClientFactory {
     @Volatile
@@ -104,36 +102,6 @@ object NetworkClientFactory {
                     }
                 }.also { ktorClient = it }
             }
-        }
-    }
-
-    fun validateStreamUrl(streamUrl: String, userAgent: String? = null, cookie: String? = null): Boolean {
-        return try {
-            val client = getClientWithTimeout(3, 3)
-                
-            val builder = Request.Builder()
-                .url(streamUrl)
-                .head()
-                
-            if (userAgent != null) {
-                builder.header("User-Agent", userAgent)
-            }
-            if (cookie != null) {
-                builder.header("Cookie", cookie)
-            }
-                
-            val request = builder.build()
-                
-            val response = client.newCall(request).execute()
-            val isSuccess = response.isSuccessful
-            if (!isSuccess) {
-                Timber.tag("NetworkClientFactory").w("validateStreamUrl failed with code ${response.code} for URL: $streamUrl")
-            }
-            response.close()
-            isSuccess
-        } catch (e: Exception) {
-            Timber.tag("NetworkClientFactory").e(e, "validateStreamUrl exception for URL: $streamUrl")
-            false
         }
     }
 }

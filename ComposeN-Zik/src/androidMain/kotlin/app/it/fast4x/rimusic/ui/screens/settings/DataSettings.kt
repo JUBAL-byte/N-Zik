@@ -50,7 +50,6 @@ import app.it.fast4x.rimusic.utils.exoPlayerDiskDownloadCacheMaxSizeKey
 import app.it.fast4x.rimusic.utils.pauseSearchHistoryKey
 import app.it.fast4x.rimusic.utils.pauseListenHistoryKey
 import app.it.fast4x.rimusic.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -182,7 +181,7 @@ fun DataSettings() {
             },
             onConfirm = {
                 cleanCacheOfflineSongs = false
-                CoroutineScope(NzikDispatchers.UI).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                     withContext(NzikDispatchers.DATA) {
                         val cache = binder?.cache
                         cache?.keys?.forEach { song ->
@@ -205,13 +204,13 @@ fun DataSettings() {
             },
             onConfirm = {
                 cleanDownloadCache = false
-                CoroutineScope(NzikDispatchers.UI).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                     withContext(NzikDispatchers.DATA) {
                         val downloadCache = binder?.downloadCache
                         downloadCache?.keys?.forEach { songId ->
                             downloadCache.removeResource(songId)
 
-                            CoroutineScope(NzikDispatchers.DATA).launch {
+                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                 Database.songTable
                                     .findById(songId)
                                     .first()
@@ -629,7 +628,7 @@ fun DataSettings() {
                                 Database.asyncTransaction {
                                     eventTable.deleteAll()
                                 }
-                                CoroutineScope(NzikDispatchers.UI).launch {
+                                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                                     withContext(NzikDispatchers.DATA) {
                                         File(context.filesDir, "waveforms").deleteRecursively()
                                     }

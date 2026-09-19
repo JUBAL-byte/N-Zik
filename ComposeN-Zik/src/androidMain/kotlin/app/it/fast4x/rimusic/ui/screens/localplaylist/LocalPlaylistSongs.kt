@@ -176,7 +176,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -818,7 +817,7 @@ fun LocalPlaylistSongs(
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
-        CoroutineScope(NzikDispatchers.UI).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             val mediaItems = withContext(NzikDispatchers.DATA) {
                 val player = binder?.player ?: return@withContext emptyList()
                 player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
@@ -832,7 +831,7 @@ fun LocalPlaylistSongs(
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
-        CoroutineScope(NzikDispatchers.UI).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             val mediaItems = withContext(NzikDispatchers.DATA) {
                 val player = binder?.player ?: return@withContext emptyList()
                 player.excludeMediaItems(songs.map(Song::asMediaItem), context)
@@ -877,7 +876,7 @@ fun LocalPlaylistSongs(
 
     fun sync() {
         playlist?.let {
-            CoroutineScope(NzikDispatchers.DATA).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                 val browseId = it.browseId?.removePrefix(MODIFIED_PREFIX) ?: return@launch
                 val rp = YtMusic.getPlaylist(playlistId = browseId).getOrNull() ?: return@launch
                 val allSongs = rp.songs.toMutableList()
@@ -1087,7 +1086,7 @@ fun LocalPlaylistSongs(
             itemsOnDisplay = mutableItems
 
             // asyncTransaction is non-suspending: its block runs on the Room transaction executor, not on NzikDispatchers.MEDIA (the launch is a no-op).
-            CoroutineScope( NzikDispatchers.MEDIA ).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.MEDIA).launch {
                 Database.asyncTransaction {
                     mutableItems.forEachIndexed { index, song ->
                         Database.songPlaylistMapTable.updatePosition( playlistId, song.id, index )

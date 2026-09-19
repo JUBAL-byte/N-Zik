@@ -201,7 +201,6 @@ import app.it.fast4x.rimusic.utils.toggleShuffleMode
 import app.it.fast4x.rimusic.utils.volumeNormalizationKey
 import app.it.fast4x.rimusic.utils.volumeBoostLevelKey
 import app.it.fast4x.rimusic.utils.wallpaperTypeKey
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -218,7 +217,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -275,7 +273,7 @@ class PlayerServiceModern : MediaLibraryService(),
     SharedPreferences.OnSharedPreferenceChangeListener,
     OnAudioVolumeChangedListener {
 
-    private val coroutineScope = CoroutineScope(NzikDispatchers.DATA) + Job()
+    private val coroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var mediaSession: MediaLibrarySession
     private var mediaLibrarySessionCallback: AutoSessionCallback =

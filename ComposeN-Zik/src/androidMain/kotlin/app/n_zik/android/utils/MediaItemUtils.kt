@@ -7,9 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.media3.common.MediaItem
 import app.n_zik.android.core.database.Database
 import app.it.fast4x.rimusic.models.Info
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import androidx.compose.ui.res.stringResource
 import app.n_zik.android.R
 import app.it.fast4x.rimusic.cleanPrefix

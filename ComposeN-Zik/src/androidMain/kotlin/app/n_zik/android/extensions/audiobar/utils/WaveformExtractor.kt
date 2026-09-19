@@ -13,8 +13,6 @@ import androidx.media3.datasource.cache.CacheDataSource
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,13 +46,14 @@ object WaveformExtractor {
     private const val DEFAULT_RETRY_ATTEMPTS = 40
     private const val DEFAULT_RETRY_DELAY_MS = 500L
 
-    // Owned scope for the manual "Update waveform" menu action (SupervisorJob: one failed
-    // request must never cancel another in-flight one). Deliberately NOT the caller's
+    // Owned scope for the manual "Update waveform" menu action (SupervisorJob via
+    // NzikDispatchers.fireAndForget: one failed request must never cancel another
+    // in-flight one). Deliberately NOT the caller's
     // rememberCoroutineScope: menuState.hide() drives an exit animation that decomposes the
     // menu content within ~300ms, but updateWaveform's bounded retry + native extraction can
     // take anywhere from milliseconds to double-digit seconds -- a caller-scoped coroutine
     // would be cancelled long before its result (and toast) could be delivered.
-    private val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+    private val scope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
     fun deleteWaveform(context: Context, mediaId: String) {
         Timber.tag(TAG).d("DELETE [$mediaId] Start deleteWaveform")

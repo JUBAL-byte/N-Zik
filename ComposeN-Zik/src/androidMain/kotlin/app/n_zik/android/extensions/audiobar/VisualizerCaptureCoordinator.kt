@@ -3,7 +3,6 @@ package app.n_zik.android.extensions.audiobar
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -42,7 +41,7 @@ object VisualizerCaptureCoordinator {
     internal var subscriptionTimeoutMillis: Long = 2000L
 
     private val scope: CoroutineScope by lazy {
-        CoroutineScope(NzikDispatchers.VISUALIZER + SupervisorJob())
+        NzikDispatchers.fireAndForget(NzikDispatchers.VISUALIZER)
     }
 
     private val snapshotFlows = ConcurrentHashMap<Int, StateFlow<VisualizerSnapshot?>>()

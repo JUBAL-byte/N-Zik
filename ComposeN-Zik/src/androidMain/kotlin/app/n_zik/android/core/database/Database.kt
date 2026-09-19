@@ -34,7 +34,6 @@ import app.it.fast4x.rimusic.models.SongPlaylistMap
 import app.it.fast4x.rimusic.models.SortedSongPlaylistMap
 import app.it.fast4x.rimusic.utils.asSong
 import app.it.fast4x.rimusic.utils.parseArtists
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -243,7 +242,7 @@ object Database {
                 }
 
                 if (fetchedAlbum.year.isNullOrBlank()) {
-                    CoroutineScope(NzikDispatchers.DATA).launch {
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                         try {
                             Innertube.albumPage(browseId = browseId)
                                 ?.getOrNull()
@@ -344,7 +343,7 @@ object Database {
 
             // Background fetch album page metadata if year is missing online
             if (autoFix && mergedAlbum.year.isNullOrBlank()) {
-                CoroutineScope(NzikDispatchers.DATA).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                     try {
                         Innertube.albumPage(browseId = albumId)
                             ?.getOrNull()
@@ -394,7 +393,7 @@ object Database {
                     songArtistMapTable.insertIgnore(SongArtistMap(cleanSongId, existingArtist.id))
                 } else if (autoFix) {
                     // Search online for the artist in background (non-blocking)
-                    CoroutineScope(NzikDispatchers.DATA).launch {
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                         try {
                             val searchResult: Innertube.ItemsPage<Innertube.ArtistItem>? =
                                 Innertube.searchPage<Innertube.ArtistItem>(

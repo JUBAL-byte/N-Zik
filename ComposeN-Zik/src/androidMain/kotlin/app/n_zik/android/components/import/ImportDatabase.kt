@@ -9,7 +9,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import app.n_zik.android.core.database.Database
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,7 +32,7 @@ class ImportDatabase private constructor(
                     Timber.tag("ImportDatabase").d("File picker callback received, uri: $uri")
                     uri ?: return@rememberLauncherForActivityResult
 
-                    CoroutineScope( NzikDispatchers.DATA ).launch {
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                         try {
                             Timber.tag("ImportDatabase").d("Starting database import...")
                             Database.checkpoint()

@@ -20,7 +20,6 @@ import app.it.fast4x.rimusic.models.Song
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.utils.formatAsDuration
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.n_zik.android.components.ImportFromFile
@@ -118,7 +117,7 @@ class ImportSongsFromCSV(
 
                 // Run in background to prevent UI thread
                 // from freezing due to large file.
-                CoroutineScope( NzikDispatchers.DATA ).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                     // Songs with no playlist
                     val straySongs = mutableListOf<Song>()
                     val combos = mutableMapOf<Playlist, List<Song>>()

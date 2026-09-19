@@ -478,14 +478,16 @@ class MainActivity :
         // Check YouTube cookie status on startup — warn user if expired/invalid
         when (MainApplication.cookieStatus) {
             MainApplication.CookieStatus.INVALID -> {
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                lifecycleScope.launch {
+                    delay(3_000)
                     Toaster.e(R.string.error_cookie_invalid)
-                }, 3000)
+                }
             }
             MainApplication.CookieStatus.EXPIRED -> {
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                lifecycleScope.launch {
+                    delay(3_000)
                     Toaster.e(R.string.error_session_expired)
-                }, 3000)
+                }
             }
             MainApplication.CookieStatus.NOT_LOGGED_IN -> {
                 // Silent — user may choose not to log in

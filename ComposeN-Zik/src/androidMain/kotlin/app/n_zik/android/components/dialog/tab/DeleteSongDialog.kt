@@ -27,7 +27,6 @@ import java.util.Optional
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
 import app.n_zik.android.appContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -71,8 +70,9 @@ open class DeleteSongDialog(
             }
 
             // File/MediaStore I/O must not run on Main; Toast only after it completes.
-            // This class has no Compose scope, so it owns a short-lived UI-bound one.
-            CoroutineScope( NzikDispatchers.UI ).launch {
+            // This class has no Compose scope, so the launch uses a fire-and-forget UI scope:
+            // allocated per call, never cancelled (delete + toast must run to completion).
+            NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                 deleteSongFiles( s )
                 Toaster.i( R.string.deleted )
             }

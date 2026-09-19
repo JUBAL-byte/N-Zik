@@ -19,9 +19,7 @@ import app.it.fast4x.rimusic.ui.components.tab.toolbar.ConfirmDialog
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid14
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.kreate.android.me.knighthat.utils.Toaster

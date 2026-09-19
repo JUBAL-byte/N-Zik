@@ -184,7 +184,6 @@ import app.it.fast4x.rimusic.utils.thumbnailFadeExKey
 import app.it.fast4x.rimusic.utils.thumbnailFadeKey
 import app.it.fast4x.rimusic.utils.thumbnailSpacingKey
 import app.it.fast4x.rimusic.utils.thumbnailSpacingLKey
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -1799,7 +1798,7 @@ fun SongMatchingDialog(
                                     .clip(uiRoundnessShape()).clickable(onClick = {
                                         Database.asyncTransaction {
                                             if (isYouTubeSyncEnabled() && playlist?.isYoutubePlaylist == true && playlist.isEditable){
-                                                CoroutineScope(NzikDispatchers.DATA).launch {
+                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                     if (removeYTSongFromPlaylist(songToRematch.id, playlist.browseId ?: "", playlistId))
                                                         songPlaylistMapTable.deleteBySongId( songToRematch.id, playlistId )
                                                 }
@@ -1833,7 +1832,7 @@ fun SongMatchingDialog(
                                                 ?.forEach { mapIgnore( it, asMediaItem ) }
                                             songTable.updateArtists( song.asMediaItem.mediaId, artistNameString )
 
-                                            CoroutineScope(NzikDispatchers.DATA).launch {
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                 if (isYouTubeSyncEnabled() && canPushToYTM() && isNetworkConnected(appContext()) && playlist?.isYoutubePlaylist == true && playlist.isEditable){
                                                     PlaylistEditThrottle.throttle(playlist.browseId ?: "")
                                                     YtMusic.addToPlaylist(playlist.browseId ?: "", song.asMediaItem.mediaId)

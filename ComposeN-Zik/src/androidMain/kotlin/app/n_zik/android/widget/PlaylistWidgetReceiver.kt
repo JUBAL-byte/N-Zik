@@ -7,7 +7,6 @@ import android.content.Intent
 import android.os.Bundle
 import app.n_zik.android.playback.services.PlayerServiceModern
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 class PlaylistWidgetReceiver : AppWidgetProvider() {
@@ -36,7 +35,7 @@ class PlaylistWidgetReceiver : AppWidgetProvider() {
         appWidgetIds: IntArray,
     ) {
         val pendingResult = goAsync()
-        CoroutineScope(NzikDispatchers.UI).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             try {
                 appWidgetIds.forEach { appWidgetId ->
                     PlaylistWidgetManager.updateIdleWidget(
@@ -54,7 +53,7 @@ class PlaylistWidgetReceiver : AppWidgetProvider() {
 
     private fun refreshIdleWidget(context: Context, appWidgetId: Int, options: Bundle) {
         val pendingResult = goAsync()
-        CoroutineScope(NzikDispatchers.UI).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
             try {
                 PlaylistWidgetManager.updateIdleWidget(context, appWidgetId, options)
             } catch (e: Exception) {

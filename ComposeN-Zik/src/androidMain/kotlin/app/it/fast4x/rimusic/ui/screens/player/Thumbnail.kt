@@ -83,7 +83,6 @@ import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.net.UnknownHostException
 import java.nio.channels.UnresolvedAddressException
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -219,7 +218,7 @@ fun Thumbnail(
             onError = { 
                 artImageAvailable = false 
                 // Retry loading after a short delay
-                CoroutineScope(NzikDispatchers.UI).launch {
+                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
                     delay(1000) // Wait 1 second
                     if (!artImageAvailable) {
                         // Try to preload the image

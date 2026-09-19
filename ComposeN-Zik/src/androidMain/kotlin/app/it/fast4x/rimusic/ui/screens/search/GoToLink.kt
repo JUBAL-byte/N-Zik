@@ -48,12 +48,9 @@ import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.semiBold
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import android.net.Uri
@@ -141,7 +138,7 @@ fun GoToLink(
     onAction4: () -> Unit,
 ) {
     val binder = LocalPlayerServiceBinder.current
-    val coroutineScope = CoroutineScope(NzikDispatchers.DATA) + Job()
+    val coroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
     val lazyListState = rememberLazyListState()
 

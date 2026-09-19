@@ -33,7 +33,6 @@ import app.n_zik.android.playback.services.PlayerServiceModern
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import app.n_zik.android.utils.coroutines.NzikDispatchers
@@ -71,9 +70,10 @@ class ExportCacheDialog(
 
     companion object {
         // Shared scope for this dialog's fire-and-forget export work (issue #606):
-        // a SupervisorJob so a failed export (onExport or batchExport) never prevents
-        // a later export from running on the same scope.
-        internal val scope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+        // SupervisorJob (via NzikDispatchers.fireAndForget) so a failed export
+        // (onExport or batchExport) never prevents a later export from running
+        // on the same scope.
+        internal val scope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
 
         @UnstableApi
         private fun onExport(

@@ -60,7 +60,6 @@ import app.n_zik.android.playback.services.isLocal
 import app.it.fast4x.rimusic.ui.screens.settings.isYouTubeSyncEnabled
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import app.kreate.android.me.knighthat.utils.Toaster
 import java.io.File
 import java.time.Duration

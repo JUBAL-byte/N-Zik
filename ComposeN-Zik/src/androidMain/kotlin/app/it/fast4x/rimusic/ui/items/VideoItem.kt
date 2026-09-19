@@ -1,4 +1,4 @@
-﻿package app.it.fast4x.rimusic.ui.items
+package app.it.fast4x.rimusic.ui.items
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -52,7 +52,6 @@ import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.it.fast4x.rimusic.utils.getLikedIcon
 import app.it.fast4x.rimusic.utils.getDislikedIcon
 import app.n_zik.android.R
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable

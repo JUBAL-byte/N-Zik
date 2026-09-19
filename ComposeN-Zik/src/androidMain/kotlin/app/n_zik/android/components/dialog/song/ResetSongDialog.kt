@@ -19,7 +19,6 @@ import app.n_zik.android.playback.services.PlayerServiceModern
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.it.fast4x.rimusic.utils.asSong
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.n_zik.android.components.dialog.common.CheckboxDialog
@@ -112,7 +111,7 @@ class ResetSongDialog private constructor(
     override fun onShortClick() = showDialog()
 
     override fun onConfirm() {
-        CoroutineScope( NzikDispatchers.DATA ).launch {
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             if( song.isEmpty ) return@launch
             var song = this@ResetSongDialog.song.get()
 

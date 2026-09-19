@@ -22,7 +22,6 @@ import app.kreate.android.me.knighthat.utils.PropUtils
 import it.fast4x.innertube.Innertube
 import it.fast4x.innertube.YtMusic
 import app.it.fast4x.rimusic.MODIFIED_PREFIX
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 class AlbumDetailHandler : BrowseHandler {
@@ -67,7 +66,7 @@ class AlbumDetailHandler : BrowseHandler {
             val authorsText: String? = onlineAlbum.authors.parseArtists().joinToString(", ")
             onlineSongs = online.songs.map { it.asSong }
             
-            CoroutineScope(NzikDispatchers.DATA).launch {
+            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                 val album = database.albumTable.findById(albumId).first()
                 database.asyncTransaction {
                     albumTable.upsert(

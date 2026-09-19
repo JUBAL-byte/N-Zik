@@ -6,9 +6,7 @@ import android.os.IBinder
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.ServiceCompat
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancel
@@ -37,7 +35,7 @@ import java.net.ConnectException
 
 class HomeSyncService : Service() {
 
-    private val serviceScope = CoroutineScope(NzikDispatchers.DATA + SupervisorJob())
+    private val serviceScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
     private var activeSyncs = 0
 
     companion object {

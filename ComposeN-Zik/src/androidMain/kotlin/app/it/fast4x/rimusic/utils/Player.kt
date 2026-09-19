@@ -16,7 +16,6 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import app.n_zik.android.R
 import app.it.fast4x.rimusic.enums.DurationInMinutes
-import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -133,7 +132,7 @@ fun Player.forcePlayAtIndex(mediaItems: List<MediaItem>, mediaItemIndex: Int) {
     if ( mediaItems.isEmpty() ) return
 
     // This will prevent UI from freezing up during conversion
-    CoroutineScope( NzikDispatchers.MEDIA ).launch {
+    NzikDispatchers.fireAndForget(NzikDispatchers.MEDIA).launch {
         val cleanedMediaItems = mediaItems.fastMap( MediaItem::cleaned ).fastDistinctBy( MediaItem::mediaId ).toMutableList()
         // Use the cleaned mediaId for lookup to ensure consistent comparison
         val targetMediaId = mediaItems.getOrNull(mediaItemIndex)?.cleaned?.mediaId
