@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import app.n_zik.android.R
 import app.n_zik.android.core.coil.ImageCacheFactory
+import app.n_zik.android.core.coil.clearImageCacheOffMain
 import app.n_zik.android.core.database.Database
 import app.n_zik.android.LocalPlayerServiceBinder
 import app.n_zik.android.colorPalette
@@ -235,10 +236,13 @@ fun DataSettings() {
                 cleanCacheImages = false
             },
             onConfirm = {
-                // Use a new safe method to clear the cache
-                ImageCacheFactory.clearImageCache()
                 cleanCacheImages = false
-                cacheCleanedCounter++
+                // Issue #606 M4: the purge deletes the disk cache folder, so it runs off Main;
+                // the counter is bumped once it is done.
+                NzikDispatchers.fireAndForget(NzikDispatchers.UI).launch {
+                    clearImageCacheOffMain()
+                    cacheCleanedCounter++
+                }
             }
         )
     }

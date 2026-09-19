@@ -161,7 +161,7 @@ import app.it.fast4x.rimusic.utils.queueSwipeRightActionKey
 import androidx.compose.runtime.CompositionLocalProvider
 
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
-import app.it.fast4x.rimusic.utils.saveImageToInternalStorage
+import app.n_zik.android.utils.playlist.savePlaylistThumbnail
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import app.it.fast4x.rimusic.utils.syncPushPlaylistKey
@@ -789,8 +789,12 @@ fun LocalPlaylistSongs(
         // photo picker.
         if (uri != null) {
             val thumbnailName = "playlist_${playlist?.id}"
-            val permaUri = saveImageToInternalStorage(context, uri, "thumbnail", thumbnailName)
-            thumbnailUrl.value = permaUri.toString()
+            coroutineScope.launch {
+                // Issue #606 M2: the decode/scale/write no longer runs on Main; a failed save
+                // keeps the current thumbnail instead of storing the string "null".
+                val permaUri = savePlaylistThumbnail(context, uri, thumbnailName)
+                if (permaUri != null) thumbnailUrl.value = permaUri.toString()
+            }
         } else {
             Toaster.w( R.string.thumbnail_not_selected )
         }

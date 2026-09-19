@@ -97,7 +97,6 @@ import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
-import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
@@ -136,7 +135,6 @@ import app.it.fast4x.rimusic.enums.ColorPaletteName
 import app.it.fast4x.rimusic.enums.FontType
 import app.it.fast4x.rimusic.enums.HomeScreenTabs
 import app.it.fast4x.rimusic.enums.Languages
-import app.it.fast4x.rimusic.enums.LogType
 import app.it.fast4x.rimusic.enums.NavRoutes
 import app.it.fast4x.rimusic.enums.PipModule
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
@@ -223,8 +221,6 @@ import app.it.fast4x.rimusic.utils.isValidIP
 import app.it.fast4x.rimusic.utils.isVideo
 import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
 import app.it.fast4x.rimusic.utils.languageAppKey
-import app.it.fast4x.rimusic.utils.loadAppLog
-import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.miniPlayerTypeKey
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
 import app.it.fast4x.rimusic.utils.navigationBarTypeKey
@@ -245,7 +241,6 @@ import app.it.fast4x.rimusic.utils.setDefaultPalette
 import app.it.fast4x.rimusic.utils.showButtonPlayerVideoKey
 import app.it.fast4x.rimusic.utils.showSearchTabKey
 import app.it.fast4x.rimusic.utils.showTotalTimeQueueKey
-import app.it.fast4x.rimusic.utils.textCopyToClipboard
 import app.n_zik.android.core.coil.*
 import app.it.fast4x.rimusic.utils.thumbnailRoundnessDpKey
 import app.it.fast4x.rimusic.utils.artistThumbnailRoundnessDpKey
@@ -268,7 +263,6 @@ import timber.log.Timber
 import java.net.Proxy
 import java.util.Locale
 
-import kotlin.system.exitProcess
 import androidx.compose.foundation.shape.RoundedCornerShape
 import app.it.fast4x.rimusic.enums.UiType
 import org.woheller69.freeDroidWarn.FreeDroidWarn
@@ -553,20 +547,6 @@ class MainActivity :
 
         setContent {
             val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
-
-            // Valid to get log when app crash
-            if (intent.action == action_copy_crash_log) {
-                preferences.edit(commit = true) {
-                    putBoolean(logDebugEnabledKey, true)
-                }
-                loadAppLog(this@MainActivity, type = LogType.Crash).let {
-                    if (it != null) textCopyToClipboard(it, this@MainActivity)
-                }
-                LaunchedEffect(Unit) {
-                    delay(5000)
-                    exitProcess(0)
-                }
-            }
 
             //TODO: Check internet connection
 //            val internetConnectivityObserver = InternetConnectivityObserver(this)
@@ -1861,7 +1841,6 @@ class MainActivity :
         const val action_albums = "app.it.fast4x.rimusic.action.albums"
         const val actions_artists = "app.it.fast4x.rimusic.action.artists"
         const val action_library = "app.it.fast4x.rimusic.action.library"
-        const val action_copy_crash_log = "app.it.fast4x.rimusic.action.copy_crash_log"
     }
 
 

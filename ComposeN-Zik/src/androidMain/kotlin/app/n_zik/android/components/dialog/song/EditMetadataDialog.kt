@@ -1,6 +1,7 @@
 package app.n_zik.android.components.dialog.song
 
 import android.content.ContentUris
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
@@ -30,6 +31,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -199,6 +201,17 @@ class EditMetadataDialog private constructor(
          */
         internal fun readCoverArtBytes(context: Context, uri: Uri): ByteArray? =
             context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+
+        /**
+         * Decodes the in-memory cover art [bytes] on [NzikDispatchers.MEDIA] (issue #606 M1).
+         * It used to run inside a `remember` in [CoverArtField], i.e. on Main during composition.
+         * Returns `null` when the bytes are not a decodable image, so the caller simply shows no
+         * picture.
+         */
+        internal suspend fun decodeCoverBitmap(bytes: ByteArray): Bitmap? =
+            withContext(NzikDispatchers.MEDIA) {
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
     }
 
     private fun resolveFilePath(context: Context, songId: String): String? {
@@ -326,9 +339,11 @@ class EditMetadataDialog private constructor(
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             if (coverBytes != null) {
-                val bitmap = remember(coverBytes) {
-                    BitmapFactory.decodeByteArray(coverBytes, 0, coverBytes.size)
-                }
+                // Keyed on the bytes: a new pick cancels the previous decode, so only the latest
+                // image is ever shown.
+                val bitmap = produceState<Bitmap?>(initialValue = null, coverBytes) {
+                    value = decodeCoverBitmap(coverBytes)
+                }.value
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
