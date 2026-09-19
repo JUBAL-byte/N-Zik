@@ -2,8 +2,11 @@ package app.n_zik.android.legacyoffmain.player
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.core.graphics.ColorUtils.colorToHSL
+import androidx.palette.graphics.Palette
 import app.it.fast4x.rimusic.ui.screens.player.computeMiniPlayerPalette
 import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
+import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -21,7 +24,9 @@ import org.robolectric.annotation.Config
  * (CPU-bound `Palette` extraction) inline, on whatever dispatcher that effect resumes on (Main,
  * since it follows `getBitmapFromUrl`'s suspension). That call is now extracted, unchanged, to
  * [computeMiniPlayerPalette] (declared `internal` in `MiniPlayer.kt`, `app.it.fast4x.rimusic.*`,
- * legacy) and dispatched via `withContext(NzikDispatchers.MEDIA)`.
+ * legacy) and dispatched via `withContext(NzikDispatchers.MEDIA)`. The palette is now built from
+ * the vibrant swatch via `m3eDynamicColorPaletteOf` (shared M3E cover extraction) instead of the
+ * dominant swatch.
  *
  * This test file itself lives under `app.n_zik.android.*` -- not the legacy package -- per the
  * gh-606 Lot 2 spec's "no new file under app.it.fast4x.rimusic.*" boundary; `internal` visibility
@@ -44,12 +49,16 @@ class MiniPlayerPaletteOffMainTest {
     }
 
     @Test
-    fun `computeMiniPlayerPalette returns the same result as calling dynamicColorPaletteOf directly`() = runBlocking {
+    fun `computeMiniPlayerPalette returns the same vibrant-based result as m3eDynamicColorPaletteOf directly`() = runBlocking {
         val bitmap = solidBitmap(Color.rgb(200, 60, 60))
 
-        val direct = dynamicColorPaletteOf(bitmap, false)
+        val vibrant = Palette.from(bitmap).generate().getVibrantColor(0)
+        val vibrantHsl = FloatArray(3).apply { colorToHSL(vibrant, this) }
+
+        val direct = m3eDynamicColorPaletteOf(bitmap, false)
         val extracted = computeMiniPlayerPalette(bitmap, false)
 
+        assertEquals(dynamicColorPaletteOf(vibrantHsl, false), extracted)
         assertEquals(direct, extracted)
     }
 

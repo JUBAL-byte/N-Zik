@@ -97,8 +97,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import app.n_zik.android.components.menu.visualizer.VisualizerSettingsMenu
+import app.n_zik.android.components.player.extractM3ECoverColors
+import app.n_zik.android.components.player.m3eCoverForegroundArgb
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
-import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import androidx.compose.foundation.shape.CircleShape
 import app.it.fast4x.rimusic.utils.visualizerLineThicknessKey
 import app.it.fast4x.rimusic.utils.visualizerWhiteColorOptionKey
@@ -179,9 +180,9 @@ fun NextVisualizer() {
             LaunchedEffect(bitmapCover, isDarkTheme) {
                 kotlinx.coroutines.withContext(NzikDispatchers.MEDIA) {
                     try {
-                        val dynPalette = dynamicColorPaletteOf(bitmapCover, isDarkTheme)
-                        if (dynPalette != null) {
-                            dominantColor = dynPalette.accent.toArgb()
+                        val coverColors = extractM3ECoverColors(bitmapCover, isDarkTheme)
+                        if (coverColors != null) {
+                            dominantColor = m3eCoverForegroundArgb(coverColors.vibrant, !isDarkTheme)
                         } else {
                             val palette = Palette.from(bitmapCover).generate()
                             dominantColor = palette.getDominantColor(android.graphics.Color.WHITE)

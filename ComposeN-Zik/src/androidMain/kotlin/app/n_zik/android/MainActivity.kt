@@ -113,7 +113,6 @@ import app.n_zik.android.R
 import android.graphics.Bitmap
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.ime
-import androidx.palette.graphics.Palette
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
 import com.kieronquinn.monetcompat.core.MonetCompat
 import com.kieronquinn.monetcompat.interfaces.MonetColorsChangedListener
@@ -160,6 +159,7 @@ import app.it.fast4x.rimusic.ui.screens.player.rememberPlayerSheetState
 import app.n_zik.android.components.CustomBottomSheet
 import app.n_zik.android.components.player.MiniPlayerQueueOverlay
 import app.n_zik.android.components.player.PaletteFade
+import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import app.n_zik.android.components.player.presentMiniplayerThenExpand
 import app.n_zik.android.components.theme.AnimatedAppearance
 import app.n_zik.android.components.theme.withColor
@@ -717,14 +717,7 @@ class MainActivity :
                             colorPaletteMode == ColorPaletteMode.Dark || isPicthBlack || (colorPaletteMode == ColorPaletteMode.System && isSystemInDarkTheme)
 
                         if (bitmap != null) {
-                            val palette: Palette = Palette
-                                .from(bitmap)
-                                .maximumColorCount(8)
-                                .addFilter(if (isDark) ({ _: Int, hsl: FloatArray -> hsl[0] !in 36f..100f }) else null)
-                                .generate()
-
-
-                            val paletteResult = dynamicColorPaletteOf(bitmap, isDark)
+                            val paletteResult = m3eDynamicColorPaletteOf(bitmap, isDark)
                             if (paletteResult != null) {
                                 val finalPalette = if (!isPicthBlack) paletteResult else paletteResult.copy(
                                     isDark = true,

@@ -164,7 +164,7 @@ import app.n_zik.android.uiRoundnessShape
 import androidx.compose.runtime.LaunchedEffect
 import app.it.fast4x.rimusic.utils.getBitmapFromUrl
 import app.n_zik.android.core.coil.thumbnail
-import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
+import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
 import app.it.fast4x.rimusic.utils.colorPaletteModeKey
@@ -1049,13 +1049,15 @@ private fun MiniPlayerSlotButton(
 /**
  * Issue #606 H10 -- `MiniPlayer`'s `LaunchedEffect(mediaItem.mediaId)` used to run
  * `dynamicColorPaletteOf` (CPU-bound `Palette` extraction, `app.it.fast4x.rimusic.ui.styling
- * .ColorPalette.kt`, legacy read-only) inline on whatever dispatcher that `LaunchedEffect` resumes
+ * .ColorPalette.kt`, legacy read-only) inline, on whatever dispatcher that `LaunchedEffect` resumes
  * on -- Main, since it follows `getBitmapFromUrl`'s suspension. Extracted here, unchanged, so the
  * composable can dispatch it via `withContext(NzikDispatchers.MEDIA)` and so it is unit-testable
- * without instantiating the composable. `internal` (not `private`) purely so
+ * without instantiating the composable. The palette is now built from the vibrant swatch via
+ * `m3eDynamicColorPaletteOf` (shared M3E cover extraction) instead of the dominant swatch.
+ * `internal` (not `private`) purely so
  * `MiniPlayerPaletteOffMainTest` can call it directly -- it adds no new public legacy API.
  */
 internal suspend fun computeMiniPlayerPalette(bitmap: Bitmap, dark: Boolean): ColorPalette? =
-    dynamicColorPaletteOf(bitmap, dark)
+    m3eDynamicColorPaletteOf(bitmap, dark)
 
 

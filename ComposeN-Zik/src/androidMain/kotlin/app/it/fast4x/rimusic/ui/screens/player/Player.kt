@@ -195,6 +195,7 @@ import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.themed.NowPlayingSongIndicator
 import app.n_zik.android.extensions.nextvisualizer.views.NextVisualizer
 import app.n_zik.android.components.menu.player.PlayerMenu
+import app.n_zik.android.components.player.m3eCoverBackgroundColor
 import app.it.fast4x.rimusic.ui.components.themed.RotateThumbnailCoverAnimationModern
 import app.it.fast4x.rimusic.ui.components.themed.ThumbnailOffsetDialog
 import app.it.fast4x.rimusic.ui.components.themed.animateBrushRotation
@@ -284,6 +285,8 @@ import android.graphics.Bitmap
 import app.it.fast4x.rimusic.ui.styling.ColorPalette
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.player.BlurAdjuster
+import app.n_zik.android.components.player.m3eDarkenBy
+import app.n_zik.android.components.player.m3eSaturate
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import kotlin.math.absoluteValue
@@ -330,23 +333,33 @@ internal data class PlayerDynamicPaletteResult(
  * dispatch the whole CPU-bound sequence via `withContext(NzikDispatchers.MEDIA)` in one call and so
  * it is unit-testable without instantiating the composable. `internal` (not `private`) purely so
  * `PlayerDynamicPaletteOffMainTest` can call it directly -- it adds no new public legacy API.
+ * The local dynamic palette is now built from the vibrant swatch's HSL (shared M3E cover
+ * extraction, `app.n_zik.android.components.player`) instead of the dominant swatch's -- it also
+ * feeds the cover-based animated backgrounds (`M3EMorphingCover`, `FluidCoverColorGradient`) and
+ * the `ColorPalette` stripes. The 7 raw swatches use exactly the same fallback accent as
+ * `extractM3ECoverColors` (the dominant-based dynamic palette's accent) so both paths return
+ * identical swatches.
  */
 internal suspend fun computePlayerDynamicPalette(
     bitmap: Bitmap,
     isDark: Boolean,
     fallbackColor: ColorPalette,
 ): PlayerDynamicPaletteResult {
-    val palette = dynamicColorPaletteOf(bitmap, isDark) ?: fallbackColor
+    val basePalette = dynamicColorPaletteOf(bitmap, isDark)
     val swatchPalette = Palette.from(bitmap).generate()
+    val fallback = (basePalette ?: fallbackColor).accent.toArgb()
+    val vibrant = swatchPalette.getVibrantColor(fallback)
+    val vibrantHsl = FloatArray(3)
+    colorToHSL(vibrant, vibrantHsl)
     return PlayerDynamicPaletteResult(
-        palette = palette,
-        dominant = swatchPalette.getDominantColor(palette.accent.toArgb()),
-        vibrant = swatchPalette.getVibrantColor(palette.accent.toArgb()),
-        lightVibrant = swatchPalette.getLightVibrantColor(palette.accent.toArgb()),
-        darkVibrant = swatchPalette.getDarkVibrantColor(palette.accent.toArgb()),
-        muted = swatchPalette.getMutedColor(palette.accent.toArgb()),
-        lightMuted = swatchPalette.getLightMutedColor(palette.accent.toArgb()),
-        darkMuted = swatchPalette.getDarkMutedColor(palette.accent.toArgb()),
+        palette = if (basePalette == null) fallbackColor else dynamicColorPaletteOf(vibrantHsl, isDark),
+        dominant = swatchPalette.getDominantColor(fallback),
+        vibrant = vibrant,
+        lightVibrant = swatchPalette.getLightVibrantColor(fallback),
+        darkVibrant = swatchPalette.getDarkVibrantColor(fallback),
+        muted = swatchPalette.getMutedColor(fallback),
+        lightMuted = swatchPalette.getLightMutedColor(fallback),
+        darkMuted = swatchPalette.getDarkMutedColor(fallback),
     )
 }
 
@@ -728,6 +741,9 @@ fun Player(
     var muted by remember{ mutableStateOf(0) }
     var lightMuted by remember{ mutableStateOf(0) }
     var darkMuted by remember{ mutableStateOf(0) }
+    // True once the cover swatches above have been extracted; false until then and after an
+    // artwork failure -- the cover backgrounds fall back to the local dynamic palette until loaded.
+    var coverSwatchesLoaded by remember{ mutableStateOf(false) }
 
 
     @Composable
@@ -784,9 +800,11 @@ fun Player(
                 muted = paletteResult.muted
                 lightMuted = paletteResult.lightMuted
                 darkMuted = paletteResult.darkMuted
+                coverSwatchesLoaded = true
 
             } catch (e: Exception) {
                 dynamicColorPalette = dynamicColorPaletteOf(Color(0.54509807f, 0.36078432f, 0.9647059f), !lightTheme)
+                coverSwatchesLoaded = false
 
             }
         }
@@ -929,8 +947,15 @@ fun Player(
                     }
                 }
         } else if (playerBackgroundColors == PlayerBackgroundColors.CoverColor){
+            // Vibrant swatch: flat background must match the "Morphing shapes from cover"
+            // reference color (its shapes are drawn with V = saturate(vibrant).darkenBy()).
+            // Until the swatches load (or when the artwork failed) it falls back to the local
+            // dynamic palette's background, exactly like the pre-M3E-alignment code did.
             containerModifier = containerModifier
-                .background(dynamicColorPalette.background1)
+                .background(
+                    if (coverSwatchesLoaded) m3eCoverBackgroundColor(vibrant, lightTheme)
+                    else dynamicColorPalette.background1
+                )
         } else if (playerBackgroundColors == PlayerBackgroundColors.ThemeColor){
             containerModifier = containerModifier
                 .background(color.background1)
@@ -1099,8 +1124,12 @@ fun Player(
                 containerModifier = containerModifier
                     .background(
                         Brush.verticalGradient(
-                            0.5f to if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient) dynamicColorPalette.background1 else colorPalette().background1,
-                            1.0f to if (blackgradient) Color.Black else if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient) dynamicColorPalette.background2 else colorPalette().background2,
+                            0.5f to if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient)
+                                (if (coverSwatchesLoaded) m3eSaturate(dominant, lightTheme).m3eDarkenBy(lightTheme) else dynamicColorPalette.background1)
+                            else colorPalette().background1,
+                            1.0f to if (blackgradient) Color.Black else if (playerBackgroundColors == PlayerBackgroundColors.CoverColorGradient)
+                                (if (coverSwatchesLoaded) m3eSaturate(vibrant, lightTheme).m3eDarkenBy(lightTheme) else dynamicColorPalette.background2)
+                            else colorPalette().background2,
                             startY = 0.0f,
                             endY = 1500.0f
                         )

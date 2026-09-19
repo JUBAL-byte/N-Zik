@@ -3,10 +3,13 @@ package app.n_zik.android.legacyoffmain.player
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.ColorUtils.colorToHSL
 import androidx.palette.graphics.Palette
 import app.it.fast4x.rimusic.ui.screens.player.computePlayerDynamicPalette
 import app.it.fast4x.rimusic.ui.styling.DefaultDarkColorPalette
 import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
+import app.n_zik.android.components.player.M3ECoverColors
+import app.n_zik.android.components.player.extractM3ECoverColors
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -25,7 +28,9 @@ import org.robolectric.annotation.Config
  * `Palette.get*Color` extractions inline, on whatever dispatcher that effect resumes on (Main).
  * That whole CPU-bound sequence is now extracted, unchanged, to [computePlayerDynamicPalette]
  * (declared `internal` in `Player.kt`, `app.it.fast4x.rimusic.*`, legacy) and dispatched in one
- * `withContext(NzikDispatchers.MEDIA)` call.
+ * `withContext(NzikDispatchers.MEDIA)` call. The local dynamic palette is now built from the
+ * vibrant swatch's HSL (shared M3E cover extraction) instead of the dominant swatch's; the 7
+ * raw swatches use the same fallback accent as `extractM3ECoverColors`.
  *
  * This test file itself lives under `app.n_zik.android.*` -- not the legacy package -- per the
  * gh-606 Lot 2 spec's "no new file under app.it.fast4x.rimusic.*" boundary; `internal` visibility
@@ -49,23 +54,35 @@ class PlayerDynamicPaletteOffMainTest {
     }
 
     @Test
-    fun `computePlayerDynamicPalette matches manual dynamicColorPaletteOf and Palette getXColor calls`() = runBlocking {
-        val bitmap = solidBitmap(Color.rgb(180, 90, 40))
+    fun `computePlayerDynamicPalette matches the vibrant-based palette and the shared M3E extractor's swatches`() = runBlocking {
+        // Solid blue bitmap: every swatch is the same color, so the expected values below are
+        // exact (no get*Color fallback is used).
+        val bitmap = solidBitmap(Color.rgb(30, 120, 200))
         val fallback = DefaultDarkColorPalette
 
-        val expectedPalette = dynamicColorPaletteOf(bitmap, false) ?: fallback
-        val expectedSwatch = Palette.from(bitmap).generate()
+        // A solid bitmap always yields a dominant swatch; the test's premise otherwise.
+        val basePalette = dynamicColorPaletteOf(bitmap, false)!!
+        val swatchPalette = Palette.from(bitmap).generate()
+        val vibrant = swatchPalette.getVibrantColor(basePalette.accent.toArgb())
+        val vibrantHsl = FloatArray(3).apply { colorToHSL(vibrant, this) }
+        val expectedPalette = dynamicColorPaletteOf(vibrantHsl, false)
 
         val result = computePlayerDynamicPalette(bitmap, false, fallback)
 
         assertEquals(expectedPalette, result.palette)
-        assertEquals(expectedSwatch.getDominantColor(expectedPalette.accent.toArgb()), result.dominant)
-        assertEquals(expectedSwatch.getVibrantColor(expectedPalette.accent.toArgb()), result.vibrant)
-        assertEquals(expectedSwatch.getLightVibrantColor(expectedPalette.accent.toArgb()), result.lightVibrant)
-        assertEquals(expectedSwatch.getDarkVibrantColor(expectedPalette.accent.toArgb()), result.darkVibrant)
-        assertEquals(expectedSwatch.getMutedColor(expectedPalette.accent.toArgb()), result.muted)
-        assertEquals(expectedSwatch.getLightMutedColor(expectedPalette.accent.toArgb()), result.lightMuted)
-        assertEquals(expectedSwatch.getDarkMutedColor(expectedPalette.accent.toArgb()), result.darkMuted)
+        assertEquals(
+            "swatches must be identical to the shared M3E extractor (same fallback accent)",
+            extractM3ECoverColors(bitmap, false),
+            M3ECoverColors(
+                result.dominant,
+                result.vibrant,
+                result.lightVibrant,
+                result.darkVibrant,
+                result.muted,
+                result.lightMuted,
+                result.darkMuted,
+            )
+        )
     }
 
     @Test

@@ -62,9 +62,10 @@ import kotlinx.coroutines.withContext
 import kotlin.Float.Companion.POSITIVE_INFINITY
 import app.n_zik.android.components.menu.lyrics.LyricsSettingsMenu
 import app.n_zik.android.components.dialog.player.ShowOffsetDialog
+import app.n_zik.android.components.player.extractM3ECoverColors
+import app.n_zik.android.components.player.m3eCoverForegroundArgb
 import dev.rebelonion.translator.Translator
 import androidx.compose.animation.fadeOut
-import app.it.fast4x.rimusic.ui.styling.dynamicColorPaletteOf
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleOut
@@ -234,14 +235,15 @@ fun LyricsScreen(
             }
         }
         LaunchedEffect(bitmapCover, lightTheme) {
-            val palette = withContext(NzikDispatchers.MEDIA) {
+            val coverColors = withContext(NzikDispatchers.MEDIA) {
                 try {
-                    bitmapCover?.let { dynamicColorPaletteOf(it, !lightTheme) }
+                    bitmapCover?.let { extractM3ECoverColors(it, !lightTheme) }
                 } catch (_: Exception) {
                     null
                 }
             }
-            dominantColor = palette?.accent?.toArgb() ?: android.graphics.Color.DKGRAY
+            dominantColor = coverColors?.let { m3eCoverForegroundArgb(it.vibrant, lightTheme) }
+                ?: android.graphics.Color.DKGRAY
         }
 
         LyricsFetcher(
