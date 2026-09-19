@@ -1137,6 +1137,15 @@ class MainActivity :
             }
 
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            // Phone in landscape on the Songs/Album/Artist/Library tabs: app header and nav bar
+            // are hidden until the toggle button reveals them, so scroll-hide does not apply there
+            val isLandscapeBarless = app.it.fast4x.rimusic.utils.isLandscapeBarlessScreen()
+            val areBarsHidden = app.it.fast4x.rimusic.utils.hideBarsInLandscapeMobile()
+
+            // Every time such a screen is entered (or left) the bars start put away again
+            LaunchedEffect(isLandscapeBarless) {
+                app.it.fast4x.rimusic.utils.LandscapeBars.hide()
+            }
             val uiType by rememberPreference(UiTypeKey, UiType.RiMusic)
             val isViMusic = uiType == UiType.ViMusic
             
@@ -1182,18 +1191,27 @@ class MainActivity :
                     currentRoute?.startsWith("searchResults") == true ||
                     currentRoute?.startsWith("settings") == true
                     
-            LaunchedEffect(isLandscape, isViMusic, isScrollableRoute, density, safeDrawingInsets) {
+            LaunchedEffect(isLandscape, isLandscapeBarless, isViMusic, isScrollableRoute, density, safeDrawingInsets) {
                 topBarOffset = 0f
                 bottomBarOffset = 0f
 
                 isBarsVisible = true
             }
 
-            val nestedScrollConnection = remember(isLandscape, isViMusic, isScrollableRoute, density, safeDrawingInsets, showQueueOverlay) {
+            val nestedScrollConnection = remember(isLandscape, isLandscapeBarless, isViMusic, isScrollableRoute, density, safeDrawingInsets, showQueueOverlay) {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                         // Disable scroll-hide while the full player sheet is on screen or the queue is open
                         if (isPlayerSheetExpanded.value || showQueueOverlay) return Offset.Zero
+                        // Bars here are driven by the toggle button, not by scrolling: a slide only
+                        // puts them away (nothing scroll-related brings them back) and the scroll
+                        // itself must stay whole for the list
+                        if (isLandscapeBarless) {
+                            if (available.y != 0f && source == NestedScrollSource.UserInput) {
+                                app.it.fast4x.rimusic.utils.LandscapeBars.hide()
+                            }
+                            return Offset.Zero
+                        }
 
                         val shouldHideOnScroll = isLandscape || isScrollableRoute
 
@@ -1225,7 +1243,7 @@ class MainActivity :
 
                     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                         // Disable scroll-hide while the full player sheet is on screen or the queue is open
-                        if (isPlayerSheetExpanded.value || showQueueOverlay) return super.onPostFling(consumed, available)
+                        if (isPlayerSheetExpanded.value || showQueueOverlay || isLandscapeBarless) return super.onPostFling(consumed, available)
 
                         val statusBarsTopPx = safeDrawingInsets.getTop(density)
                         val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx
@@ -1280,10 +1298,10 @@ class MainActivity :
                 val isFloatingNavBar = NavigationBarPosition.BottomFloating.isCurrent()
                 val isIconOnlyNav = app.it.fast4x.rimusic.enums.NavigationBarType.IconOnly.isCurrent()
                 val navBarBottomPad = Dimensions.navBarBottomPadding(isFloatingNavBar)
-                val hasNavBar = true
+                val hasNavBar = !areBarsHidden
 
                 val playerPos by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
-                val playerPadBottom = if (playerPos == PlayerPosition.Bottom) {
+                val targetPlayerPadBottom = if (playerPos == PlayerPosition.Bottom) {
                     if (isFloatingNavBar) {
                         if (hasNavBar) {
                             val barHeight = if (isIconOnlyNav) Dimensions.floatingNavBarIconOnlyHeight else Dimensions.floatingNavBarHeight
@@ -1299,6 +1317,17 @@ class MainActivity :
                         }
                     }
                 } else 5.dp
+                // Follows the nav bar sliding in/out so the mini player glides with it instead of
+                // jumping. Kept as a State and only read at draw time (see CustomBottomSheet): reading
+                // it here would recompose this whole screen on every frame of the slide.
+                val playerPadBottom = androidx.compose.animation.core.animateDpAsState(
+                    targetValue = targetPlayerPadBottom,
+                    animationSpec = tween(
+                        app.it.fast4x.rimusic.utils.LANDSCAPE_BARS_ANIMATION_MS,
+                        easing = FastOutSlowInEasing
+                    ),
+                    label = "playerPadBottom"
+                )
 
                 val playerSheetState = rememberPlayerSheetState(
                     dismissedBound = 0.dp,
@@ -1460,7 +1489,7 @@ class MainActivity :
                                                     this@MainActivity.stopService(this@MainActivity.intent<app.n_zik.android.playback.services.PlayerServiceModern>())
                                                 }
                                             },
-                                            bottomPadding = playerPadBottom,
+                                            bottomPadding = { playerPadBottom.value },
                                             collapsedContentHeight = Dimensions.collapsedPlayer,
                                             disableDismiss = disableClosingPlayerSwipingDown,
                                             collapsedContent = {

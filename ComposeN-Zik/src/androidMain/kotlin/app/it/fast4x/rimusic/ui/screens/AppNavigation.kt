@@ -8,6 +8,11 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandIn
@@ -243,21 +248,59 @@ fun AppNavigation(
         onDispose { backCallback.remove() }
     }
 
+    // Phone in landscape on the Songs/Album/Artist/Library tabs: the app header is hidden until
+    // the toggle button slides it in (and it slides out again on the next tap or scroll)
+    val isBarlessScreen = app.it.fast4x.rimusic.utils.isLandscapeBarlessScreen()
+    val hideTopBar = app.it.fast4x.rimusic.utils.hideBarsInLandscapeMobile()
+    // Kept as State objects and only read while laying out: the slide moves the content every
+    // frame, and reading it here in composition would recompose the whole nav graph each frame
+    val headerProgress = animateFloatAsState(
+        targetValue = if (hideTopBar) 0f else 1f,
+        animationSpec = tween(app.it.fast4x.rimusic.utils.LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing),
+        label = "landscapeHeaderProgress"
+    )
+    val isBarlessScreenState = rememberUpdatedState(isBarlessScreen)
+    // On these screens (and until the slide has finished) the toggle drives the header
+    // position; everywhere else the header keeps following the scroll-hide offset
+    val toggleDrivesHeader = remember {
+        derivedStateOf { isBarlessScreenState.value || headerProgress.value < 1f }
+    }
+
+    val density = LocalDensity.current
+    val statusBarTopPx = WindowInsets.safeDrawing.getTop(density)
+    // The header is the 64dp bar plus the status bar inset it pads for
+    val headerHeightPx = with(density) { 64.dp.roundToPx() } + statusBarTopPx
+    val scrollTopBarOffset = LocalTopBarOffset.current
+    val topBarOffsetState = remember(headerHeightPx, scrollTopBarOffset) {
+        derivedStateOf {
+            if (toggleDrivesHeader.value) -(1f - headerProgress.value) * headerHeightPx
+            else scrollTopBarOffset.value
+        }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        topBar = { AppHeader(navController).Draw() },
+        // Always composed: when slid out it simply sits above the screen, which keeps the
+        // slide a pure layout/draw animation instead of adding and removing the header
+        topBar = {
+            CompositionLocalProvider(LocalTopBarOffset provides topBarOffsetState) {
+                AppHeader(navController).Draw()
+            }
+        },
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         contentWindowInsets = WindowInsets(0.dp)
     ) { innerPadding ->
-    val topBarOffsetState = LocalTopBarOffset.current
-    val safeDrawingInsets = WindowInsets.safeDrawing
     NavHost(
         modifier = Modifier.fillMaxSize()
             .layout { measurable, constraints ->
-            val topPaddingPx = innerPadding.calculateTopPadding().roundToPx()
+            val toggleDriven = toggleDrivesHeader.value
+            val topPaddingPx = if (toggleDriven) headerHeightPx
+                               else innerPadding.calculateTopPadding().roundToPx()
             val offsetPx = topBarOffsetState.value.toInt()
-            val effectivePadding = (topPaddingPx + offsetPx).coerceAtLeast(0)
-            
+            // Header slid out: the content still stays clear of the status bar
+            val minPaddingPx = if (toggleDriven) statusBarTopPx else 0
+            val effectivePadding = (topPaddingPx + offsetPx).coerceAtLeast(minPaddingPx)
+
             val placeable = measurable.measure(
                 constraints.copy(
                     minHeight = (constraints.minHeight - effectivePadding).coerceAtLeast(0),

@@ -821,7 +821,12 @@ fun HomeSongsScreen(navController: NavController ) {
                 header( headerOffsetState, headerHeightState )
             }
         }
-        FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
+        val barsToggle = app.it.fast4x.rimusic.utils.landscapeBarsToggleButton()
+        FloatingActionsContainerWithScrollToTop(
+            lazyListState = lazyListState,
+            iconId = barsToggle?.iconId,
+            onClick = barsToggle?.onClick
+        )
 
         val showFloatingIcon by rememberPreference( showFloatingIconKey, false )
         if( showFloatingIcon )

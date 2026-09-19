@@ -118,7 +118,8 @@ private class CardClipShape(private val geometry: CardGeometry) : Shape {
  * The content itself does NOT scale — only the background card changes size.
  * Closing reverses the effect.
  *
- * @param bottomPadding Padding from the bottom to adjust the collapsed position
+ * @param bottomPadding Padding from the bottom to adjust the collapsed position. A provider,
+ *        read at draw time, so an animated value moves the sheet without recomposing it.
  * @param collapsedContentHeight The visual height of the mini-player content (without system bar insets).
  *        Used for the collapsed hit target. Defaults to [PlayerSheetState.collapsedBound].
  */
@@ -127,7 +128,7 @@ fun CustomBottomSheet(
     state: PlayerSheetState,
     modifier: Modifier = Modifier,
     onDismiss: (() -> Unit)? = null,
-    bottomPadding: Dp = 0.dp,
+    bottomPadding: () -> Dp = { 0.dp },
     collapsedContentHeight: Dp = state.collapsedBound,
     disableDismiss: Boolean = false,
     collapsedContent: @Composable BoxScope.() -> Unit,
@@ -147,7 +148,7 @@ fun CustomBottomSheet(
                 // progress: 0 = collapsed, 1 = expanded.
                 // targetY: distance to push the Box down so the miniplayer (at Box top)
                 // sits at the bottom of the parent.
-                val targetY = (size.height - collapsedContentHeight.toPx() - bottomPadding.toPx())
+                val targetY = (size.height - collapsedContentHeight.toPx() - bottomPadding().toPx())
                 val p = state.progress.coerceIn(0f, 1f)
                 translationY = targetY * (1f - p)
             }

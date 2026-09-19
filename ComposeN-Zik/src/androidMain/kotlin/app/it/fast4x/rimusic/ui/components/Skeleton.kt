@@ -1,7 +1,19 @@
 package app.it.fast4x.rimusic.ui.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import app.it.fast4x.rimusic.utils.LANDSCAPE_BARS_ANIMATION_MS
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -105,7 +117,12 @@ fun Skeleton(
 
     navigationBar.add( navBarContent )
     
-    val hasNavBar = navigationBar.buttonList.size >= 2
+    // Phone in landscape on the Songs/Album/Artist/Library tabs: the nav bar is hidden until
+    // the toggle button slides it in (and it slides out again on the next tap or scroll)
+    val hideNavBar = app.it.fast4x.rimusic.utils.hideBarsInLandscapeMobile()
+    // The room the bar reserves for the lists changes at once when it is toggled: animating it
+    // would recompose the whole screen every frame, and it only shows at the end of a list
+    val hasNavBar = !hideNavBar && navigationBar.buttonList.size >= 2
 
     val navBarBottomPadding = Dimensions.navBarBottomPadding(isFloating)
     val miniPlayerHeight = Dimensions.miniPlayerHeight
@@ -132,7 +149,13 @@ fun Skeleton(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if ( NavigationBarPosition.Top.isCurrent() )
-                    navigationBar.Draw()
+                    AnimatedVisibility(
+                        visible = !hideNavBar,
+                        enter = expandVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeIn(),
+                        exit = shrinkVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeOut()
+                    ) {
+                        navigationBar.Draw()
+                    }
             }
         }
 
@@ -151,7 +174,13 @@ fun Skeleton(
                                 .offset { IntOffset(0, bottomBarOffsetState.value.roundToInt()) }
                                 .fillMaxWidth()
                         ) {
-                            navigationBar.Draw()
+                            AnimatedVisibility(
+                                visible = !hideNavBar,
+                                enter = slideInVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) { it } + fadeIn(),
+                                exit = slideOutVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) { it } + fadeOut()
+                            ) {
+                                navigationBar.Draw()
+                            }
                         }
                     } else {
                         navigationBar.Draw()
@@ -179,7 +208,13 @@ fun Skeleton(
                             .fillMaxSize()
                     ) {
                         if( NavigationBarPosition.Left.isCurrent() )
-                            navigationBar.Draw()
+                            AnimatedVisibility(
+                                visible = !hideNavBar,
+                                enter = expandHorizontally(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeIn(),
+                                exit = shrinkHorizontally(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeOut()
+                            ) {
+                                navigationBar.Draw()
+                            }
 
                         AnimatedContent(
                             targetState = tabIndex,
@@ -190,7 +225,13 @@ fun Skeleton(
                         )
 
                         if( NavigationBarPosition.Right.isCurrent() )
-                            navigationBar.Draw()
+                            AnimatedVisibility(
+                                visible = !hideNavBar,
+                                enter = expandHorizontally(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeIn(),
+                                exit = shrinkHorizontally(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) + fadeOut()
+                            ) {
+                                navigationBar.Draw()
+                            }
                     }
                 }
 
@@ -199,7 +240,10 @@ fun Skeleton(
                     .offset { IntOffset(0, bottomBarOffsetState.value.roundToInt()) }
                     .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
                     if ( isFloating ) {
-                        Box(
+                        AnimatedVisibility(
+                            visible = !hideNavBar,
+                            enter = slideInVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) { it } + fadeIn(),
+                            exit = slideOutVertically(tween(LANDSCAPE_BARS_ANIMATION_MS, easing = FastOutSlowInEasing)) { it } + fadeOut(),
                             modifier = Modifier.align(Alignment.BottomCenter)
                         ) {
                             navigationBar.Draw()

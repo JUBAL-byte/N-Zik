@@ -853,7 +853,12 @@ fun HomeLibrary(
             }
             }
 
-            FloatingActionsContainerWithScrollToTop(lazyGridState = lazyGridState)
+            val barsToggle = app.it.fast4x.rimusic.utils.landscapeBarsToggleButton()
+            FloatingActionsContainerWithScrollToTop(
+                lazyGridState = lazyGridState,
+                iconId = barsToggle?.iconId,
+                onClick = barsToggle?.onClick
+            )
 
             val showFloatingIcon by rememberPreference(showFloatingIconKey, false)
             if (showFloatingIcon)

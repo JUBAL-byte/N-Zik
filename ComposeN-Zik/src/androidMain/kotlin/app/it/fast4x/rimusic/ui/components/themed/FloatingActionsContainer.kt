@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
@@ -46,18 +47,13 @@ import app.it.fast4x.rimusic.utils.scrollingInfo
 import app.it.fast4x.rimusic.utils.smoothScrollToTop
 import kotlinx.coroutines.launch
 
-@ExperimentalMaterial3Api
-@UnstableApi
-@ExperimentalAnimationApi
+/**
+ * Bottom padding shared by the floating action buttons: the system bar inset, plus room
+ * for the collapsed mini player when the player sheet is not visible, plus the extra
+ * space a bottom navigation bar needs.
+ */
 @Composable
-fun BoxScope.MultiFloatingActionsContainer(
-    modifier: Modifier = Modifier,
-    useAsActionsMenu: Boolean = false,
-    iconId: Int,
-    onClick: () -> Unit,
-    onClickSettings: (() -> Unit)? = null,
-    onClickSearch: (() -> Unit)? = null
-) {
+fun floatingActionsBottomPadding(): Dp {
     val additionalBottomPadding =
         if ( NavigationBarPosition.Bottom.isCurrent() || NavigationBarPosition.BottomFloating.isCurrent() )
             Dimensions.additionalVerticalSpaceForFloatingAction
@@ -70,7 +66,22 @@ fun BoxScope.MultiFloatingActionsContainer(
     val bottomDp = with(density) { windowsInsets.getBottom(density).toDp() }
 
     val playerSheetState = LocalPlayerSheetState.current
-    val bottomPadding = if (!playerSheetState.isVisible) bottomDp + Dimensions.collapsedPlayer + additionalBottomPadding else bottomDp + additionalBottomPadding
+    return if (!playerSheetState.isVisible) bottomDp + Dimensions.collapsedPlayer + additionalBottomPadding else bottomDp + additionalBottomPadding
+}
+
+@ExperimentalMaterial3Api
+@UnstableApi
+@ExperimentalAnimationApi
+@Composable
+fun BoxScope.MultiFloatingActionsContainer(
+    modifier: Modifier = Modifier,
+    useAsActionsMenu: Boolean = false,
+    iconId: Int,
+    onClick: () -> Unit,
+    onClickSettings: (() -> Unit)? = null,
+    onClickSearch: (() -> Unit)? = null
+) {
+    val bottomPadding = floatingActionsBottomPadding()
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -196,16 +207,7 @@ fun BoxScope.FloatingActions(
     onClick: (() -> Unit)? = null
 ) {
     val transition = rememberTransition(transitionState, "")
-    val additionalBottomPadding = if ( NavigationBarPosition.Bottom.isCurrent() || NavigationBarPosition.BottomFloating.isCurrent() )
-        Dimensions.additionalVerticalSpaceForFloatingAction else 0.dp
-
-    //val bottomPaddingValues = windowInsets.only(WindowInsetsSides.Bottom).asPaddingValues()
-    val density = LocalDensity.current
-    val windowsInsets = WindowInsets.systemBars
-    val bottomDp = with(density) { windowsInsets.getBottom(density).toDp() }
-
-    val playerSheetState = LocalPlayerSheetState.current
-    val bottomPadding = if (!playerSheetState.isVisible) bottomDp + Dimensions.collapsedPlayer + additionalBottomPadding else bottomDp + additionalBottomPadding
+    val bottomPadding = floatingActionsBottomPadding()
 
     var offsetX = rememberPreference(floatActionIconOffsetXkey, 0F )
     var offsetY = rememberPreference(floatActionIconOffsetYkey, 0F )
