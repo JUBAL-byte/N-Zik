@@ -444,10 +444,6 @@
     <string name="lang_sinhala">Sinhala</string>
     <string name="update_available">Ažuriranje je dostupno</string>
     <string name="reinstalling_update">Reinstalling update</string>
-    <string name="actions_you_can_do">Radnje koje možete da uradite:</string>
-    <string name="open_the_github_releases_web_page_and_download_latest_version">Otvorite veb stranicu Github izdanja i preuzmite najnoviju verziju</string>
-    <string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">Preuzmite najnoviju verziju sa Github-a, pronaći ćete datoteku u polju za obaveštenja i možete je instalirati klikom na nju</string>
-    <string name="f_droid_users_can_wait_for_the_update_info">Korisnici F-Droid-a mogu da sačekaju ažuriranje od F-Droid-a, koje obično stiže u roku od nekoliko sati sa IzziOnDroid repo, i nekoliko dana sa repo-om F-Droid.org.</string>
     <string name="check_update">Proveri ažuriranje</string>
     <string name="enable_check_for_update">Omogućite proveru ažuriranja</string>
     <string name="when_enabled_a_new_version_is_checked_and_notified_during_startup">Kada je omogućeno, nova verzija se proverava i obaveštava se tokom pokretanja.</string>
