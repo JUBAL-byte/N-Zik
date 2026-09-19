@@ -23,7 +23,10 @@ class Lyrics(
     val songId: String,
     val type: String,
     val data: String?,
-    /** `true` when [data] was written by the user, which automatic fetches must never replace (gh-765). */
+    /**
+     * `true` when [data] is the user's own: text typed in the lyrics editor or a track picked from LrcLib.
+     * Automatic fetches must never replace it (gh-765); "Fetch lyrics again" resets it.
+     */
     @ColumnInfo(defaultValue = "0")
     val isEdited: Boolean = false,
     /**

@@ -67,6 +67,22 @@ fun SettingIcon(@DrawableRes icon: Int) {
     }
 }
 
+/**
+ * Row saved when the user picks a LrcLib track. It is a deliberate manual choice, so it is flagged
+ * [Lyrics.isEdited]: an automatic fetch would otherwise replace it with the default match the user
+ * just rejected. "Fetch lyrics again" clears the flag of the row currently displayed, which is the
+ * picked row whenever both share the same type (the type comes from the track, not from the display).
+ */
+internal fun pickedLyrics(mediaId: String, track: Track): Lyrics {
+    val isSynced = !track.syncedLyrics.isNullOrEmpty()
+    return Lyrics(
+        songId = mediaId,
+        type = if (isSynced) LyricsType.Synced.name else LyricsType.Unsynced.name,
+        data = if (isSynced) track.syncedLyrics.orEmpty() else track.plainLyrics.orEmpty(),
+        isEdited = true
+    )
+}
+
 @Composable
 fun LyricsTrackSelector(
     mediaId: String,
@@ -266,14 +282,7 @@ fun LyricsTrackSelector(
                                 menuState.hide()
                                 onDismiss()
                                 Database.asyncTransaction {
-                                    val isSynced = !it.syncedLyrics.isNullOrEmpty()
-                                    lyricsTable.upsert(
-                                        Lyrics(
-                                            songId = mediaId,
-                                            type = if (isSynced) LyricsType.Synced.name else LyricsType.Unsynced.name,
-                                            data = if (isSynced) it.syncedLyrics.orEmpty() else it.plainLyrics.orEmpty()
-                                        )
-                                    )
+                                    lyricsTable.upsert(pickedLyrics(mediaId, it))
                                 }
                             }
                         )

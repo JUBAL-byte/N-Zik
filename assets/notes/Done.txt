@@ -1,3 +1,12 @@
+fix(lyrics): keep a manually picked LrcLib track from being replaced by the automatic fetch (issue https://github.com/N-Zik-Group/N-Zik/issues/765)
+  - LyricsTrackSelector.kt: the pick handler wrote a plain `Lyrics` row (no `isEdited`, no `lastFetchedAt`). With the refetch TTL a null stamp counts as expired and non-timed rows are hunted on revisits, so a deliberate pick could be replaced by the default match the user had just rejected - the #765 symptom for a manual choice. The row is now built by the new `pickedLyrics(mediaId, track)` and saved with `isEdited = true`
+  - "Fetch lyrics again" still hands the song back to the automatic fetch: it rewrites the displayed row with `data = null` and `isEdited = false`. That is the picked row whenever both share the same type (the pick type comes from the track content, not from the display)
+  - The "Pick from LrcLib" entry is only offered in Synced mode
+  - Lyrics.kt: KDoc of `isEdited` now covers both a typed edit and a LrcLib pick
+  - Deferred (deferred-work.md, all pre-existing): a track without synced lyrics writes an Unsynced row that Synced mode never displays; picking a track with no text overwrites the stored lyrics of that type with an empty row; "Fetch lyrics again" in Auto with nothing displayed writes a row of type "Auto"
+  - New test: LyricsTrackSelectorTest (2: synced track -> Synced row, plain-only track -> Unsynced row, both flagged `isEdited`)
+  - Full unit suite: ComposeN-Zik 419 tests, 0 failures; `assembleDebug` OK
+
 fix(rescue): harden the database, settings and shortcut operations after code review (issue https://github.com/N-Zik-Group/N-Zik/issues/811)
   - Database export failed on a WAL database: `exportDatabase` opened `data.db` `OPEN_READONLY` then ran `wal_checkpoint(TRUNCATE)`, which a read-only connection cannot do (reproduced with SQLite: "disk I/O error"), and a bare copy of `data.db` next to a `-wal` left by a crash contains no table. It now opens read-write, checks the checkpoint busy flag and fails explicitly instead of exporting an incomplete file
   - A corrupt `data.db` could be deleted by the rescue itself: `SQLiteDatabase.openDatabase` without a `DatabaseErrorHandler` uses `DefaultDatabaseErrorHandler`, which deletes the file when SQLite reports corruption at open time (AOSP `SQLiteDatabase.open()` -> `onCorruption()`). The export checkpoint and the import validation now pass a no-op handler (`keepCorruptDatabase`)
