@@ -109,6 +109,7 @@ import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.durationTextToMillis
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.forcePlayFromBeginning
@@ -135,6 +136,7 @@ import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import app.n_zik.android.thumbnailShape
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.LocalDownloadStatesMap
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.enums.DownloadedStateMedia
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -455,7 +457,14 @@ fun Podcast(
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
                                             podcastPage?.listEpisode?.map(Innertube.Podcast.EpisodeItem::asMediaItem)?.let { mediaItems ->
-                                                binder?.player?.enqueue(mediaItems, context)
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    val filtered = withContext(NzikDispatchers.DATA) {
+                                        val player = binder?.player ?: return@withContext emptyList()
+                                        player.excludeMediaItems(mediaItems, context)
+                                    }
+                                    val player = binder?.player ?: return@launch
+                                    player.enqueue(filtered)
+                                }
                                             }
                                         },
                                         onLongClick = {

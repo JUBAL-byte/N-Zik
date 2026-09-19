@@ -188,7 +188,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.components.dialog.settings.SettingsInputDialog
@@ -196,6 +195,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import app.n_zik.android.thumbnailShape
 import app.n_zik.android.artistThumbnailShape
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 
 @Composable
@@ -1617,6 +1617,17 @@ fun InProgressDialog(
     }
 }
 
+internal suspend fun fetchSongMatchResults(searchText: String): List<Innertube.SongItem?> {
+    val searchQuery = withContext(NzikDispatchers.DATA) {
+        Innertube.searchPage(
+            query = searchText,
+            params = Innertube.SearchFilter.Song.value,
+            fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
+        )
+    }
+    return searchQuery?.getOrNull()?.items ?: emptyList()
+}
+
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 fun SongMatchingDialog(
@@ -1656,16 +1667,8 @@ fun SongMatchingDialog(
             var startSearch by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit,startSearch) {
-                runBlocking(Dispatchers.IO) {
-                    val searchQuery = Innertube.searchPage(
-                        query = searchText,
-                        params = Innertube.SearchFilter.Song.value,
-                        fromMusicShelfRendererContent = Innertube.SongItem.Companion::from
-                    )
-
-                    songsList = searchQuery?.getOrNull()?.items ?: emptyList()
-                    startSearch = false
-                }
+                songsList = fetchSongMatchResults(searchText)
+                startSearch = false
             }
             Row(
                 horizontalArrangement = Arrangement.Start,

@@ -50,6 +50,10 @@ import app.it.fast4x.rimusic.ui.components.themed.StringListDialog
 import app.n_zik.android.components.dialog.settings.SettingsInputDialog
 import app.it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
 import app.n_zik.android.components.dialog.logs.CopyLogsDialog
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.defaultFolderKey
 import app.it.fast4x.rimusic.utils.extraspaceKey
@@ -248,13 +252,21 @@ fun OtherSettings() {
                             list = blackListedPaths,
                             add = { newPath: String ->
                                 blackListedPaths = blackListedPaths + newPath
-                                val file = File(context.filesDir, "Blacklisted_paths.txt")
-                                file.writeText(blackListedPaths.joinToString("\n"))
+                                val snapshot = blackListedPaths.toList()
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    withContext(NzikDispatchers.DATA) {
+                                        File(context.filesDir, "Blacklisted_paths.txt").writeText(snapshot.joinToString("\n"))
+                                    }
+                                }
                             },
                             remove = { path: String ->
                                 blackListedPaths = blackListedPaths.filter { it != path }
-                                val file = File(context.filesDir, "Blacklisted_paths.txt")
-                                file.writeText(blackListedPaths.joinToString("\n"))
+                                val snapshot = blackListedPaths.toList()
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    withContext(NzikDispatchers.DATA) {
+                                        File(context.filesDir, "Blacklisted_paths.txt").writeText(snapshot.joinToString("\n"))
+                                    }
+                                }
                             },
                             onDismiss = { showBlacklistDialog = false }
                         )

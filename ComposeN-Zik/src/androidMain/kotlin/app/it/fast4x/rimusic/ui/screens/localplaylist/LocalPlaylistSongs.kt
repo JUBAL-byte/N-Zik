@@ -132,6 +132,7 @@ import app.it.fast4x.rimusic.utils.deleteFileIfExists
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.durationTextToMillis
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.forcePlayFromBeginning
 import app.it.fast4x.rimusic.utils.formatAsTime
@@ -215,6 +216,7 @@ import app.n_zik.android.components.tab.ImportSongsFromServices
 import app.n_zik.android.core.database.ImportSong
 import app.n_zik.android.components.dialog.settings.LocalPlaylistToolbarSettingsDialog
 import app.n_zik.android.utils.getAlbumVersionFromVideo
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONArray
@@ -813,16 +815,32 @@ fun LocalPlaylistSongs(
     }
 
     val playNext = PlayNext {
-        binder?.player?.addNext( getMediaItems(), appContext() )
+        val songs = getSongs().toList()
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
+        CoroutineScope(NzikDispatchers.UI).launch {
+            val mediaItems = withContext(NzikDispatchers.DATA) {
+                val player = binder?.player ?: return@withContext emptyList()
+                player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
+            }
+            val player = binder?.player ?: return@launch
+            player.addNext(mediaItems)
+        }
     }
     val enqueue = Enqueue {
-        binder?.player?.enqueue( getMediaItems(), context )
+        val songs = getSongs().toList()
 
         // Turn of selector clears the selected list
         itemSelector.isActive = false
+        CoroutineScope(NzikDispatchers.UI).launch {
+            val mediaItems = withContext(NzikDispatchers.DATA) {
+                val player = binder?.player ?: return@withContext emptyList()
+                player.excludeMediaItems(songs.map(Song::asMediaItem), context)
+            }
+            val player = binder?.player ?: return@launch
+            player.enqueue(mediaItems)
+        }
     }
     val addToFavorite = LikeComponent( ::getSongs )
 

@@ -132,6 +132,7 @@ import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.durationTextToMillis
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.forcePlayFromBeginning
@@ -660,11 +661,18 @@ fun PlaylistSongList(
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
                                             if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                                                playlistPage?.songs?.filter { it.asMediaItem.mediaId !in dislikedSongs }
+                                                val mediaItems = playlistPage?.songs
+                                                    ?.filter { it.asMediaItem.mediaId !in dislikedSongs }
                                                     ?.map(Innertube.SongItem::asMediaItem)
-                                                    ?.let { mediaItems ->
-                                                        binder?.player?.enqueue(mediaItems, context)
+                                                    ?: emptyList()
+                                                CoroutineScope(NzikDispatchers.UI).launch {
+                                                    val filtered = withContext(NzikDispatchers.DATA) {
+                                                        val player = binder?.player ?: return@withContext emptyList()
+                                                        player.excludeMediaItems(mediaItems, context)
                                                     }
+                                                    val player = binder?.player ?: return@launch
+                                                    player.enqueue(filtered)
+                                                }
                                             } else
                                                 Toaster.e(R.string.disliked_this_collection)
                                         },

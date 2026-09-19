@@ -101,6 +101,7 @@ import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
@@ -125,6 +126,7 @@ import app.n_zik.android.components.tab.ItemSelector
 import app.n_zik.android.components.tab.Radio
 import app.n_zik.android.components.tab.SongShuffler
 import app.n_zik.android.playback.utils.Shuffler
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.Descriptive
 import app.it.fast4x.rimusic.ui.components.tab.toolbar.MenuIcon
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -256,9 +258,12 @@ fun ArtistDetails(
         scope.launch {
             isGlobalLoading = true
             try {
-                val allSongs = getSongs()
-                val mediaItems = allSongs.map(Song::asMediaItem)
-                binder?.player?.addNext(mediaItems, appContext())
+                val songs = getSongs().toList()
+                val mediaItems = withContext(NzikDispatchers.DATA) {
+                    val player = binder?.player ?: return@withContext emptyList()
+                    player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
+                }
+                binder?.player?.addNext(mediaItems)
                 itemSelector.isActive = false
             } finally {
                 isGlobalLoading = false
@@ -269,9 +274,12 @@ fun ArtistDetails(
         scope.launch {
             isGlobalLoading = true
             try {
-                val allSongs = getSongs()
-                val mediaItems = allSongs.map(Song::asMediaItem)
-                binder?.player?.enqueue(mediaItems, appContext())
+                val songs = getSongs().toList()
+                val mediaItems = withContext(NzikDispatchers.DATA) {
+                    val player = binder?.player ?: return@withContext emptyList()
+                    player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
+                }
+                binder?.player?.enqueue(mediaItems)
                 itemSelector.isActive = false
             } finally {
                 isGlobalLoading = false

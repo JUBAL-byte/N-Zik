@@ -55,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.n_zik.android.components.dialog.export.ExportDatabaseDialog
 import app.n_zik.android.components.dialog.export.ExportSettingsDialog
 import app.n_zik.android.components.import.ImportDatabase
@@ -68,6 +69,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import app.n_zik.android.core.backup.ui.AutoBackupSettingsBlock
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import java.io.File
@@ -180,16 +182,18 @@ fun DataSettings() {
                 cleanCacheOfflineSongs = false
             },
             onConfirm = {
-                binder?.cache?.let { cache ->
-                    val keys = cache.keys
-                    keys.forEach { song ->
-                        cache.removeResource(song)
-                    }
-                }
-                File(context.filesDir, "waveforms").deleteRecursively()
-                WaveformExtractor.refreshSignal.tryEmit(System.currentTimeMillis())
                 cleanCacheOfflineSongs = false
-                cacheCleanedCounter++
+                CoroutineScope(NzikDispatchers.UI).launch {
+                    withContext(NzikDispatchers.DATA) {
+                        val cache = binder?.cache
+                        cache?.keys?.forEach { song ->
+                            cache.removeResource(song)
+                        }
+                        File(context.filesDir, "waveforms").deleteRecursively()
+                    }
+                    WaveformExtractor.refreshSignal.tryEmit(System.currentTimeMillis())
+                    cacheCleanedCounter++
+                }
             }
         )
     }
@@ -201,25 +205,27 @@ fun DataSettings() {
                 cleanDownloadCache = false
             },
             onConfirm = {
-                binder?.downloadCache?.let { downloadCache ->
-                    val keys = downloadCache.keys
-                    keys.forEach { songId ->
-                        downloadCache.removeResource(songId)
-
-                        CoroutineScope(Dispatchers.IO).launch {
-                            Database.songTable
-                                .findById(songId)
-                                .first()
-                                ?.asMediaItem
-                                ?.let {
-                                    MyDownloadHelper.removeDownload(context, it)
-                                }
-                        }
-                    }
-                }
-                File(context.filesDir, "waveforms").deleteRecursively()
                 cleanDownloadCache = false
-                cacheCleanedCounter++
+                CoroutineScope(NzikDispatchers.UI).launch {
+                    withContext(NzikDispatchers.DATA) {
+                        val downloadCache = binder?.downloadCache
+                        downloadCache?.keys?.forEach { songId ->
+                            downloadCache.removeResource(songId)
+
+                            CoroutineScope(NzikDispatchers.DATA).launch {
+                                Database.songTable
+                                    .findById(songId)
+                                    .first()
+                                    ?.asMediaItem
+                                    ?.let {
+                                        MyDownloadHelper.removeDownload(context, it)
+                                    }
+                            }
+                        }
+                        File(context.filesDir, "waveforms").deleteRecursively()
+                    }
+                    cacheCleanedCounter++
+                }
             }
         )
     }
@@ -624,9 +630,13 @@ fun DataSettings() {
                                 Database.asyncTransaction {
                                     eventTable.deleteAll()
                                 }
-                                File(context.filesDir, "waveforms").deleteRecursively()
-                                WaveformExtractor.refreshSignal.tryEmit(System.currentTimeMillis())
-                                Toaster.done()
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    withContext(NzikDispatchers.DATA) {
+                                        File(context.filesDir, "waveforms").deleteRecursively()
+                                    }
+                                    WaveformExtractor.refreshSignal.tryEmit(System.currentTimeMillis())
+                                    Toaster.done()
+                                }
                             }
                         )
                     }

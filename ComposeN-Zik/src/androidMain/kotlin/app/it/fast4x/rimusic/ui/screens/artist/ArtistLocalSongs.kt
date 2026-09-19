@@ -58,6 +58,7 @@ import app.it.fast4x.rimusic.ui.styling.px
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.forcePlayFromBeginning
 import app.it.fast4x.rimusic.utils.getDownloadState
@@ -68,6 +69,7 @@ import app.it.fast4x.rimusic.utils.showFloatingIconKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
 import app.n_zik.android.colorPalette
 import app.kreate.android.me.knighthat.utils.Toaster
@@ -100,6 +102,7 @@ import app.it.fast4x.rimusic.utils.addNext
 import app.n_zik.android.components.SongItem
 import app.it.fast4x.rimusic.models.Artist
 import app.n_zik.android.core.database.LikeStateManager
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import it.fast4x.innertube.requests.ArtistPage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.text.BasicText
@@ -230,7 +233,19 @@ fun ArtistLocalSongs(
                     color = if (!songs.isNullOrEmpty()) colorPalette().text else colorPalette().textDisabled,
                     iconSize = 24.dp,
                     modifier = Modifier.clip(uiRoundnessShape()),
-                    onClick = { if (!songs.isNullOrEmpty()) binder?.player?.enqueue(songs!!.map(Song::asMediaItem), context) },
+                    onClick = {
+                        val snapshot = songs?.toList().orEmpty()
+                        if (snapshot.isNotEmpty()) {
+                CoroutineScope(NzikDispatchers.UI).launch {
+                    val mediaItems = withContext(NzikDispatchers.DATA) {
+                        val player = binder?.player ?: return@withContext emptyList()
+                        player.excludeMediaItems(snapshot.map(Song::asMediaItem), context)
+                    }
+                    val player = binder?.player ?: return@launch
+                    player.enqueue(mediaItems)
+                }
+                        }
+                    },
                     onLongClick = { Toaster.i(context.resources.getString(R.string.info_enqueue_songs)) }
                 )
                 HeaderIconButton(
@@ -538,7 +553,16 @@ fun ArtistLocalSongs(
                                 iconSize = 24.dp,
                                 modifier = Modifier.clip(uiRoundnessShape()),
                                         onClick = {
-                                            binder?.player?.enqueue(songs!!.map(Song::asMediaItem), context)
+                                            val snapshot = songs?.toList().orEmpty()
+                                            if (snapshot.isNotEmpty()) {
+                                                CoroutineScope(NzikDispatchers.UI).launch {
+                                                    val player = binder?.player ?: return@launch
+                                                    val mediaItems = withContext(NzikDispatchers.DATA) {
+                                                        player.excludeMediaItems(snapshot.map(Song::asMediaItem), context)
+                                                    }
+                                                    player.enqueue(mediaItems)
+                                                }
+                                            }
                                         },
                                         onLongClick = {
                                             Toaster.i(context.resources.getString(R.string.info_enqueue_songs))

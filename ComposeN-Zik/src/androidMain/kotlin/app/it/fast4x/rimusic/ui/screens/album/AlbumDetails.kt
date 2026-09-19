@@ -103,6 +103,7 @@ import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.durationTextToMillis
 import app.it.fast4x.rimusic.utils.enqueue
+import app.it.fast4x.rimusic.utils.excludeMediaItems
 import app.it.fast4x.rimusic.utils.fadingEdge
 import app.it.fast4x.rimusic.utils.forcePlayAtIndex
 import app.it.fast4x.rimusic.utils.formatAsTime
@@ -117,14 +118,17 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.showFloatingIconKey
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.n_zik.android.components.SongItem
 import app.n_zik.android.LocalDownloadStatesMap
 import app.n_zik.android.components.album.AlbumModifier
 import app.n_zik.android.components.menu.album.OnlineAlbumItemMenu
 import app.n_zik.android.core.database.LikeStateManager
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.dialog.tab.DeleteAllDownloadedSongsDialog
 import app.n_zik.android.components.dialog.tab.DownloadAllSongsDialog
 import app.n_zik.android.components.tab.ItemSelector
@@ -212,20 +216,32 @@ fun AlbumDetails(
     val radio = Radio( ::getSongs )
     val locator = Locator( lazyListState, ::getSongs )
     val playNext = PlayNext {
-        getMediaItems().let {
-            binder?.player?.addNext( it, appContext() )
+        val songs = getSongs().toList()
 
-            // Turn of selector clears the selected list
-            itemSelector.isActive = false
-        }
+        // Turn of selector clears the selected list
+        itemSelector.isActive = false
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    val mediaItems = withContext(NzikDispatchers.DATA) {
+                                        val player = binder?.player ?: return@withContext emptyList()
+                                        player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
+                                    }
+                                    val player = binder?.player ?: return@launch
+                                    player.addNext(mediaItems)
+                                }
     }
     val enqueue = Enqueue {
-        getMediaItems().let {
-            binder?.player?.enqueue( it, appContext() )
+        val songs = getSongs().toList()
 
-            // Turn of selector clears the selected list
-            itemSelector.isActive = false
-        }
+        // Turn of selector clears the selected list
+        itemSelector.isActive = false
+                                CoroutineScope(NzikDispatchers.UI).launch {
+                                    val mediaItems = withContext(NzikDispatchers.DATA) {
+                                        val player = binder?.player ?: return@withContext emptyList()
+                                        player.excludeMediaItems(songs.map(Song::asMediaItem), appContext())
+                                    }
+                                    val player = binder?.player ?: return@launch
+                                    player.enqueue(mediaItems)
+                                }
     }
     val addToPlaylist = PlaylistsMenu.init(
         navController,
