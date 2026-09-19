@@ -5,8 +5,6 @@ import app.n_zik.android.core.database.Database
 import app.kreate.android.me.knighthat.sync.YouTubeSync
 
 import app.n_zik.android.MainApplication
-import app.n_zik.android.utils.artistTextOrDb
-import app.n_zik.android.utils.albumTitleOrDb
 import app.n_zik.android.utils.coroutines.runPeriodically
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
@@ -14,9 +12,6 @@ import kotlinx.coroutines.delay
 import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.WallpaperManager
-import android.app.WallpaperManager.FLAG_LOCK
-import android.app.WallpaperManager.FLAG_SYSTEM
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
@@ -35,7 +30,6 @@ import android.media.audiofx.BassBoost
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.PresetReverb
 import android.os.Build
-import android.os.Bundle
 import androidx.annotation.MainThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,9 +76,7 @@ import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
-import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
-import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionToken
 import app.it.fast4x.rimusic.repository.QuickPicksRepository
 import app.n_zik.android.R
@@ -93,7 +85,6 @@ import app.n_zik.android.playback.services.streamUrlCache
 import app.n_zik.android.playback.services.markClientFailed
 import app.n_zik.android.playback.services.clearAllFailures
 
-import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.MoreExecutors
 import it.fast4x.innertube.Innertube
 import io.ktor.client.call.body
@@ -109,10 +100,8 @@ import app.it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import app.it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
 import app.it.fast4x.rimusic.enums.ExoPlayerMinTimeForEvent
 import app.it.fast4x.rimusic.enums.NotificationButtons
-import app.it.fast4x.rimusic.enums.NotificationType
 import app.it.fast4x.rimusic.enums.PresetsReverb
 import app.it.fast4x.rimusic.enums.QueueLoopType
-import app.it.fast4x.rimusic.enums.WallpaperType
 import app.it.fast4x.rimusic.extensions.audiovolume.AudioVolumeObserver
 import app.it.fast4x.rimusic.extensions.audiovolume.OnAudioVolumeChangedListener
 import app.n_zik.android.core.network.utils.NetworkQualityHelper
@@ -131,7 +120,6 @@ import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.download.services.MyDownloadService
 import app.it.fast4x.rimusic.utils.CoilBitmapLoader
 import app.it.fast4x.rimusic.utils.TimerJob
-import app.it.fast4x.rimusic.utils.activityPendingIntent
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.audioQualityFormatKey
 import app.it.fast4x.rimusic.utils.imageQualityFormatKey
@@ -145,7 +133,6 @@ import app.it.fast4x.rimusic.utils.collect
 import it.fast4x.innertube.requests.searchPage
 import it.fast4x.innertube.utils.from
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
-import app.it.fast4x.rimusic.utils.enableWallpaperKey
 import app.it.fast4x.rimusic.utils.encryptedPreferences
 import app.it.fast4x.rimusic.utils.exoPlayerCacheLocationKey
 import app.it.fast4x.rimusic.utils.exoPlayerCustomCacheKey
@@ -159,7 +146,6 @@ import app.it.fast4x.rimusic.utils.intent
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid10
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid6
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid7
-import app.it.fast4x.rimusic.utils.isAtLeastAndroid8
 import app.it.fast4x.rimusic.utils.isPauseOnVolumeZeroEnabledKey
 import app.it.fast4x.rimusic.utils.loudnessBaseGainKey
 import app.it.fast4x.rimusic.utils.manageDownload
@@ -167,7 +153,6 @@ import app.it.fast4x.rimusic.utils.mediaItems
 import app.it.fast4x.rimusic.utils.minimumSilenceDurationKey
 import app.it.fast4x.rimusic.utils.notificationPlayerFirstIconKey
 import app.it.fast4x.rimusic.utils.notificationPlayerSecondIconKey
-import app.it.fast4x.rimusic.utils.notificationTypeKey
 import app.it.fast4x.rimusic.utils.pauseListenHistoryKey
 import app.it.fast4x.rimusic.utils.persistentQueueKey
 import app.it.fast4x.rimusic.utils.playNext
@@ -198,7 +183,6 @@ import app.it.fast4x.rimusic.utils.toggleRepeatMode
 import app.it.fast4x.rimusic.utils.toggleShuffleMode
 import app.it.fast4x.rimusic.utils.volumeNormalizationKey
 import app.it.fast4x.rimusic.utils.volumeBoostLevelKey
-import app.it.fast4x.rimusic.utils.wallpaperTypeKey
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -380,47 +364,12 @@ class PlayerServiceModern : MediaLibraryService(),
             }
         }
 
-        val notificationType = preferences.getEnum(notificationTypeKey, NotificationType.Default)
-        when (notificationType) {
-            NotificationType.Default -> {
-                // DEFAULT NOTIFICATION PROVIDER MODDED
-                setMediaNotificationProvider(CustomMediaNotificationProvider(this)
-                    .apply {
-                        setSmallIcon(R.drawable.ic_launcher_monochrome)
-                    }
-                )
+        // DEFAULT NOTIFICATION PROVIDER MODDED (the only notification type)
+        setMediaNotificationProvider(CustomMediaNotificationProvider(this)
+            .apply {
+                setSmallIcon(R.drawable.ic_launcher_monochrome)
             }
-
-            NotificationType.Advanced -> {
-                // CUSTOM NOTIFICATION PROVIDER -> CUSTOM NOTIFICATION PROVIDER WITH ACTIONS AND PENDING INTENT
-                // ACTUALLY NOT STABLE
-                setMediaNotificationProvider(object : MediaNotification.Provider {
-                    
-                    private val defaultProvider = DefaultMediaNotificationProvider(this@PlayerServiceModern)
-
-                    override fun createNotification(
-                        mediaSession: MediaSession,
-                        customLayout: ImmutableList<CommandButton>,
-                        actionFactory: MediaNotification.ActionFactory,
-                        onNotificationChangedCallback: MediaNotification.Provider.Callback
-                    ): MediaNotification {
-                        return updateCustomNotification(mediaSession)
-                    }
-
-                    override fun handleCustomCommand(
-                        session: MediaSession,
-                        action: String,
-                        extras: Bundle
-                    ): Boolean {
-                        return false
-                    }
-                    
-                    override fun getNotificationChannelInfo(): MediaNotification.Provider.NotificationChannelInfo {
-                        return defaultProvider.getNotificationChannelInfo()
-                    }
-                })
-            }
-        }
+        )
 
         runCatching {
             bitmapProvider = BitmapProvider(
@@ -1823,157 +1772,6 @@ class PlayerServiceModern : MediaLibraryService(),
         commandButtonsList += firstCommandButton + secondCommandButton + otherCommandButtons
 
         return commandButtonsList
-    }
-
-    private fun updateCustomNotification(session: MediaSession): MediaNotification {
-
-        val playIntent = Action.play.pendingIntent
-        val pauseIntent = Action.pause.pendingIntent
-        val nextIntent = Action.next.pendingIntent
-        val prevIntent = Action.previous.pendingIntent
-
-        val mediaMetadata = player.mediaMetadata
-
-        val mediaItem = binder?.player?.currentMediaItem
-        val artistTextRaw = mediaItem?.artistTextOrDb()
-        val artistText = if (artistTextRaw.isNullOrBlank() || artistTextRaw == "null") getString(R.string.unknown_artist) else artistTextRaw
-        val albumText = mediaItem?.albumTitleOrDb()?.takeIf { it != "null" } ?: ""
-
-        // Load bitmap with proper fallback handling
-        bitmapProvider.load(mediaMetadata.artworkUri) {
-            // Callback is called with the final bitmap (including fallback)
-        }
-
-        val customNotify = if (isAtLeastAndroid8) {
-            NotificationCompat.Builder(this, NotificationChannelId)
-        } else {
-            NotificationCompat.Builder(this)
-        }
-            .setContentTitle(
-                cleanPrefix(player.mediaMetadata.title?.toString() ?: "").let { if (it.isBlank() || it == "null") getString(R.string.unknown_title) else it }.let {
-                    if (player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("isExplicit") == true ||
-                        player.currentMediaItem?.mediaMetadata?.extras?.getBoolean("androidx.media3.session.EXTRAS_KEY_IS_EXPLICIT") == true) {
-                        "\uD83C\uDD74 $it"
-                    } else it
-                }
-            )
-            .setContentText(
-                if (albumText.isNotBlank() && artistText.isNotBlank()) {
-                    "$artistText | $albumText"
-                } else {
-                    artistText
-                }
-            )
-            .setSubText(
-                if (albumText.isNotBlank() && artistText.isNotBlank()) {
-                    "$artistText | $albumText"
-                } else {
-                    artistText
-                }
-            )
-            .setLargeIcon(bitmapProvider.bitmap)
-            .setAutoCancel(false)
-            .setOnlyAlertOnce(true)
-            .setShowWhen(false)
-            .setSmallIcon(player.playerError?.let { R.drawable.alert_circle }
-                ?: R.drawable.ic_launcher_monochrome)
-            .setOngoing(false)
-            .setContentIntent(activityPendingIntent<MainActivity>(
-                flags = PendingIntent.FLAG_UPDATE_CURRENT
-            ) {
-                putExtra("expandPlayerBottomSheet", true)
-            })
-            .setDeleteIntent(broadCastPendingIntent<NotificationDismissReceiver>())
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
-            .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
-            .addAction(R.drawable.play_skip_back, getString(R.string.notification_skip_back), prevIntent)
-            .addAction(
-                if (player.isPlaying) R.drawable.pause else R.drawable.play,
-                if (player.isPlaying) getString(R.string.notification_pause) else getString(R.string.notification_play),
-                if (player.isPlaying) pauseIntent else playIntent
-            )
-            .addAction(R.drawable.play_skip_forward, getString(R.string.notification_skip_forward), nextIntent)
-
-        //***********************
-        val notificationPlayerFirstIcon = preferences.getEnum(notificationPlayerFirstIconKey, NotificationButtons.Download)
-        val notificationPlayerSecondIcon = preferences.getEnum(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
-
-        NotificationButtons.entries.let { buttons ->
-            buttons
-                .filter { it == notificationPlayerFirstIcon }
-                .map {
-                    customNotify.addAction(
-                        it.getStateIcon(
-                            it,
-                            currentSong.value?.likedAt,
-                            currentSongStateDownload.value,
-                            player.repeatMode,
-                            player.shuffleModeEnabled
-                        ),
-                        appContext().resources.getString( it.textId ),
-                        it.pendingIntent
-                    )
-                }
-        }
-
-        NotificationButtons.entries.let { buttons ->
-            buttons
-                .filter { it == notificationPlayerSecondIcon }
-                .map {
-                    customNotify.addAction(
-                        it.getStateIcon(
-                            it,
-                            currentSong.value?.likedAt,
-                            currentSongStateDownload.value,
-                            player.repeatMode,
-                            player.shuffleModeEnabled
-                        ),
-                        appContext().resources.getString( it.textId ),
-                        it.pendingIntent
-                    )
-                }
-        }
-
-        NotificationButtons.entries.let { buttons ->
-            buttons
-                .filterNot { it == notificationPlayerFirstIcon || it == notificationPlayerSecondIcon }
-                .map {
-                    customNotify.addAction(
-                        it.getStateIcon(
-                            it,
-                            currentSong.value?.likedAt,
-                            currentSongStateDownload.value,
-                            player.repeatMode,
-                            player.shuffleModeEnabled
-                        ),
-                        appContext().resources.getString( it.textId ),
-                        it.pendingIntent
-                    )
-                }
-        }
-        //***********************
-
-        updateWallpaper()
-
-        return MediaNotification(NotificationId, customNotify.build())
-    }
-
-    private fun updateWallpaper() {
-        val wallpaperEnabled = preferences.getBoolean(enableWallpaperKey, false)
-        val wallpaperType = preferences.getEnum(wallpaperTypeKey, WallpaperType.Lockscreen)
-        if (isAtLeastAndroid7 && wallpaperEnabled) {
-            coroutineScope.launch(NzikDispatchers.DATA) {
-                val wpManager = WallpaperManager.getInstance(this@PlayerServiceModern)
-                wpManager.setBitmap(bitmapProvider.bitmap, null, true,
-                    when (wallpaperType) {
-                        WallpaperType.Both -> (FLAG_LOCK or FLAG_SYSTEM)
-                        WallpaperType.Lockscreen -> FLAG_LOCK
-                        WallpaperType.Home -> FLAG_SYSTEM
-                    }
-                )
-            }
-        }
     }
 
     private fun updateDefaultNotification() {

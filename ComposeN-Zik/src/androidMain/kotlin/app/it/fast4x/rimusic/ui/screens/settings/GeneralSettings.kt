@@ -54,7 +54,6 @@ import app.it.fast4x.rimusic.enums.MaxSongs
 import app.it.fast4x.rimusic.enums.MusicAnimationType
 import app.it.fast4x.rimusic.enums.NavigationBarPosition
 import app.it.fast4x.rimusic.enums.NavigationBarType
-import app.it.fast4x.rimusic.enums.NotificationType
 import app.it.fast4x.rimusic.enums.PauseBetweenSongs
 import app.it.fast4x.rimusic.enums.DislikeMode
 import app.it.fast4x.rimusic.enums.PipModule
@@ -95,7 +94,6 @@ import app.it.fast4x.rimusic.utils.loudnessBaseGainKey
 import app.it.fast4x.rimusic.utils.maxSongsInQueueKey
 import app.it.fast4x.rimusic.utils.maxSongsInQueueAndroidAutoKey
 import app.it.fast4x.rimusic.utils.minimumSilenceDurationKey
-import app.it.fast4x.rimusic.utils.notificationTypeKey
 import app.it.fast4x.rimusic.utils.nowPlayingIndicatorKey
 import app.it.fast4x.rimusic.utils.pauseBetweenSongsKey
 import app.it.fast4x.rimusic.utils.persistentQueueKey
@@ -206,8 +204,6 @@ fun DefaultGeneralSettings(context: Context) {
     pipModule = PipModule.Cover
     var jumpPrevious by rememberPreference(jumpPreviousKey, "3")
     jumpPrevious = "3"
-    var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
-    notificationType = NotificationType.Default
     AppShortcutsSettingsDialog.reset(context)
 }
 
@@ -282,7 +278,6 @@ fun GeneralSettings(
     var enablePictureInPictureAuto by rememberPreference(enablePictureInPictureAutoKey, false)
     var pipModule by rememberPreference(pipModuleKey, PipModule.Cover)
     var jumpPrevious by rememberPreference(jumpPreviousKey,"3")
-    var notificationType by rememberPreference(notificationTypeKey, NotificationType.Default)
 
     Column(
         modifier = Modifier
@@ -348,49 +343,6 @@ fun GeneralSettings(
                               valueText = { it.text },
                               values = Languages.values().toList(),
                               onDismiss = { showLanguageDialog = false }
-                          )
-                      }
-                 }
-             )
-         }
-
-         /* Removed Spacer */
-
-         // Notifications Section
-         val searchCtx_1 = search.inputValue.isBlank() || stringResource(R.string.notifications).contains(search.inputValue, true) || stringResource(R.string.notification_type).contains(search.inputValue, true) || stringResource(R.string.restarting_rimusic_is_required).contains(search.inputValue, true) || stringResource(R.string.notification_type_info).contains(search.inputValue, true)
-         AnimatedVisibility(
-             visible = searchCtx_1,
-             enter = fadeIn(animationSpec = tween(700)) + scaleIn(
-                 animationSpec = tween(700),
-                 initialScale = 0.9f
-             )
-         ) {
-                                                       SettingsSectionCard(
-                   title = stringResource(R.string.notifications),
-                   icon = R.drawable.notification2,
-                   content = {
-                     var showNotificationTypeDialog by remember { mutableStateOf(false) }
-        if (search.inputValue.isBlank() || stringResource(R.string.notification_type).contains(search.inputValue,true)) {
-                                                                                                       OtherSettingsEntry(
-                               title = stringResource(R.string.notification_type),
-                               text = notificationType.textName,
-                               onClick = { showNotificationTypeDialog = true },
-                               icon = R.drawable.notification1
-                           )
-                         ImportantSettingsDescription(text = stringResource(R.string.restarting_rimusic_is_required))
-                     }
-                     
-                                           if (showNotificationTypeDialog) {
-                          ValueSelectorDialog(
-                title = stringResource(R.string.notification_type_info),
-                selectedValue = notificationType,
-                onValueSelected = {
-                    notificationType = it
-                                  RestartAppDialog.showDialog()
-                              },
-                              valueText = { it.textName },
-                              values = NotificationType.values().toList(),
-                              onDismiss = { showNotificationTypeDialog = false }
                           )
                       }
                  }

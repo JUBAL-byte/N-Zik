@@ -64,7 +64,6 @@ import app.it.fast4x.rimusic.enums.SongsNumber
 import app.it.fast4x.rimusic.enums.SwipeAnimationNoThumbnail
 import app.it.fast4x.rimusic.enums.ThumbnailCoverType
 import app.it.fast4x.rimusic.enums.ThumbnailType
-import app.it.fast4x.rimusic.enums.WallpaperType
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.ui.components.themed.AppearancePresetDialog
 import app.n_zik.android.components.dialog.settings.PlayerActionBarSettingsDialog
@@ -94,12 +93,10 @@ import app.n_zik.android.enums.PlayerSwipeSensitivity
 import app.it.fast4x.rimusic.utils.shakeSensitivityThemeKey
 import app.it.fast4x.rimusic.utils.disableScrollingTextKey
 import app.it.fast4x.rimusic.utils.effectRotationKey
-import app.it.fast4x.rimusic.utils.enableWallpaperKey
 import app.it.fast4x.rimusic.utils.expandedplayerKey
 import app.it.fast4x.rimusic.utils.expandedplayertoggleKey
 import app.it.fast4x.rimusic.utils.fadingedgeKey
 import app.it.fast4x.rimusic.utils.iconLikeTypeKey
-import app.it.fast4x.rimusic.utils.isAtLeastAndroid7
 import app.it.fast4x.rimusic.utils.isLandscape
 import app.it.fast4x.rimusic.utils.isShowingThumbnailInLockscreenKey
 import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
@@ -177,7 +174,6 @@ import app.it.fast4x.rimusic.utils.topPaddingKey
 import app.it.fast4x.rimusic.utils.transparentBackgroundPlayerActionBarKey
 import app.it.fast4x.rimusic.utils.transparentbarKey
 import app.it.fast4x.rimusic.utils.visualizerEnabledKey
-import app.it.fast4x.rimusic.utils.wallpaperTypeKey
 import app.n_zik.android.components.tab.Search
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.it.fast4x.rimusic.ui.components.themed.DialogColorPicker
@@ -546,12 +542,6 @@ fun DefaultAppearanceSettings() {
     var notificationPlayerSecondIcon by rememberPreference(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
     notificationPlayerSecondIcon = NotificationButtons.Favorites
 
-    var enableWallpaper by rememberPreference(enableWallpaperKey, false)
-    enableWallpaper = false
-
-    var wallpaperType by rememberPreference(wallpaperTypeKey, WallpaperType.Lockscreen)
-    wallpaperType = WallpaperType.Lockscreen
-
     var topPadding by rememberPreference(topPaddingKey, true)
     topPadding = true
 
@@ -771,8 +761,6 @@ fun AppearanceSettings(
 
     var notificationPlayerFirstIcon by rememberPreference(notificationPlayerFirstIconKey, NotificationButtons.Download)
     var notificationPlayerSecondIcon by rememberPreference(notificationPlayerSecondIconKey, NotificationButtons.Favorites)
-    var enableWallpaper by rememberPreference(enableWallpaperKey, false)
-    var wallpaperType by rememberPreference(wallpaperTypeKey, WallpaperType.Lockscreen)
     var topPadding by rememberPreference(topPaddingKey, true)
     var animatedGradient by rememberPreference(
         animatedGradientKey,
@@ -2777,52 +2765,6 @@ fun AppearanceSettings(
 
                 }
             )
-        }
-
-        if (isAtLeastAndroid7) {
-        /* Removed Spacer */
-            val searchCtx_4 = search.inputValue.isBlank() || stringResource(R.string.wallpaper).contains(search.inputValue, true) || stringResource(R.string.enable_wallpaper).contains(search.inputValue, true) || stringResource(R.string.set_cover_thumbnail_as_wallpaper).contains(search.inputValue, true)
-            AnimatedVisibility(
-                visible = searchCtx_4,
-                enter = fadeIn(animationSpec = tween(1000)) + scaleIn(
-                    animationSpec = tween(1000),
-                    initialScale = 0.9f
-                )
-            ) {
-                SettingsSectionCard(
-                    title = stringResource(R.string.wallpaper),
-                    icon = R.drawable.image,
-                    content = {
-                        if (search.inputValue.isBlank() || stringResource(R.string.enable_wallpaper).contains(search.inputValue, true)) {
-                            OtherSwitchSettingEntry(
-                                icon = R.drawable.images_sharp,
-                                title = stringResource(R.string.enable_wallpaper),
-                                text = "",
-                                isChecked = enableWallpaper,
-                                onCheckedChange = { enableWallpaper = it }
-                            )
-                        }
-                        AnimatedVisibility(visible = enableWallpaper) {
-                            Column {
-                                if (search.inputValue.isBlank() || stringResource(R.string.set_cover_thumbnail_as_wallpaper).contains(search.inputValue, true)) {
-                                    OtherEnumValueSelectorSettingsEntry(
-                                        icon = R.drawable.settings,
-                                        title = stringResource(R.string.set_cover_thumbnail_as_wallpaper),
-                                        selectedValue = wallpaperType,
-                                        onValueSelected = {
-                                            wallpaperType = it
-                                            restartService = true
-                                        },
-                                        valueText = { it.text },
-                                        modifier = Modifier.padding(start = 25.dp)
-                                    )
-                                }
-                                RestartPlayerService(restartService, onRestart = { restartService = false })
-                            }
-                        }
-                    }
-                )
-            }
         }
 
         /* Removed Spacer */

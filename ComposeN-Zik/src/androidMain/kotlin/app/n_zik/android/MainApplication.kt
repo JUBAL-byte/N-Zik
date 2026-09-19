@@ -44,6 +44,7 @@ import app.it.fast4x.rimusic.utils.ytCookieExpiredKey
 import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
 import app.it.fast4x.rimusic.utils.ytVisitorDataKey
 import app.n_zik.android.core.coil.ImageCacheFactory
+import app.n_zik.android.core.migration.RemovedSettingsMigration
 import app.n_zik.android.core.network.client.NetworkClientFactory
 import app.n_zik.android.core.network.client.Store
 import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
@@ -148,6 +149,8 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         DiscordRpc.backgroundDispatcher = NzikDispatchers.DATA
 
         migrateCredentialsToEncrypted()
+        runCatching { RemovedSettingsMigration.run(preferences) }
+            .onFailure { Timber.tag("MainApplication").w(it, "Removed settings migration failed") }
         InnerTubeXPlayer.initialize(this)
 
         // Setup session BEFORE prewarm — ensures session is stable when IO thread starts

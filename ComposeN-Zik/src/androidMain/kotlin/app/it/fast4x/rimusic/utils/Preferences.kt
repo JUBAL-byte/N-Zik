@@ -500,10 +500,6 @@ const val jumpPreviousKey = "jumpPrevious"
 const val artistTypeKey = "artistType"
 const val albumTypeKey = "albumType"
 
-const val enableWallpaperKey = "enableWallpaper"
-const val wallpaperTypeKey = "wallpaperType"
-
-const val notificationTypeKey = "notificationType"
 const val topPaddingKey = "topPadding"
 
 const val autoDownloadSongKey = "autoDownloadSong"
