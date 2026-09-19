@@ -1,6 +1,9 @@
 package app.n_zik.android.components.dialog.media
 
+import androidx.media3.datasource.cache.Cache
 import app.n_zik.android.core.database.*
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -51,19 +54,40 @@ abstract class MediaDownloadDialog(
             MyDownloadHelper.skipBatchCompleted(skippedCount)
         }
 
-        songsToDownload.forEach {
-            // binder has to be non-null for remove from cache to work
-            if( binder == null ) return
-            binder.cache.removeResource( it.id )
+        // binder has to be non-null for remove from cache to work
+        if( binder == null ) return
 
-            Database.asyncTransaction {
-                formatTable.deleteBySongId( it.id )
-            }
+        val cache = binder.cache
+        onDismiss()
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+            runDownloadBatch( songsToDownload, cache ) { onAction( it ) }
+        }
+    }
+}
 
-            onAction( it )
+/**
+ * Runs a download dialog's cache-eviction + per-song [onAction] batch (issue #606 H5).
+ * One scope per batch, never one per song. The caller guarantees a non-null cache by
+ * checking the binder before launching; a null [cache] is still a safe no-op.
+ *
+ * @param songs the batch to process
+ * @param cache the streaming cache to evict each song from, may be null
+ * @param onAction the per-song action (e.g. start a download)
+ */
+@UnstableApi
+internal suspend fun runDownloadBatch(
+    songs: List<Song>,
+    cache: Cache?,
+    onAction: ( Song ) -> Unit
+) {
+    songs.forEach { song ->
+        cache?.removeResource( song.id )
+
+        Database.asyncTransaction {
+            formatTable.deleteBySongId( song.id )
         }
 
-        onDismiss()
+        onAction( song )
     }
 }
 

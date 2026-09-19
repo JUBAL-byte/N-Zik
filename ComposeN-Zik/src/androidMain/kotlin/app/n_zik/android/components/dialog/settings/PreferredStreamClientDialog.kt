@@ -41,8 +41,11 @@ import app.n_zik.android.LocalPlayerServiceBinder
 import app.n_zik.android.components.dialog.common.Dialog
 import app.it.fast4x.rimusic.utils.streamClientRestartNeededKey
 import app.n_zik.android.playback.services.clearStreamCaches
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.kreate.android.me.knighthat.utils.Toaster
 import android.content.Context
+import androidx.media3.datasource.cache.Cache
+import kotlinx.coroutines.launch
 
 object PreferredStreamClientDialog : Dialog {
 
@@ -169,8 +172,8 @@ object PreferredStreamClientDialog : Dialog {
                                 prefs.edit().putBoolean(streamClientRestartNeededKey, true).apply()
                                 clearStreamCaches()
                                 // Clear audio cache
-                                binder?.cache?.let { cache ->
-                                    cache.keys.forEach { song -> cache.removeResource(song) }
+                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                    clearAudioCache(binder?.cache)
                                 }
                                 Toaster.i(R.string.preferred_stream_client_changed)
                                 Toaster.w(R.string.stream_client_redownload_recommendation)
@@ -186,5 +189,16 @@ object PreferredStreamClientDialog : Dialog {
     fun reset(context: Context) {
         val prefs = context.getSharedPreferences("preferences", Context.MODE_PRIVATE)
         prefs.edit().putString(preferredStreamClientKey, "WEB_REMIX").apply()
+    }
+}
+
+/**
+ * Purges the full streaming audio cache (issue #606 H3) — one `removeResource` per key.
+ * Callers dispatch this on a background dispatcher; a null [cache] is a safe no-op and
+ * individual removal failures are already tolerated by the cache itself.
+ */
+internal suspend fun clearAudioCache(cache: Cache?) {
+    cache?.keys?.forEach { key ->
+        cache.removeResource(key)
     }
 }

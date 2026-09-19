@@ -395,17 +395,20 @@ fun Podcast(
                                     onConfirm = {
                                         showConfirmDownloadAllDialog = false
                                         downloadState = Download.STATE_DOWNLOADING
-                                        if (podcastPage?.listEpisode?.isNotEmpty() == true)
-                                            podcastPage?.listEpisode?.forEach {
-                                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                Database.asyncTransaction {
-                                                    formatTable.findBySongId( it.asMediaItem.mediaId )
+                                        val episodes = podcastPage?.listEpisode
+                                        if (episodes?.isNotEmpty() == true)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                episodes.forEach {
+                                                    binder?.cache?.removeResource(it.asMediaItem.mediaId)
+                                                    Database.asyncTransaction {
+                                                        formatTable.findBySongId( it.asMediaItem.mediaId )
+                                                    }
+                                                    manageDownload(
+                                                        context = context,
+                                                        mediaItem = it.asMediaItem,
+                                                        downloadState = false
+                                                    )
                                                 }
-                                                manageDownload(
-                                                    context = context,
-                                                    mediaItem = it.asMediaItem,
-                                                    downloadState = false
-                                                )
                                             }
                                     }
                                 )
@@ -430,17 +433,20 @@ fun Podcast(
                                     onConfirm = {
                                         showConfirmDeleteDownloadDialog = false
                                         downloadState = Download.STATE_DOWNLOADING
-                                        if (podcastPage?.listEpisode?.isNotEmpty() == true)
-                                            podcastPage?.listEpisode?.forEach {
-                                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                Database.asyncTransaction {
-                                                    formatTable.findBySongId( it.asMediaItem.mediaId )
+                                        val episodes = podcastPage?.listEpisode
+                                        if (episodes?.isNotEmpty() == true)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                episodes.forEach {
+                                                    binder?.cache?.removeResource(it.asMediaItem.mediaId)
+                                                    Database.asyncTransaction {
+                                                        formatTable.findBySongId( it.asMediaItem.mediaId )
+                                                    }
+                                                    manageDownload(
+                                                        context = context,
+                                                        mediaItem = it.asMediaItem,
+                                                        downloadState = true
+                                                    )
                                                 }
-                                                manageDownload(
-                                                    context = context,
-                                                    mediaItem = it.asMediaItem,
-                                                    downloadState = true
-                                                )
                                             }
                                     }
                                 )

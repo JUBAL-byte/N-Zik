@@ -1,6 +1,10 @@
 package app.n_zik.android.components.tab
 
+import android.content.Context
+import androidx.media3.datasource.cache.Cache
 import app.n_zik.android.core.database.*
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.launch
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -172,13 +176,8 @@ class SmartTrash private constructor(
     }
 
     private fun deleteDownloads( songs: List<Song> ) {
-        songs.forEach { song ->
-            binder?.cache?.removeResource( song.id )
-            binder?.downloadCache?.removeResource( song.id )
-            Database.asyncTransaction {
-                formatTable.deleteBySongId( song.id )
-            }
-            MyDownloadHelper.removeDownload( appContext(), song.asMediaItem )
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+            deleteDownloadsOffMain( songs, binder?.cache, binder?.downloadCache, appContext() )
         }
     }
 
@@ -186,5 +185,31 @@ class SmartTrash private constructor(
         Database.asyncTransaction {
             eventTable.deleteBySongIds( songs.map { it.id } )
         }
+    }
+}
+
+/**
+ * Deletes the downloads for a batch of songs (issue #606 H4) — one scope per batch,
+ * never one per song. Runs on the dispatcher it is launched from; null caches are no-ops.
+ *
+ * @param songs the songs whose downloads should be removed
+ * @param cache the streaming cache, may be null
+ * @param downloadCache the download cache, may be null
+ * @param context application context passed through to [MyDownloadHelper.removeDownload]
+ */
+@UnstableApi
+internal suspend fun deleteDownloadsOffMain(
+    songs: List<Song>,
+    cache: Cache?,
+    downloadCache: Cache?,
+    context: Context
+) {
+    songs.forEach { song ->
+        cache?.removeResource( song.id )
+        downloadCache?.removeResource( song.id )
+        Database.asyncTransaction {
+            formatTable.deleteBySongId( song.id )
+        }
+        MyDownloadHelper.removeDownload( context, song.asMediaItem )
     }
 }

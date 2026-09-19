@@ -57,6 +57,7 @@ import app.n_zik.android.R
 
 import app.n_zik.android.components.dialog.common.RestartAppDialog
 import app.n_zik.android.components.dialog.settings.SyncStatusDialog
+import app.n_zik.android.components.dialog.settings.clearAudioCache
 
 import it.fast4x.innertube.utils.parseCookieString
 import app.n_zik.android.appContext
@@ -341,11 +342,8 @@ fun AccountsSettings() {
                                 clearStreamCaches()
                                 appContext().preferences.edit().putBoolean(streamClientRestartNeededKey, true).apply()
                                 // Clear audio cache
-                                binder?.cache?.let { cache ->
-                                    val keys = cache.keys
-                                    keys.forEach { song ->
-                                        cache.removeResource(song)
-                                    }
+                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                    clearAudioCache(binder?.cache)
                                 }
                                 Toaster.i(R.string.preferred_stream_client_changed)
                                 Toaster.w(R.string.stream_client_redownload_recommendation)

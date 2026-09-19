@@ -29,7 +29,9 @@ import app.it.fast4x.rimusic.utils.streamClientAndroidEnabledKey
 import app.it.fast4x.rimusic.utils.streamClientRestartNeededKey
 import app.it.fast4x.rimusic.utils.streamClientsOrderKey
 import app.n_zik.android.playback.services.clearStreamCaches
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.kreate.android.me.knighthat.utils.Toaster
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import android.content.Context
@@ -193,8 +195,8 @@ object StreamClientsSettingsDialog : Dialog {
                 if (hasChanges) {
                     editor.putBoolean(streamClientRestartNeededKey, true)
                     clearStreamCaches()
-                    binder?.cache?.let { cache ->
-                        cache.keys.forEach { song -> cache.removeResource(song) }
+                    NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                        clearAudioCache(binder?.cache)
                     }
                     Toaster.i(R.string.preferred_stream_client_changed)
                     Toaster.w(R.string.stream_client_redownload_recommendation)

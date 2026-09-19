@@ -9,6 +9,7 @@ import app.it.fast4x.rimusic.utils.excludeDislikedSongsKey
 import app.it.fast4x.rimusic.enums.DislikeMode
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -104,6 +105,7 @@ import app.it.fast4x.rimusic.enums.UiType
 import app.it.fast4x.rimusic.models.Playlist
 import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.playback.services.isLocal
+import app.n_zik.android.playback.services.PlayerServiceModern
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.SwipeablePlaylistItem
@@ -298,25 +300,10 @@ fun PlaylistSongList(
                 .findByBrowseId( browseId )
     }.collectAsState( null, NzikDispatchers.DATA )
 
-    var filterCharSequence: CharSequence
-    filterCharSequence = filter.toString()
-    if (!filter.isNullOrBlank()) {
-        playlistPage?.songs =
-            playlistPage?.songs?.filter { songItem ->
-                songItem.asMediaItem.mediaMetadata.title?.contains(
-                    filterCharSequence,
-                    true
-                ) ?: false
-                        || songItem.asMediaItem.mediaMetadata.artist?.contains(
-                    filterCharSequence,
-                    true
-                ) ?: false
-                        || songItem.asMediaItem.mediaMetadata.albumTitle?.contains(
-                    filterCharSequence,
-                    true
-                ) ?: false
-            }!!
-    } else playlistPage?.songs = playlistSongs
+    // Derived from playlistSongs (parental-control filtered + deduplicated), not the raw page songs
+    val filteredPageSongs = remember(filter, playlistSongs) {
+        playlistSongs.applyFilter(filter)
+    }
 
     var playlistNotLikedSongs by persistList<Innertube.SongItem>("playlist/$browseId/notLikedSongs")
 
@@ -350,7 +337,7 @@ fun PlaylistSongList(
     }
 
     var totalPlayTimes = 0L
-    playlistPage?.songs?.forEach {
+    filteredPageSongs?.forEach {
         totalPlayTimes += it.durationText?.let { it1 ->
             durationTextToMillis(it1) }?.toLong() ?: 0
     }
@@ -364,13 +351,17 @@ fun PlaylistSongList(
                 .distinctUntilChanged()
     }.collectAsState( emptyList(), NzikDispatchers.DATA )
 
+    val hasNonDislikedSongs = remember(filteredPageSongs, dislikedSongs) {
+        filteredPageSongs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true
+    }
+
     val importPlaylistDialog = ImportPlaylistDialog(
         initialValue = playlistPage?.playlist?.title ?: ""
     ) { text ->
         Database.asyncTransaction {
             val playlist = Playlist(name = text, browseId = browseId)
 
-            playlistPage?.songs
+            filteredPageSongs
                         ?.map( Innertube.SongItem::asMediaItem )
                         ?.let {
                             mapIgnore( playlist, *it.toTypedArray() )
@@ -511,7 +502,7 @@ fun PlaylistSongList(
                             )
 
                             BasicText(
-                                text = playlistPage!!.songs?.size.toString() + " "
+                                text = (filteredPageSongs?.size ?: 0).toString() + " "
                                         + stringResource(R.string.songs)
                                         + " - " + formatAsTime(totalPlayTimes),
                                 style = typography().xs.medium,
@@ -592,22 +583,15 @@ fun PlaylistSongList(
                                     onDismiss = { showConfirmDownloadAllDialog = false },
                                     onConfirm = {
                                         showConfirmDownloadAllDialog = false
-                                        if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                                            if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true)
-                                                playlistPage?.songs?.filter { it.asMediaItem.mediaId !in dislikedSongs }
-                                                    ?.forEach {
-                                                        binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                        Database.asyncTransaction {
-                                                            formatTable.findBySongId( it.key )
-                                                        }
-                                                        manageDownload(
-                                                            context = context,
-                                                            mediaItem = it.asMediaItem,
-                                                            downloadState = false
-                                                        )
-                                                    } else
-                                                Toaster.e(R.string.disliked_this_collection)
-                                        }
+                                        if (hasNonDislikedSongs)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                processPlaylistBatch(
+                                                    songs = filteredPageSongs?.filter { it.asMediaItem.mediaId !in dislikedSongs },
+                                                    binder = binder,
+                                                    context = context,
+                                                    downloadState = false
+                                                )
+                                            }
                                     }
                                 )
                             }
@@ -630,22 +614,15 @@ fun PlaylistSongList(
                                     onDismiss = { showConfirmDeleteDownloadDialog = false },
                                     onConfirm = {
                                         showConfirmDeleteDownloadDialog = false
-                                        if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                                            if (playlistPage?.songs?.isNotEmpty() == true)
-                                                playlistPage?.songs?.forEach {
-                                                    binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                    Database.asyncTransaction {
-                                                        formatTable.findBySongId( it.key )
-                                                    }
-                                                    manageDownload(
-                                                        context = context,
-                                                        mediaItem = it.asMediaItem,
-                                                        downloadState = true
-                                                    )
-                                                } else {
-                                                Toaster.e(R.string.disliked_this_collection)
+                                        if (hasNonDislikedSongs)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                processPlaylistBatch(
+                                                    songs = filteredPageSongs,
+                                                    binder = binder,
+                                                    context = context,
+                                                    downloadState = true
+                                                )
                                             }
-                                        }
                                     }
                                 )
                             }
@@ -654,12 +631,12 @@ fun PlaylistSongList(
 
                             HeaderIconButton(
                                 icon = R.drawable.enqueue,
-                                enabled = playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true,
-                                color =  if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) colorPalette().text else colorPalette().textDisabled,
+                                enabled = hasNonDislikedSongs,
+                                color =  if (hasNonDislikedSongs) colorPalette().text else colorPalette().textDisabled,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
-                                            if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                                                val mediaItems = playlistPage?.songs
+                                            if (hasNonDislikedSongs) {
+                                                val mediaItems = filteredPageSongs
                                                     ?.filter { it.asMediaItem.mediaId !in dislikedSongs }
                                                     ?.map(Innertube.SongItem::asMediaItem)
                                                     ?: emptyList()
@@ -681,12 +658,12 @@ fun PlaylistSongList(
 
                             HeaderIconButton(
                                 icon = R.drawable.shuffle,
-                                enabled = playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true,
-                                color = if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) colorPalette().text else colorPalette().textDisabled,
+                                enabled = hasNonDislikedSongs,
+                                color = if (hasNonDislikedSongs) colorPalette().text else colorPalette().textDisabled,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
-                                            if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                                                val mediaItems = playlistPage?.songs
+                                            if (hasNonDislikedSongs) {
+                                                val mediaItems = filteredPageSongs
                                                     ?.filter { it.asMediaItem.mediaId !in dislikedSongs }
                                                     ?.map(Innertube.SongItem::asMediaItem)
                                                     ?: emptyList()
@@ -701,13 +678,13 @@ fun PlaylistSongList(
 
                             HeaderIconButton(
                                 icon = R.drawable.radio,
-                                enabled = playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true,
-                                color = if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } != true) colorPalette().textDisabled
+                                enabled = hasNonDislikedSongs,
+                                color = if (!hasNonDislikedSongs) colorPalette().textDisabled
                                         else if (binder?.isRadioActive == true) colorPalette().accent
                                         else colorPalette().text,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
-                                            val songs = playlistPage?.songs.orEmpty()
+                                            val songs = filteredPageSongs.orEmpty()
                                             if( songs.fastAny { it.key in dislikedSongs } ) {
                                                 Toaster.e( R.string.disliked_this_collection )
                                                 return@HeaderIconButton
@@ -745,13 +722,13 @@ fun PlaylistSongList(
                                                         if (position > 0) position++ else position =
                                                             0
 
-                                                        val playlistSize = playlistPage?.songs?.size ?: 0
+                                                        val playlistSize = filteredPageSongs?.size ?: 0
 
                                                         if ((playlistSize + playlistPreview.songCount) > 5000 && playlistPreview.playlist.isYoutubePlaylist && isYouTubeSyncEnabled()){
                                                             Toaster.e( R.string.yt_playlist_limited )
                                                         } else if (!isYouTubeSyncEnabled() || !playlistPreview.playlist.isYoutubePlaylist) {
                                                             Database.asyncTransaction {
-                                                                val songs = playlistPage?.songs
+                                                                val songs = filteredPageSongs
                                                                                                           ?.map( Innertube.SongItem::asMediaItem )
                                                                                                           .orEmpty()
                                                                 mapIgnore( playlistPreview.playlist, *songs.toTypedArray() )
@@ -780,7 +757,7 @@ fun PlaylistSongList(
                             )
                             HeaderIconButton(
                                 icon = R.drawable.heart,
-                                enabled = playlistPage?.songs?.isNotEmpty() == true,
+                                enabled = filteredPageSongs?.isNotEmpty() == true,
                                 color = colorPalette().text,
                                 modifier = Modifier.padding(horizontal = 5.dp).clip(uiRoundnessShape()),
                                         onClick = {
@@ -789,12 +766,12 @@ fun PlaylistSongList(
                                             } else if (!isYouTubeSyncEnabled()){
                                                 NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                                     val showDisliked = appContext().preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() }?.isEnabled ?: true
-                                                    playlistPage!!.songs
-                                                                  .map{ it.asSong.id }
-                                                                  .filter {
+                                                    filteredPageSongs
+                                                                  ?.map{ it.asSong.id }
+                                                                  ?.filter {
                                                                       !Database.songTable.isLiked( it ).first()
                                                                   }
-                                                                  .forEach { id ->
+                                                                  ?.forEach { id ->
                                                                       if (showDisliked) {
                                                                           Database.songTable.rotateLikeState(id)
                                                                       } else {
@@ -838,7 +815,7 @@ fun PlaylistSongList(
                                                     isYoutubePlaylist = true,
                                                     isEditable = false
                                                 )
-                                                playlistPage?.songs
+                                                filteredPageSongs
                                                     ?.map( Innertube.SongItem::asMediaItem )
                                                     ?.let { mapIgnore( playlist, *it.toTypedArray() ) }
                                             }
@@ -1111,7 +1088,7 @@ fun PlaylistSongList(
                                 if ( ytSong.key !in dislikedSongs ) {
                                     searching = false
                                     filter = null
-                                    playlistPage?.songs
+                                    filteredPageSongs
                                                 ?.filter { it.key !in dislikedSongs }
                                                 ?.map(Innertube.SongItem::asMediaItem)
                                                 ?.let { mediaItems ->
@@ -1140,8 +1117,8 @@ fun PlaylistSongList(
                 lazyListState = lazyListState,
                 iconId = R.drawable.shuffle,
                 onClick = {
-                    if (playlistPage?.songs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true) {
-                        val mediaItems = playlistPage?.songs
+                    if (hasNonDislikedSongs) {
+                        val mediaItems = filteredPageSongs
                             ?.filter { it.asMediaItem.mediaId !in dislikedSongs }
                             ?.map(Innertube.SongItem::asMediaItem)
                             ?: emptyList()
@@ -1152,6 +1129,66 @@ fun PlaylistSongList(
             )
             }
         }
+    }
+}
+
+/**
+ * Derives the filtered song list for [PlaylistSongList] batch actions (issue #606 H1).
+ * Pure and null-safe: always filters the full list, never mutates its input, so re-typing a
+ * search can no longer shrink an already-filtered list (cumulative-shrink bug).
+ *
+ * @param filter the raw search text; `null`/blank returns the list unchanged
+ * @return the input list filtered by title/artist/album (case-insensitive), or null when the
+ * input is null
+ */
+internal fun List<Innertube.SongItem>?.applyFilter(filter: String?): List<Innertube.SongItem>? {
+    if (this == null) return null
+    if (filter.isNullOrBlank()) return this
+    val filterText = filter
+    return filter { songItem ->
+        songItem.asMediaItem.mediaMetadata.title?.contains(
+            filterText,
+            true
+        ) ?: false
+                || songItem.asMediaItem.mediaMetadata.artist?.contains(
+            filterText,
+            true
+        ) ?: false
+                || songItem.asMediaItem.mediaMetadata.albumTitle?.contains(
+            filterText,
+            true
+        ) ?: false
+    }
+}
+
+/**
+ * Runs a playlist download/delete-all batch on the dispatcher it is launched from
+ * (issue #606 H2) — one fire-and-forget scope per batch, never one per song.
+ *
+ * A null [binder] is a safe no-op for the cache eviction; [manageDownload] is always called.
+ *
+ * @param songs the batch to process (already disliked-filtered by the caller); null = no-op
+ * @param binder the player service binder, may be null
+ * @param context application context passed through to [manageDownload]
+ * @param downloadState `false` starts downloads, `true` removes them (see [manageDownload])
+ */
+@UnstableApi
+internal suspend fun processPlaylistBatch(
+    songs: List<Innertube.SongItem>?,
+    binder: PlayerServiceModern.Binder?,
+    context: Context,
+    downloadState: Boolean
+) {
+    songs?.forEach { songItem ->
+        binder?.cache?.removeResource(songItem.asMediaItem.mediaId)
+        Database.asyncTransaction {
+            formatTable.findBySongId( songItem.key )
+        }
+        manageDownload(
+            context = context,
+            mediaItem = songItem.asMediaItem,
+            downloadState = downloadState
+        )
     }
 }
 

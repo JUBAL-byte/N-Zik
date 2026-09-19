@@ -271,17 +271,22 @@ fun ArtistLocalSongs(
                     onConfirm = {
                         showConfirmDownloadAllDialog = false
                         downloadState = Download.STATE_DOWNLOADING
-                        if (songs?.isNotEmpty() == true)
-                            songs?.forEach {
-                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                                    Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
+                        val snapshot = songs?.toList()
+                        if (snapshot?.isNotEmpty() == true)
+                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                Database.asyncTransaction {
+                                    snapshot.forEach { song ->
+                                        formatTable.deleteBySongId(song.asMediaItem.mediaId)
+                                    }
                                 }
-                                manageDownload(
-                                    context = context,
-                                    mediaItem = it.asMediaItem,
-                                    downloadState = false
-                                )
+                                snapshot.forEach { song ->
+                                    binder?.cache?.removeResource(song.asMediaItem.mediaId)
+                                    manageDownload(
+                                        context = context,
+                                        mediaItem = song.asMediaItem,
+                                        downloadState = false
+                                    )
+                                }
                             }
                     }
                 )
@@ -293,17 +298,22 @@ fun ArtistLocalSongs(
                     onConfirm = {
                         showConfirmDeleteDownloadDialog = false
                         downloadState = Download.STATE_DOWNLOADING
-                        if (songs?.isNotEmpty() == true)
-                            songs?.forEach {
-                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                                    Database.formatTable.deleteBySongId(it.asMediaItem.mediaId)
+                        val snapshot = songs?.toList()
+                        if (snapshot?.isNotEmpty() == true)
+                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                Database.asyncTransaction {
+                                    snapshot.forEach { song ->
+                                        formatTable.deleteBySongId(song.asMediaItem.mediaId)
+                                    }
                                 }
-                                manageDownload(
-                                    context = context,
-                                    mediaItem = it.asMediaItem,
-                                    downloadState = true
-                                )
+                                snapshot.forEach { song ->
+                                    binder?.cache?.removeResource(song.asMediaItem.mediaId)
+                                    manageDownload(
+                                        context = context,
+                                        mediaItem = song.asMediaItem,
+                                        downloadState = true
+                                    )
+                                }
                             }
                     }
                 )
@@ -492,17 +502,22 @@ fun ArtistLocalSongs(
                                     onConfirm = {
                                         showConfirmDownloadAllDialog = false
                                         downloadState = Download.STATE_DOWNLOADING
-                                        if (songs?.isNotEmpty() == true)
-                                            songs?.forEach {
-                                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                                                    Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
+                                        val snapshot = songs?.toList()
+                                        if (snapshot?.isNotEmpty() == true)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                Database.asyncTransaction {
+                                                    snapshot.forEach { song ->
+                                                        formatTable.deleteBySongId(song.asMediaItem.mediaId)
+                                                    }
                                                 }
-                                                manageDownload(
-                                                    context = context,
-                                                    mediaItem = it.asMediaItem,
-                                                    downloadState = false
-                                                )
+                                                snapshot.forEach { song ->
+                                                    binder?.cache?.removeResource(song.asMediaItem.mediaId)
+                                                    manageDownload(
+                                                        context = context,
+                                                        mediaItem = song.asMediaItem,
+                                                        downloadState = false
+                                                    )
+                                                }
                                             }
                                     }
                                 )
@@ -528,17 +543,22 @@ fun ArtistLocalSongs(
                                     onConfirm = {
                                         showConfirmDeleteDownloadDialog = false
                                         downloadState = Download.STATE_DOWNLOADING
-                                        if (songs?.isNotEmpty() == true)
-                                            songs?.forEach {
-                                                binder?.cache?.removeResource(it.asMediaItem.mediaId)
-                                                NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
-                                                    Database.formatTable.deleteBySongId( it.asMediaItem.mediaId )
+                                        val snapshot = songs?.toList()
+                                        if (snapshot?.isNotEmpty() == true)
+                                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                                                Database.asyncTransaction {
+                                                    snapshot.forEach { song ->
+                                                        formatTable.deleteBySongId(song.asMediaItem.mediaId)
+                                                    }
                                                 }
-                                                manageDownload(
-                                                    context = context,
-                                                    mediaItem = it.asMediaItem,
-                                                    downloadState = true
-                                                )
+                                                snapshot.forEach { song ->
+                                                    binder?.cache?.removeResource(song.asMediaItem.mediaId)
+                                                    manageDownload(
+                                                        context = context,
+                                                        mediaItem = song.asMediaItem,
+                                                        downloadState = true
+                                                    )
+                                                }
                                             }
                                     }
                                 )

@@ -10,6 +10,8 @@ import app.n_zik.android.R
 import app.n_zik.android.LocalPlayerServiceBinder
 import app.n_zik.android.appContext
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.launch
 import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.playback.services.PlayerServiceModern
@@ -75,11 +77,12 @@ class DeleteAllDownloadedSongsDialog(
             return
         }
 
-        downloadedSongs.forEach {
-            MyDownloadHelper.removeDownload( appContext(), it.asMediaItem )
-        }
-
         onDismiss()
+        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+            downloadedSongs.forEach {
+                MyDownloadHelper.removeDownload( appContext(), it.asMediaItem )
+            }
+        }
     }
 
     override fun onAction( media: Song ) =
