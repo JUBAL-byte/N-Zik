@@ -1,4 +1,4 @@
-﻿<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
 <string name="cancel">取消</string>
 <string name="done">完成</string>
@@ -327,10 +327,6 @@
 <string name="do_you_really_want_to_delete_all_playback_events">你真的要移除所有重播紀錄嗎?</string>
 <string name="lang_sinhala">僧伽羅語 (සිංහල)</string>
 <string name="update_available">有可用的更新</string>
-<string name="actions_you_can_do">你可以做的操作:</string>
-<string name="open_the_github_releases_web_page_and_download_latest_version">開啟GitHub網址並下載最新版本</string>
-<string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">從GitHub下載最新的版本, 你會在通知中看到檔案, 點擊以安裝</string>
-<string name="f_droid_users_can_wait_for_the_update_info">F-Droid使用者可以等待F-Droid的更新. IzzyOnDroid的更新通常幾小時內發布, F-Droid則會在幾天內發布.</string>
 <string name="check_update">檢查更新</string>
 <string name="enable_check_for_update">啟用檢查更新</string>
 <string name="when_enabled_a_new_version_is_checked_and_notified_during_startup">啟用後, 在App啟動時檢查並通知新版本.</string>
