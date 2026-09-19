@@ -222,7 +222,6 @@ import app.it.fast4x.rimusic.utils.isVideo
 import app.it.fast4x.rimusic.utils.keepPlayerMinimizedKey
 import app.it.fast4x.rimusic.utils.languageAppKey
 import app.it.fast4x.rimusic.utils.loadAppLog
-import app.it.fast4x.rimusic.utils.loadedDataKey
 import app.it.fast4x.rimusic.utils.logDebugEnabledKey
 import app.it.fast4x.rimusic.utils.miniPlayerTypeKey
 import app.it.fast4x.rimusic.utils.navigationBarPositionKey
@@ -493,9 +492,6 @@ class MainActivity :
             }
             MainApplication.CookieStatus.VALID -> { /* all good */ }
         }
-
-        // Used in QuickPics for load data from remote instead of last saved in SharedPreferences
-        preferences.edit(commit = true) { putBoolean(loadedDataKey, false) }
 
         if (!preferences.getBoolean(closeWithBackButtonKey, false))
             if (Build.VERSION.SDK_INT >= 33) {

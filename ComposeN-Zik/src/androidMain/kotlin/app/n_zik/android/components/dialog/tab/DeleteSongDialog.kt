@@ -26,6 +26,10 @@ import java.io.File
 import java.util.Optional
 import app.n_zik.android.extensions.audiobar.utils.WaveformExtractor
 import app.n_zik.android.appContext
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 open class DeleteSongDialog(
@@ -66,43 +70,53 @@ open class DeleteSongDialog(
                 WaveformExtractor.deleteWaveform(appContext(), s.id)
             }
 
-            if (s.isLocal) {
-                deleteLocalFile(s)
+            // File/MediaStore I/O must not run on Main; Toast only after it completes.
+            // This class has no Compose scope, so it owns a short-lived UI-bound one.
+            CoroutineScope( NzikDispatchers.UI ).launch {
+                deleteSongFiles( s )
+                Toaster.i( R.string.deleted )
             }
-
-            Toaster.i( R.string.deleted )
         }
 
         onDismiss()
     }
+}
 
-    private fun deleteLocalFile(song: Song) {
-        try {
-            val mediaStoreId = song.id.substringAfter(LOCAL_KEY_PREFIX).toLongOrNull() ?: return
-            val context = appContext()
+internal fun deleteLocalSongFile(song: Song) {
+    try {
+        val mediaStoreId = song.id.substringAfter(LOCAL_KEY_PREFIX).toLongOrNull() ?: return
+        val context = appContext()
 
-            val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaStoreId)
+        val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaStoreId)
 
-            var resolvedPath: String? = null
-            context.contentResolver.query(
-                uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    resolvedPath = cursor.getString(0)
-                }
+        var resolvedPath: String? = null
+        context.contentResolver.query(
+            uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                resolvedPath = cursor.getString(0)
             }
-
-            val path = resolvedPath
-            if (path != null) {
-                val deleted = File(path).delete()
-                Timber.tag("DeleteSongDialog").d("File.delete(%s) = %s", path, deleted)
-            }
-
-            val rowsDeleted = context.contentResolver.delete(uri, null, null)
-            Timber.tag("DeleteSongDialog").d("MediaStore.delete rows=%d for: %s", rowsDeleted, song.title)
-        } catch (e: Exception) {
-            Timber.tag("DeleteSongDialog").e(e, "Failed to delete local file: %s", song.title)
         }
+
+        val path = resolvedPath
+        if (path != null) {
+            val deleted = File(path).delete()
+            Timber.tag("DeleteSongDialog").d("File.delete(%s) = %s", path, deleted)
+        }
+
+        val rowsDeleted = context.contentResolver.delete(uri, null, null)
+        Timber.tag("DeleteSongDialog").d("MediaStore.delete rows=%d for: %s", rowsDeleted, song.title)
+    } catch (e: Exception) {
+        Timber.tag("DeleteSongDialog").e(e, "Failed to delete local file: %s", song.title)
     }
 }
 
+/**
+ * Deletes the backing file of a local [song] on [NzikDispatchers.DATA]; no-op for non-local songs.
+ * [delete] is injectable so the dispatch can be verified without MediaStore.
+ */
+internal suspend fun deleteSongFiles(song: Song, delete: (Song) -> Unit = ::deleteLocalSongFile) {
+    if (song.isLocal) {
+        withContext( NzikDispatchers.DATA ) { delete( song ) }
+    }
+}

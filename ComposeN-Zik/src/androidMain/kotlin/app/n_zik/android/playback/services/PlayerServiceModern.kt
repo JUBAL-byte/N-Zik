@@ -7,6 +7,7 @@ import app.kreate.android.me.knighthat.sync.YouTubeSync
 import app.n_zik.android.MainApplication
 import app.n_zik.android.utils.artistTextOrDb
 import app.n_zik.android.utils.albumTitleOrDb
+import app.n_zik.android.utils.coroutines.runPeriodically
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 
@@ -123,11 +124,8 @@ import it.fast4x.lastfm.LastFm
 import app.n_zik.android.isHandleAudioFocusEnabled
 import app.n_zik.android.isPauseOnHeadphoneDisconnectEnabled
 import app.it.fast4x.rimusic.models.Event
-import app.it.fast4x.rimusic.models.PersistentQueue
-import app.it.fast4x.rimusic.models.PersistentSong
 import app.it.fast4x.rimusic.models.QueuedMediaItem
 import app.it.fast4x.rimusic.models.Song
-import app.it.fast4x.rimusic.models.asMediaItem
 import app.n_zik.android.playback.utils.BitmapProvider
 import app.n_zik.android.playback.utils.SleepTimer
 import app.n_zik.android.playback.utils.NZikRadio
@@ -228,10 +226,6 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.io.ObjectInputStream
-import java.io.ObjectOutputStream
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import kotlin.io.path.createTempDirectory
 import kotlin.math.roundToInt
 import kotlin.system.exitProcess
@@ -667,10 +661,7 @@ class PlayerServiceModern : MediaLibraryService(),
         if (isPersistentQueueEnabled) {
             maybeResumePlaybackOnStart()
 
-            val scheduler = Executors.newScheduledThreadPool(1)
-            scheduler.scheduleWithFixedDelay({
-                maybeSavePlayerQueue()
-            }, 0, 30, TimeUnit.SECONDS)
+            coroutineScope.launch { runPeriodically(30_000) { maybeSavePlayerQueue() } }
 
         }
 
@@ -2232,86 +2223,6 @@ class PlayerServiceModern : MediaLibraryService(),
                 )
                 player.prepare()
             }
-        }
-
-    }
-
-    @ExperimentalCoroutinesApi
-    @FlowPreview
-    @UnstableApi
-    private fun maybeRestoreFromDiskPlayerQueue() {
-        //if (!isPersistentQueueEnabled) return
-
-        val parentalControlEnabled = preferences.getBoolean(parentalControlEnabledKey, false)
-
-        runCatching {
-            filesDir.resolve("persistentQueue.data").inputStream().use { fis ->
-                ObjectInputStream(fis).use { oos ->
-                    oos.readObject() as PersistentQueue
-                }
-            }
-        }.onSuccess { queue ->
-
-
-            // Filter explicit content if parental control is enabled
-            val filteredItems = if (parentalControlEnabled) {
-                queue.songMediaItems.filter { !(it.asMediaItem.mediaMetadata.title?.startsWith(EXPLICIT_PREFIX, true) ?: false) }
-            } else queue.songMediaItems
-
-            if (filteredItems.isEmpty()) return@onSuccess
-
-            coroutineScope.launch(Dispatchers.Main) {
-                player.setMediaItems(
-                    filteredItems.map { song ->
-                        song.asMediaItem.buildUpon()
-                            .setUri(song.asMediaItem.mediaId)
-                            .setCustomCacheKey(song.asMediaItem.mediaId)
-                            .build().apply {
-                                mediaMetadata.extras?.putBoolean("isFromPersistentQueue", true)
-                            }
-                    },
-                    queue.mediaItemIndex.coerceAtMost(filteredItems.size - 1),
-                    queue.position
-                )
-
-                player.prepare()
-            }
-
-        }.onFailure {
-            Timber.tag("PlayerServiceModern").e(it.stackTraceToString())
-        }
-
-    }
-
-    private fun maybeSaveToDiskPlayerQueue() {
-
-        //if (!isPersistentQueueEnabled) return
-
-        val persistentQueue = PersistentQueue(
-            title = getString(R.string.txt_title),
-            songMediaItems = player.currentTimeline.mediaItems.map {
-                PersistentSong(
-                    id = it.mediaId,
-                    title = it.mediaMetadata.title.toString(),
-                    durationText = it.mediaMetadata.extras?.getString("durationText").toString(),
-                    thumbnailUrl = it.mediaMetadata.artworkUri.toString()
-                )
-            },
-            mediaItemIndex = player.currentMediaItemIndex,
-            position = player.currentPosition
-        )
-
-        runCatching {
-            filesDir.resolve("persistentQueue.data").outputStream().use { fos ->
-                ObjectOutputStream(fos).use { oos ->
-                    oos.writeObject(persistentQueue)
-                }
-            }
-        }.onFailure {
-            Timber.tag("PlayerServiceModern").e(it.stackTraceToString())
-
-        }.onSuccess {
-            Timber.tag("PlayerServiceModern").d("QueuePersistentEnabled Saved %s", persistentQueue)
         }
 
     }
