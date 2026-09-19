@@ -327,7 +327,6 @@
 <string name="do_you_really_want_to_delete_all_playback_events">Você realmente quer deletar esta playlist?</string>
 <string name="lang_sinhala">Cingalês</string>
 <string name="update_available">Atualização disponível!</string>
-<string name="actions_you_can_do">Ações que você pode fazer:</string>
 <string name="open_the_github_releases_web_page_and_download_latest_version">Abrir a página do Github e baixe a última versão</string>
 <string name="download_latest_version_from_github_you_will_find_the_file_in_the_notification_area_and_you_can_install_by_clicking_on_it">Baixe a última versão do Github, você vai encontrar o arquivo na área de notificação e você pode instalar clicando nele</string>
 <string name="f_droid_users_can_wait_for_the_update_info">Usuários do F-Droid podem esperar pela atualização do F-Droid, que geralmente chega em algumas horas com o repositório IzzyOnDroid, e alguns dias com o repositório F-Droid.org.</string>
