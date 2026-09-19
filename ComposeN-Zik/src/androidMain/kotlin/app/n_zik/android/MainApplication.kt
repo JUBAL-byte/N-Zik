@@ -14,7 +14,6 @@ import java.io.File
 import timber.log.Timber
 
 import app.it.fast4x.rimusic.utils.CaptureCrash
-import app.it.fast4x.rimusic.utils.FileLoggingTree
 import app.it.fast4x.rimusic.utils.discordAvatarKey
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
 import app.it.fast4x.rimusic.utils.discordUsernameKey
@@ -49,6 +48,8 @@ import app.n_zik.android.core.network.client.NetworkClientFactory
 import app.n_zik.android.core.network.client.Store
 import app.n_zik.android.extensions.audiobar.VisualizerCaptureCoordinator
 import app.n_zik.android.utils.coroutines.NzikDispatchers
+import app.n_zik.android.utils.logging.FileLoggingTree
+import app.n_zik.android.utils.logging.flushThenDelegate
 import me.knighthat.invidious.Invidious
 import com.metrolist.music.discordrpc.DiscordRpc
 import utils.VisualizerHelper
@@ -259,10 +260,15 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         }
         
         // Always set up crash handler regardless of debug mode
-        Thread.setDefaultUncaughtExceptionHandler(CaptureCrash(dir.absolutePath, this))
+        val crashCapture = CaptureCrash(dir.absolutePath, this)
+        Thread.setDefaultUncaughtExceptionHandler(crashCapture)
         
         if (logEnabled) {
-            Timber.plant(FileLoggingTree(File(dir, "N-Zik_log.txt")))
+            val fileLoggingTree = FileLoggingTree(File(dir, "N-Zik_log.txt"))
+            Timber.plant(fileLoggingTree)
+            // The tree writes asynchronously: give the queued lines up to 2 s to reach the disk
+            // before CaptureCrash writes the crash log and kills the process.
+            Thread.setDefaultUncaughtExceptionHandler(flushThenDelegate(fileLoggingTree, 2000, crashCapture))
             Timber.tag("MainApplication").d("Log enabled at ${dir.absolutePath}")
         } else {
             Timber.uprootAll()
