@@ -38,4 +38,30 @@ class MiniPlayerAutoExpandTest {
             sheetState.expandSoft()
         }
     }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun `invokes onPresent exactly once, before the snapTo`() = runTest {
+        val sheetState = mockk<PlayerSheetState>()
+        val collapsedBound = 120.dp
+        every { sheetState.collapsedBound } returns collapsedBound
+        every { sheetState.snapTo(any()) } just Runs
+        every { sheetState.expandSoft() } just Runs
+        val onPresent = mockk<() -> Unit>(relaxed = true)
+
+        presentMiniplayerThenExpand(sheetState, onPresent = onPresent)
+
+        verify(exactly = 1) { sheetState.snapTo(collapsedBound) }
+        verify(exactly = 0) { sheetState.expandSoft() }
+
+        advanceUntilIdle()
+
+        verify(exactly = 1) { sheetState.expandSoft() }
+
+        verifyOrder {
+            onPresent()
+            sheetState.snapTo(collapsedBound)
+            sheetState.expandSoft()
+        }
+    }
 }

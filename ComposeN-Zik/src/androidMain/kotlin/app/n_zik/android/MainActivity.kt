@@ -253,6 +253,8 @@ import app.it.fast4x.rimusic.utils.transitionEffectKey
 import app.it.fast4x.rimusic.utils.useSystemFontKey
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -1143,7 +1145,30 @@ class MainActivity :
             var topBarOffset by remember { mutableFloatStateOf(0f) }
             var bottomBarOffset by remember { mutableFloatStateOf(0f) }
             val offsetAnimationJob = remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-            
+
+            // Scroll-hide guard input: whether the full player sheet is currently on screen.
+            // Declared before nestedScrollConnection (which reads it live at event time);
+            // synced reactively once playerSheetState exists further down in composition.
+            val isPlayerSheetExpanded = remember { mutableStateOf(false) }
+
+            // Opening the player must restore the hidden bars: while the player is open
+            // the scroll-hide re-show is disabled (showPlayer guard), so hidden bars would
+            // otherwise stay hidden forever and the player container would keep its offset,
+            // leaving an unrecoverable UI state (player mis-positioned, no nav bars).
+            fun restoreHiddenBars() {
+                if (topBarOffset == 0f && bottomBarOffset == 0f) return
+                isBarsVisible = true
+                offsetAnimationJob.value?.cancel()
+                offsetAnimationJob.value = coroutineScope.launch {
+                    // 800ms (user-tuned): the bars finish settling exactly when the auto-expansion
+                    // starts (MINIPLAYER_AUTOEXPAND_DELAY_MS), so restore + deploy read as one
+                    // continuous motion instead of two separate jumps.
+                    launch { androidx.compose.animation.core.Animatable(topBarOffset).animateTo(0f, androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { topBarOffset = value } }
+                    launch { androidx.compose.animation.core.Animatable(bottomBarOffset).animateTo(0f, androidx.compose.animation.core.tween(800, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { bottomBarOffset = value } }
+                }
+                Timber.tag("MainActivity").d("restoreHiddenBars: restoring hidden bars before player auto-launch")
+            }
+
             val density = LocalDensity.current
             val safeDrawingInsets = WindowInsets.safeDrawing
 
@@ -1174,11 +1199,11 @@ class MainActivity :
                 isBarsVisible = true
             }
 
-            val nestedScrollConnection = remember(isLandscape, isViMusic, isScrollableRoute, isLandscapeHiddenRoute, density, safeDrawingInsets, showPlayer, showQueueOverlay) {
+            val nestedScrollConnection = remember(isLandscape, isViMusic, isScrollableRoute, isLandscapeHiddenRoute, density, safeDrawingInsets, showQueueOverlay) {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                        // Disable scroll-hide when player or queue is open
-                        if (showPlayer || showQueueOverlay) return Offset.Zero
+                        // Disable scroll-hide while the full player sheet is on screen or the queue is open
+                        if (isPlayerSheetExpanded.value || showQueueOverlay) return Offset.Zero
 
                         val shouldHideOnScroll = isLandscape || isScrollableRoute
 
@@ -1212,8 +1237,8 @@ class MainActivity :
                     }
 
                     override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                        // Disable scroll-hide when player or queue is open
-                        if (showPlayer || showQueueOverlay) return super.onPostFling(consumed, available)
+                        // Disable scroll-hide while the full player sheet is on screen or the queue is open
+                        if (isPlayerSheetExpanded.value || showQueueOverlay) return super.onPostFling(consumed, available)
 
                         val statusBarsTopPx = safeDrawingInsets.getTop(density)
                         val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx
@@ -1293,6 +1318,15 @@ class MainActivity :
                     collapsedBound = Dimensions.collapsedPlayer + bottomDp,
                     expandedBound = maxHeight,
                 )
+
+                // Keep the scroll-hide guard in sync with the sheet's real on-screen state.
+                // showPlayer alone is not enough: it stays true after a back-collapsed
+                // player, which would permanently block re-hiding the bars while music plays.
+                LaunchedEffect(playerSheetState) {
+                    snapshotFlow { playerSheetState.progress > 0.5f }
+                        .distinctUntilChanged()
+                        .collect { isPlayerSheetExpanded.value = it }
+                }
 
                 // NOT keyed on playerSheetState.value: that changes every drag frame,
                 // which used to recreate the derived state and re-provide
@@ -1586,7 +1620,7 @@ class MainActivity :
                                     playerSheetState.snapTo(playerSheetState.collapsedBound)
                                 } else {
                                     showPlayer = true
-                                    coroutineScope.presentMiniplayerThenExpand(playerSheetState)
+                                    coroutineScope.presentMiniplayerThenExpand(playerSheetState, onPresent = { restoreHiddenBars() })
                                 }
                             } else {
                                 showPlayer = false
@@ -1606,7 +1640,7 @@ class MainActivity :
                                         playerSheetState.snapTo(playerSheetState.collapsedBound)
                                     } else {
                                         showPlayer = true
-                                        coroutineScope.presentMiniplayerThenExpand(playerSheetState)
+                                        coroutineScope.presentMiniplayerThenExpand(playerSheetState, onPresent = { restoreHiddenBars() })
                                     }
                                 }
                             }

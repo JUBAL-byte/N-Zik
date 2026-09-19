@@ -1,3 +1,12 @@
+fix(player): auto-launch no longer leaves the app stuck with no nav bars when they were hidden by scroll
+  - Root cause: the scroll-hide fling leaves `bottomBarOffset` at 240dp (and `topBarOffset` at -topBarHeight) applied to the bars AND to the player sheet container (MainActivity `.offset`), while re-showing the bars by fling is disabled while `showPlayer` is true - so an auto-expanded player (new track, "keep player minimized" OFF) rendered 240dp too low ("player à moitié") and the bars had no way back: force stop required
+  - `MiniPlayerAutoExpand.kt`: `presentMiniplayerThenExpand` gains an optional `onPresent: (() -> Unit)? = null`, invoked synchronously before `snapTo(collapsedBound)`; default callers unchanged
+  - `MainActivity.kt`: new local `restoreHiddenBars()` - silent no-op when both offsets are already 0; otherwise cancels the running offset job, sets `isBarsVisible = true`, animates both offsets back to 0 (tween 800ms FastOutSlowInEasing, user-tuned so the bars settle exactly when the auto-expansion starts) and logs a Timber.d trace; passed as `onPresent` at both auto-launch call sites (`launchedFromNotification` + `onMediaItemTransition`)
+  - `MainActivity.kt`: scroll-hide guard (`onPreScroll`/`onPostFling`) now reads the sheet's real on-screen state (`isPlayerSheetExpanded`, synced from `playerSheetState.progress > 0.5f` via `snapshotFlow`/`distinctUntilChanged`) instead of the `showPlayer` flag, which stayed true after a back-collapsed player and permanently blocked re-hiding the bars while music plays
+  - `MiniPlayerAutoExpandTest.kt`: new test `invokes onPresent exactly once, before the snapTo` (verifyOrder); the existing default-behavior test is untouched
+  - Verification: `:ComposeN-Zik:assembleDebug` OK, `MiniPlayerAutoExpandTest` 2/2 green; checked on a device by the maintainer (hidden bars + new track -> bars/mini player back smoothly, full player at correct position, no force stop; scroll re-hide works while the player is collapsed)
+  - Spec: _bmad-output/problem-solution-2026-09-19.md (bmad-cis-problem-solving); code review skipped at the maintainer's request
+
 fix(settings): failed backup import now offers a restart instead of leaving the database closed
   - New `GuardedImport.kt` helper `runGuardedImport`: runs the import block, and on failure checks `Database.isClosed` to show `RestartAppDialog`; `onFailure` is wrapped in `runCatching` so its own crash cannot skip the restart prompt
   - `ImportDatabase.kt`: the manual try/catch is replaced by `runGuardedImport`; behavior on success is unchanged

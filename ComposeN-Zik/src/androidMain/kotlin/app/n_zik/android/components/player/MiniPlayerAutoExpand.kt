@@ -16,11 +16,15 @@ const val MINIPLAYER_AUTOEXPAND_DELAY_MS = 800L
  *
  * @param sheetState the player sheet state to snap and expand
  * @param delayMs delay between the collapsed presentation and the auto-expansion
+ * @param onPresent optional hook restoring the surrounding UI state (e.g. hidden nav bars)
+ *   before the mini-player is presented; invoked synchronously, before [PlayerSheetState.snapTo]
  */
 fun CoroutineScope.presentMiniplayerThenExpand(
     sheetState: PlayerSheetState,
     delayMs: Long = MINIPLAYER_AUTOEXPAND_DELAY_MS,
+    onPresent: (() -> Unit)? = null,
 ) {
+    onPresent?.invoke()
     sheetState.snapTo(sheetState.collapsedBound)
     launch {
         delay(delayMs)
