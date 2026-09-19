@@ -488,7 +488,6 @@ const val quickPicsChartsPageKey = "quickPicsChartsPage"
 const val quickPicsDiscoverPageKey = "quickPicsDiscoverPage"
 const val quickPicsHomePageKey = "quickPicsHomePage"
 const val quickPicsYtmQuickPicksKey = "quickPicsYtmQuickPicks"
-const val loadedDataKey = "loadedData"
 
 const val enablePictureInPictureKey = "enablePicturInPicture"
 const val enablePictureInPictureAutoKey = "enablePicturInPictureAuto"
