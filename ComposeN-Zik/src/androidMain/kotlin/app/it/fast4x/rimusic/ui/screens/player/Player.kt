@@ -285,7 +285,9 @@ import android.graphics.Bitmap
 import app.it.fast4x.rimusic.ui.styling.ColorPalette
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.components.player.BlurAdjuster
+import app.n_zik.android.components.player.M3ECoverColors
 import app.n_zik.android.components.player.m3eDarkenBy
+import app.n_zik.android.components.player.m3eNeutralizeIfAchromatic
 import app.n_zik.android.components.player.m3eSaturate
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlin.Float.Companion.POSITIVE_INFINITY
@@ -338,7 +340,9 @@ internal data class PlayerDynamicPaletteResult(
  * feeds the cover-based animated backgrounds (`M3EMorphingCover`, `FluidCoverColorGradient`) and
  * the `ColorPalette` stripes. The 7 raw swatches use exactly the same fallback accent as
  * `extractM3ECoverColors` (the dominant-based dynamic palette's accent) so both paths return
- * identical swatches.
+ * identical swatches. The achromatic neutralization guard (renegotiated `NEUTRAL_COVER` case,
+ * 2026-09-19) is applied through the shared `m3eNeutralizeIfAchromatic`, so nearly achromatic
+ * covers render a neutral gray on every cover-based surface.
  */
 internal suspend fun computePlayerDynamicPalette(
     bitmap: Bitmap,
@@ -348,18 +352,27 @@ internal suspend fun computePlayerDynamicPalette(
     val basePalette = dynamicColorPaletteOf(bitmap, isDark)
     val swatchPalette = Palette.from(bitmap).generate()
     val fallback = (basePalette ?: fallbackColor).accent.toArgb()
-    val vibrant = swatchPalette.getVibrantColor(fallback)
-    val vibrantHsl = FloatArray(3)
-    colorToHSL(vibrant, vibrantHsl)
-    return PlayerDynamicPaletteResult(
-        palette = if (basePalette == null) fallbackColor else dynamicColorPaletteOf(vibrantHsl, isDark),
+    val extracted = M3ECoverColors(
         dominant = swatchPalette.getDominantColor(fallback),
-        vibrant = vibrant,
+        vibrant = swatchPalette.getVibrantColor(fallback),
         lightVibrant = swatchPalette.getLightVibrantColor(fallback),
         darkVibrant = swatchPalette.getDarkVibrantColor(fallback),
         muted = swatchPalette.getMutedColor(fallback),
         lightMuted = swatchPalette.getLightMutedColor(fallback),
         darkMuted = swatchPalette.getDarkMutedColor(fallback),
+    )
+    val neutralized = extracted.m3eNeutralizeIfAchromatic(swatchPalette, fallback)
+    val vibrantHsl = FloatArray(3)
+    colorToHSL(neutralized.vibrant, vibrantHsl)
+    return PlayerDynamicPaletteResult(
+        palette = if (basePalette == null) fallbackColor else dynamicColorPaletteOf(vibrantHsl, isDark),
+        dominant = neutralized.dominant,
+        vibrant = neutralized.vibrant,
+        lightVibrant = neutralized.lightVibrant,
+        darkVibrant = neutralized.darkVibrant,
+        muted = neutralized.muted,
+        lightMuted = neutralized.lightMuted,
+        darkMuted = neutralized.darkMuted,
     )
 }
 
@@ -1164,7 +1177,7 @@ fun Player(
                     currentMediaItem
                         ?.takeIf { it.mediaId == mediaItem.mediaId }
                         ?.let { item ->
-                            CoroutineScope(NzikDispatchers.DATA).launch {
+                            NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
                                 YouTubeSync.rotateSongLikeState( context, item )
                             }
                         }
