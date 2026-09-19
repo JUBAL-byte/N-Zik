@@ -602,7 +602,19 @@ object Database {
                                          if( it.moveToFirst() ) it.getInt( 0 ) else -1
                                      }
 
-    fun close() = _internal.close()
+    /**
+     * True once [close] has run. The database cannot be used again until the process restarts,
+     * so UI that would be recomposed over it (e.g. an activity recreation) must check this first.
+     */
+    @Volatile
+    var isClosed: Boolean = false
+        private set
+
+    fun close() {
+        isClosed = true
+        _internal.close()
+    }
+
     fun artistSongs(browseId: String): Flow<List<Song>> {
         return songTable.artistSongs(browseId)
     }

@@ -144,9 +144,11 @@ import app.it.fast4x.rimusic.extensions.pip.PipEventContainer
 import app.it.fast4x.rimusic.extensions.pip.PipModuleContainer
 import app.it.fast4x.rimusic.extensions.pip.PipModuleCover
 import app.n_zik.android.components.ui.screens.home.OPEN_SEARCH_SHORTCUT
+import app.n_zik.android.components.ui.screens.home.initialShortcutAction
 import app.n_zik.android.download.utils.MyDownloadHelper
 import app.n_zik.android.playback.services.PlayerServiceModern
 import app.n_zik.android.utils.PlayerAwareInsetsTracker
+import app.n_zik.android.utils.shouldRecreateActivity
 import app.it.fast4x.rimusic.ui.components.CustomModalBottomSheet
 import app.it.fast4x.rimusic.ui.components.LocalMenuState
 import app.it.fast4x.rimusic.ui.components.themed.CrossfadeContainer
@@ -325,6 +327,8 @@ class MainActivity :
     // Observable so a shortcut tap while the app is already running (delivered via onNewIntent,
     // which never re-triggers onCreate) still recomposes the tab-navigation check below --
     // reading `intent.action` directly only ever saw the launch-time intent.
+    // Not re-seeded from the launch intent when the activity is recreated (theme change, settings
+    // import): the shortcut was already consumed and would otherwise pop the back stack to home.
     private var shortcutIntentAction by mutableStateOf<String?>(null)
 
     override val persistMap = PersistMap()
@@ -385,8 +389,9 @@ class MainActivity :
         )
         monet.updateMonetColors()
 
+        val isRestoredInstance = savedInstanceState != null
         monet.invokeOnReady {
-            startApp()
+            startApp(isRestoredInstance)
         }
 
         checkIfAppIsRunningInBackground()
@@ -473,7 +478,7 @@ class MainActivity :
         ExperimentalFoundationApi::class, ExperimentalAnimationApi::class,
         ExperimentalMaterial3Api::class
     )
-    fun startApp() {
+    fun startApp(isRestoredInstance: Boolean) {
 
         // Check YouTube cookie status on startup — warn user if expired/invalid
         when (MainApplication.cookieStatus) {
@@ -516,7 +521,7 @@ class MainActivity :
         Timber.tag("MainActivity").d("onCreate launchedFromNotification: $launchedFromNotification intent ${intent.action}")
 
         intentUriData = intent.data ?: intent.getStringExtra(Intent.EXTRA_TEXT)?.toUri()
-        shortcutIntentAction = intent.action
+        shortcutIntentAction = initialShortcutAction(intent.action, isRestoredInstance)
 
         with(preferences) {
             if (getBoolean(isKeepScreenOnEnabledKey, false)) {
@@ -888,8 +893,12 @@ class MainActivity :
                             hideStatusBarKey,
                             restartActivityKey
                                 -> {
-                                this@MainActivity.recreate()
-                                Timber.tag("MainActivity").d("recreate()")
+                                if (shouldRecreateActivity(Database.isClosed)) {
+                                    this@MainActivity.recreate()
+                                    Timber.tag("MainActivity").d("recreate()")
+                                } else {
+                                    Timber.tag("MainActivity").w("recreate() skipped for $key: database closed")
+                                }
                             }
 
                             isProxyEnabledKey, proxyHostnameKey, proxyPortKey, proxyModeKey -> {
@@ -1813,7 +1822,9 @@ class MainActivity :
     ) {
         val colorPaletteName =
             preferences.getEnum(colorPaletteNameKey, ColorPaletteName.Dynamic)
-        if (!isInitialChange && colorPaletteName == ColorPaletteName.MaterialYou) {
+        if (!isInitialChange && colorPaletteName == ColorPaletteName.MaterialYou &&
+            shouldRecreateActivity(Database.isClosed)
+        ) {
             /*
             monet.updateMonetColors()
             monet.invokeOnReady {

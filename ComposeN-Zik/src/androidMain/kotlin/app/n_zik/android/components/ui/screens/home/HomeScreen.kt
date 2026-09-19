@@ -120,6 +120,16 @@ internal fun shouldOpenSearchFromShortcut(openTabFromShortcut: Int, alreadyConsu
 internal fun shouldSwitchTabFromShortcut(openTabFromShortcut: Int): Boolean =
     openTabFromShortcut != -1 && openTabFromShortcut != OPEN_SEARCH_SHORTCUT
 
+/**
+ * Launch-intent action `MainActivity.onCreate` should treat as a pending launcher shortcut.
+ *
+ * A recreated or restored activity (theme change, settings import, process death) is handed the
+ * original launch intent again but has already consumed it. Re-applying it would make the shortcut
+ * effect pop the restored back stack to home and drop the screen the user was on.
+ */
+internal fun initialShortcutAction(action: String?, isRestoredInstance: Boolean): String? =
+    if (isRestoredInstance) null else action
+
 @RequiresApi(Build.VERSION_CODES.O)
 @ExperimentalMaterial3Api
 @ExperimentalTextApi
