@@ -295,7 +295,7 @@ fun HistoryList(
             }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             val allHistorySongs = remember(events) { events.values.flatten().map { it.song } }
-            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
             val downloadedIds by remember {
                 derivedStateOf {
                     downloadsMapState.values

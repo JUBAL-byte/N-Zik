@@ -26,12 +26,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import it.fast4x.innertube.Innertube
-import app.n_zik.android.uiRoundnessShape
 
 
 import app.it.fast4x.rimusic.ui.styling.onOverlay
 import app.it.fast4x.rimusic.ui.styling.overlay
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.utils.color
 import app.it.fast4x.rimusic.utils.parseArtists
@@ -44,7 +42,6 @@ import app.n_zik.android.thumbnailShape
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.shimmerEffect
 import app.n_zik.android.core.coil.ImageCacheFactory
-import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.core.database.Database
 import app.it.fast4x.rimusic.ui.components.themed.HeaderIconButton
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon

@@ -270,7 +270,7 @@ fun LocalPlaylistSongs(
     val playlist by remember {
         Database.playlistTable
                 .findById( playlistId )
-    }.collectAsStateWithLifecycle( null )
+    }.collectAsStateWithLifecycle( null, context = NzikDispatchers.DATA )
 
     val sort = PlaylistSongsSort(playlistId)
 
@@ -298,7 +298,7 @@ fun LocalPlaylistSongs(
                     .flowOn( NzikDispatchers.DATA )
                     .distinctUntilChanged()
         }
-    }.collectAsStateWithLifecycle( emptyList() )
+    }.collectAsStateWithLifecycle( emptyList(), context = NzikDispatchers.DATA )
     var itemsOnDisplay by persistList<Song>("localPlaylist/$playlistId/songs/on_display")
 
     val importedBrowseIds = remember {
@@ -1121,7 +1121,7 @@ fun LocalPlaylistSongs(
     }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadedIds by remember {
         derivedStateOf {
             downloadsMapState.values

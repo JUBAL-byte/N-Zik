@@ -61,6 +61,7 @@ import app.it.fast4x.rimusic.utils.downloadedStateMedia
 import app.it.fast4x.rimusic.utils.forcePlay
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.utils.playVideo
 import app.n_zik.android.colorPalette
 import app.n_zik.android.LocalDownloadStatesMap
@@ -146,19 +147,19 @@ fun OnlineSearchList(
 
     val albumBookmarkStatesMap by remember(albumKeys) {
         BookmarkStateManager.getAlbumBookmarkStates(albumKeys)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
     val artistBookmarkStatesMap by remember(artistKeys) {
         BookmarkStateManager.getArtistBookmarkStates(artistKeys)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
     val playlistBookmarkStatesMap by remember(playlistKeys) {
         BookmarkStateManager.getPlaylistBookmarkStates(playlistKeys)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
     val videoLikeStatesMap by remember(videoKeys) {
         LikeStateManager.getLikeStates(videoKeys)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Hoisted download states
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadStatesMap = remember(downloadsMapState) {
         downloadsMapState.mapValues { (_, download) ->
             if (download.state == Download.STATE_COMPLETED) DownloadedStateMedia.DOWNLOADED

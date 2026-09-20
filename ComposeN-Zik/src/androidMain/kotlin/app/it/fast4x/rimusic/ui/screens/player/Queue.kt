@@ -352,7 +352,7 @@ fun Queue(
             val queueSwipeLeftAction by rememberPreference(queueSwipeLeftActionKey, QueueSwipeAction.RemoveFromQueue)
             val queueSwipeRightAction by rememberPreference(queueSwipeRightActionKey, QueueSwipeAction.PlayNext)
 
-            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
             val downloadedIds by remember {
                 derivedStateOf {
                     downloadsMapState.values

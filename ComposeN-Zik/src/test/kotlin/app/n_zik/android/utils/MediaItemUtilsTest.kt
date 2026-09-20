@@ -8,9 +8,9 @@ import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.Dependencies
 import app.n_zik.android.MainApplication
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
  * missing DB row falls back to the metadata title.
  *
  * Note: findByIdDirect is a non-suspend DAO call, so it must run off the
- * main thread (Room main-thread guard) — hence withContext(Dispatchers.IO).
+ * main thread (Room main-thread guard) — hence withContext(NzikDispatchers.DATA).
  */
 /**
  * Test-only application: MainApplication.onCreate() migrates credentials via
@@ -60,7 +60,7 @@ class MediaItemUtilsTest {
 
     private suspend fun insertSong(id: String, title: String) {
         // Room suspend DAOs still block the calling thread — keep it off main.
-        withContext(Dispatchers.IO) {
+        withContext(NzikDispatchers.DATA) {
             Database.songTable.upsert(
                 Song(id = id, title = title, durationText = null, thumbnailUrl = null)
             )
@@ -69,7 +69,7 @@ class MediaItemUtilsTest {
 
     @Test
     fun `clean metadata title is returned as is`() = runBlocking {
-        val title = withContext(Dispatchers.IO) {
+        val title = withContext(NzikDispatchers.DATA) {
             item("lf_id_1", "Hello World").titleOrDb()
         }
 
@@ -78,7 +78,7 @@ class MediaItemUtilsTest {
 
     @Test
     fun `prefixed metadata title is cleaned`() = runBlocking {
-        val title = withContext(Dispatchers.IO) {
+        val title = withContext(NzikDispatchers.DATA) {
             item("lf_id_2", "modified:Hello World").titleOrDb()
         }
 
@@ -89,7 +89,7 @@ class MediaItemUtilsTest {
     fun `empty metadata title falls back to the cleaned database title`() = runBlocking {
         insertSong("lf_id_3", "modified:DB Song")
 
-        val title = withContext(Dispatchers.IO) {
+        val title = withContext(NzikDispatchers.DATA) {
             item("lf_id_3", null).titleOrDb()
         }
 
@@ -100,7 +100,7 @@ class MediaItemUtilsTest {
     fun `null literal metadata title falls back to the database title`() = runBlocking {
         insertSong("lf_id_4", "DB Title")
 
-        val title = withContext(Dispatchers.IO) {
+        val title = withContext(NzikDispatchers.DATA) {
             item("lf_id_4", "null").titleOrDb()
         }
 
@@ -109,7 +109,7 @@ class MediaItemUtilsTest {
 
     @Test
     fun `missing database row falls back to the metadata title`() = runBlocking {
-        val title = withContext(Dispatchers.IO) {
+        val title = withContext(NzikDispatchers.DATA) {
             item("lf_id_missing", null).titleOrDb()
         }
 

@@ -166,7 +166,7 @@ fun MoodList(
                     section.items.filterIsInstance<Innertube.SongItem>()
                 }
             }
-            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+            val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
             val downloadedIds by remember {
                 derivedStateOf {
                     downloadsMapState.values
@@ -223,15 +223,15 @@ fun MoodList(
                         val sectionAlbumKeys = remember(item) { item.items.filterIsInstance<Innertube.AlbumItem>().mapNotNull { it.key } }
                         val sectionAlbumBookmarkStatesMap by remember(sectionAlbumKeys) {
                             BookmarkStateManager.getAlbumBookmarkStates(sectionAlbumKeys)
-                        }.collectAsStateWithLifecycle(emptyMap())
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                         val sectionArtistKeys = remember(item) { item.items.filterIsInstance<Innertube.ArtistItem>().mapNotNull { it.key } }
                         val sectionArtistBookmarkStatesMap by remember(sectionArtistKeys) {
                             BookmarkStateManager.getArtistBookmarkStates(sectionArtistKeys)
-                        }.collectAsStateWithLifecycle(emptyMap())
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                         val sectionPlaylistKeys = remember(item) { item.items.filterIsInstance<Innertube.PlaylistItem>().mapNotNull { it.key } }
                         val sectionPlaylistBookmarkStatesMap by remember(sectionPlaylistKeys) {
                             BookmarkStateManager.getPlaylistBookmarkStates(sectionPlaylistKeys)
-                        }.collectAsStateWithLifecycle(emptyMap())
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                         LazyRow {
                             items(items = item.items, key = { it.key }) { childItem ->

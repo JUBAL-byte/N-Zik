@@ -235,7 +235,7 @@ fun StatisticsPage(
     val likeStatesMap = songsWithLikeStates.second
 
     // Download state cache
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadedIds by remember {
         derivedStateOf {
             downloadsMapState.values
@@ -268,15 +268,15 @@ fun StatisticsPage(
     val artistBookmarkIds = remember(artists) { artists.map { it.id } }
     val artistBookmarkStatesMap by remember(artistBookmarkIds) {
         BookmarkStateManager.getArtistBookmarkStates(artistBookmarkIds)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
     val albumBookmarkIds = remember(albums) { albums.map { it.id } }
     val albumBookmarkStatesMap by remember(albumBookmarkIds) {
         BookmarkStateManager.getAlbumBookmarkStates(albumBookmarkIds)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
     val playlistBookmarkIds = remember(playlists) { playlists.map { it.playlist.id.toString() } }
     val playlistBookmarkStatesMap by remember(playlistBookmarkIds) {
         BookmarkStateManager.getPlaylistBookmarkStates(playlistBookmarkIds)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     Box(
         modifier = Modifier

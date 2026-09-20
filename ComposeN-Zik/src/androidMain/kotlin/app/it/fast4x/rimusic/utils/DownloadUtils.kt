@@ -58,12 +58,12 @@ fun downloadedStateMedia(mediaId: String): DownloadedStateMedia {
         MyDownloadHelper.getDownload(mediaId).map { download ->
             download?.state == Download.STATE_COMPLETED
         }
-    }.collectAsStateWithLifecycle(initialValue = false)
+    }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
     val isCached by remember {
         Database.formatTable.findBySongId( mediaId ).map {
             it?.contentLength == cachedBytes
         }
-    }.collectAsStateWithLifecycle(initialValue = false)
+    }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
 
     return when {
         isDownloaded && isCached -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
@@ -85,7 +85,7 @@ fun getDownloadStateMedia(
     val isDownloaded by remember(songId) {
         MyDownloadHelper.getDownload(songId)
             .map { download -> download?.state == Download.STATE_COMPLETED }
-    }.collectAsStateWithLifecycle(initialValue = false)
+    }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
     val isCached by remember {
         Database.formatTable
             .findBySongId( songId )
@@ -94,7 +94,7 @@ fun getDownloadStateMedia(
                     return@map false
                 binder.cache.isCached( it.songId, 0, it.contentLength )
             }
-    }.collectAsStateWithLifecycle(initialValue = false)
+    }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
 
     return when {
         isDownloaded && isCached  -> DownloadedStateMedia.CACHED_AND_DOWNLOADED
@@ -134,7 +134,7 @@ fun getDownloadState(mediaId: String): Int {
     if (!isNetworkAvailableComposable()) return 3
 
     val downloadFlow = remember(mediaId) { downloader.getDownload(mediaId) }
-    return downloadFlow.collectAsStateWithLifecycle(initialValue = null as Download?).value?.state
+    return downloadFlow.collectAsStateWithLifecycle(initialValue = null as Download?, context = NzikDispatchers.DATA).value?.state
         ?: 3
 }
 

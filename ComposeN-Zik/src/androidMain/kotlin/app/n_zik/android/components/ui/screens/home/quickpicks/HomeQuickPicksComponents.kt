@@ -406,7 +406,7 @@ fun ChipItemColored(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val chipColor by remember { derivedStateOf<Color> { Color(255, Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)) } }
+    val chipColor = remember { Color(255, Random.nextInt(256), Random.nextInt(256), Random.nextInt(256)) }
     BaseChipItemColored(
         title = chip.title,
         stripeColor = chipColor,

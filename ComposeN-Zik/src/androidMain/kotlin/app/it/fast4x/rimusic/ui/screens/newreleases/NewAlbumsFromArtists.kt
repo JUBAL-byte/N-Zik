@@ -119,7 +119,7 @@ fun NewAlbumsFromArtists(
             val newAlbumsFilteredKeys = remember(newReleaseAlbumsFiltered) { newReleaseAlbumsFiltered.map { it.key } }
             val bookmarkStatesMap by remember(newAlbumsFilteredKeys) {
                 BookmarkStateManager.getAlbumBookmarkStates(newAlbumsFilteredKeys)
-            }.collectAsStateWithLifecycle(emptyMap())
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             LazyVerticalGrid(
                 state = lazyGridState,
