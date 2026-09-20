@@ -11,6 +11,7 @@ import io.mockk.mockkObject
 import io.mockk.unmockkAll
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -48,6 +49,10 @@ class DiscordBrowsingSettingTest {
     ): DiscordPresenceManager {
         mockkObject(NetworkQualityHelper)
         every { NetworkQualityHelper.isNetworkAvailable(any()) } returns networkAvailable
+        // The manager now watches the gateway's reconnect budget on every connection it
+        // creates (watchReconnectAbandonment): give the relaxed mock a real StateFlow so
+        // that property access does not blow up inside the watch job.
+        every { connection.reconnectAbandoned } returns MutableStateFlow(false)
         val manager = DiscordPresenceManager(
             context = mockk<Context>(relaxed = true),
             getToken = { "test-token" },

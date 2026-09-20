@@ -63,6 +63,7 @@ class DiscordPresenceManager(
     private val discordScope = externalScope
     private var refreshJob: Job? = null
     private var debounceJob: Job? = null
+    private var reconnectWatchJob: Job? = null
     private val client = NetworkClientFactory.getClientWithTimeout(10L, 10L)
     private val appStartTime = System.currentTimeMillis()
 
@@ -84,6 +85,25 @@ class DiscordPresenceManager(
                         sendBrowsingPresence(route)
                     } else {
                         rpc?.clearActivity()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Watches the gateway's reconnection budget: once it gives up after the maximum
+     * number of automatic retries, the RPC stays offline (a manual reconnect or a new
+     * token/media event re-creates the connection). Surface that to the user.
+     */
+    private fun watchReconnectAbandonment(connection: DiscordRpcConnection) {
+        reconnectWatchJob?.cancel()
+        reconnectWatchJob = discordScope.launch {
+            connection.reconnectAbandoned.collect { abandoned ->
+                if (abandoned) {
+                    Timber.tag("DiscordPresence").w("Discord RPC gave up reconnecting (max attempts reached)")
+                    withContext(NzikDispatchers.UI) {
+                        Toaster.e(R.string.discord_rpc_reconnect_failed)
                     }
                 }
             }
@@ -154,8 +174,10 @@ class DiscordPresenceManager(
 
         if (token != lastToken) {
             rpc?.closeDirect()
-            rpc = connectionFactory(token)
+            val connection = connectionFactory(token)
+            rpc = connection
             lastToken = token
+            watchReconnectAbandonment(connection)
         }
 
         if (mediaItem == null) {
@@ -283,8 +305,10 @@ class DiscordPresenceManager(
             }
 
             rpc?.closeDirect()
-            rpc = connectionFactory(token)
+            val connection = connectionFactory(token)
+            rpc = connection
             lastToken = token
+            watchReconnectAbandonment(connection)
         }
 
         // Browsing writes are re-validated right before the RPC write, not only at
@@ -335,6 +359,7 @@ class DiscordPresenceManager(
         isStopped = true
         debounceJob?.cancel()
         refreshJob?.cancel()
+        reconnectWatchJob?.cancel()
         rpc?.closeDirect()
         discordScope.cancel()
     }
