@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.media3.common.MediaItem
 import app.n_zik.android.core.database.Database
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.it.fast4x.rimusic.models.Info
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.res.stringResource
@@ -20,7 +21,7 @@ fun MediaItem.artistTextWithFallback(): String {
     if (artist.isNotBlank() && artist != "null") return artist
     val dbSong by remember(mediaId) {
         Database.songTable.findById(mediaId)
-    }.collectAsStateWithLifecycle(initialValue = null)
+    }.collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
     val dbText = dbSong?.artistsText
     if (!dbText.isNullOrBlank() && dbText != "null") return cleanPrefix(dbText)
     return stringResource(R.string.unknown_artist)
@@ -32,7 +33,7 @@ fun MediaItem.titleWithFallback(): String {
     if (title.isNotBlank() && title != "null") return title
     val dbSong by remember(mediaId) {
         Database.songTable.findById(mediaId)
-    }.collectAsStateWithLifecycle(initialValue = null)
+    }.collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
     val dbTitle = dbSong?.title
     if (!dbTitle.isNullOrBlank() && dbTitle != "null") return dbTitle
     return stringResource(R.string.unknown_title)
@@ -47,7 +48,7 @@ fun MediaItem.artistIdsWithFallback(): List<Info> {
     }
     val dbArtists by remember(mediaId) {
         Database.artistTable.findBySongId(mediaId)
-    }.collectAsStateWithLifecycle(initialValue = emptyList())
+    }.collectAsStateWithLifecycle(initialValue = emptyList(), context = NzikDispatchers.DATA)
     return dbArtists.map { Info(it.id, it.name) }
 }
 
@@ -57,7 +58,7 @@ fun MediaItem.albumIdWithFallback(): String? {
     if (!albumId.isNullOrBlank()) return albumId
     val dbAlbum by remember(mediaId) {
         Database.albumTable.findBySongId(mediaId)
-    }.collectAsStateWithLifecycle(initialValue = null)
+    }.collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
     return dbAlbum?.id
 }
 

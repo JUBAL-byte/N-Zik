@@ -185,7 +185,7 @@ fun HomeDiscovery(
                     val filteredAlbumKeys = remember(newReleaseAlbumsFiltered) { newReleaseAlbumsFiltered.map { it.key } }
                     val filteredBookmarkStatesMap by remember(filteredAlbumKeys) {
                         BookmarkStateManager.getAlbumBookmarkStates(filteredAlbumKeys)
-                    }.collectAsStateWithLifecycle(emptyMap())
+                    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                     LazyRow(contentPadding = endPaddingValues) {
                         items(items = newReleaseAlbumsFiltered.distinctBy { it.key }, key = { it.key }, contentType = { "album" }) {
@@ -230,7 +230,7 @@ fun HomeDiscovery(
                     val newAlbumKeys = remember(page.newReleaseAlbums) { page.newReleaseAlbums.map { it.key } }
                     val newAlbumBookmarkStatesMap by remember(newAlbumKeys) {
                         BookmarkStateManager.getAlbumBookmarkStates(newAlbumKeys)
-                    }.collectAsStateWithLifecycle(emptyMap())
+                    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                     LazyRow(contentPadding = endPaddingValues) {
                         items(items = page.newReleaseAlbums.distinctBy { it.key }, key = { it.key }, contentType = { "album" }) {

@@ -588,7 +588,7 @@ fun HomeArtists(
                     val artistIds = remember(itemsOnDisplay) { itemsOnDisplay.map { it.id } }
                     val bookmarkStatesMap by remember(artistIds) {
                         BookmarkStateManager.getArtistBookmarkStates(artistIds)
-                    }.collectAsStateWithLifecycle(emptyMap())
+                    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                     val headerHeightState = remember { androidx.compose.runtime.mutableIntStateOf(0) }
                     var headerHeight by headerHeightState
@@ -685,7 +685,7 @@ fun HomeArtists(
                                                 )
                                             }
                                         } else if (sort.sortBy == ArtistSortBy.PlayCount) {
-                                            val playCount by Database.eventTable.getArtistPlayCount(artist.id).collectAsStateWithLifecycle(initialValue = 0)
+                                            val playCount by Database.eventTable.getArtistPlayCount(artist.id).collectAsStateWithLifecycle(initialValue = 0, context = NzikDispatchers.DATA)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
@@ -701,7 +701,7 @@ fun HomeArtists(
                                                 )
                                             }
                                         } else if (sort.sortBy == ArtistSortBy.ListeningTime) {
-                                            val playTime by Database.eventTable.getArtistTotalPlayTime(artist.id).collectAsStateWithLifecycle(initialValue = 0L)
+                                            val playTime by Database.eventTable.getArtistTotalPlayTime(artist.id).collectAsStateWithLifecycle(initialValue = 0L, context = NzikDispatchers.DATA)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()

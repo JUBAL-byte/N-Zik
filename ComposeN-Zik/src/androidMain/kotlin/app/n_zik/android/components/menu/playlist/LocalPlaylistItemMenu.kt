@@ -210,7 +210,7 @@ class LocalPlaylistItemMenu private constructor(
                                     .map { list: List<Song> ->
                                         list.mapNotNull( Song::thumbnailUrl ).takeLast( 4 )
                                     }
-                    }.collectAsStateWithLifecycle( emptyList() )
+                    }.collectAsStateWithLifecycle( emptyList(), context = NzikDispatchers.DATA )
 
                     // Clipped thumbnail content
                     Box(

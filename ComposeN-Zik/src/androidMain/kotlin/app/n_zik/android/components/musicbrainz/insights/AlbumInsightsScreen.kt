@@ -58,6 +58,7 @@ import app.n_zik.android.components.SongItem
 import app.n_zik.android.components.menu.album.OnlineAlbumItemMenu
 import app.n_zik.android.components.musicbrainz.KeywordChips
 import app.n_zik.android.core.database.LikeStateManager
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.utils.addNext
 import app.it.fast4x.rimusic.utils.asMediaItem
@@ -90,7 +91,7 @@ fun AlbumInsightsScreen(
     val songIds = remember(state.tracks) { state.tracks.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsStateWithLifecycle(emptyMap())
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     if (state.isLoading) {
         Box(

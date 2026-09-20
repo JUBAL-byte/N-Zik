@@ -4,6 +4,7 @@ import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,7 +47,9 @@ object Invidious: PublicInstances() {
     @Volatile
     var backgroundDispatcher: CoroutineDispatcher = Dispatchers.IO
 
-    internal val scope = CoroutineScope( SupervisorJob() )
+    internal val scopeExceptionHandler = CoroutineExceptionHandler { _, e -> InnertubeLogger.e("InvidiousScope", "Scope coroutine failed", e) }
+
+    internal val scope = CoroutineScope( SupervisorJob() + scopeExceptionHandler )
 
     var useUnofficialInstances: Boolean = true      // TODO: implement a setting toggle
         set(value) {

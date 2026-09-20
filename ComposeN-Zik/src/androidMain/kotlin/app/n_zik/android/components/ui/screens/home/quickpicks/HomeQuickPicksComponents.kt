@@ -163,7 +163,7 @@ fun YtmSectionItems(
                 }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 // Download state cache
-                val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+                val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
                 val downloadedIds by remember {
                     derivedStateOf {
                         downloadsMapState.values
@@ -236,19 +236,19 @@ fun YtmSectionItems(
                 val sectionAlbumKeys = remember(section.items) { section.items.filterIsInstance<Innertube.AlbumItem>().map { it.key } }
                 val sectionAlbumBookmarkStatesMap by remember(sectionAlbumKeys) {
                     BookmarkStateManager.getAlbumBookmarkStates(sectionAlbumKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                 val sectionArtistKeys = remember(section.items) { section.items.filterIsInstance<Innertube.ArtistItem>().map { it.key } }
                 val sectionArtistBookmarkStatesMap by remember(sectionArtistKeys) {
                     BookmarkStateManager.getArtistBookmarkStates(sectionArtistKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                 val sectionPlaylistKeys = remember(section.items) { section.items.filterIsInstance<Innertube.PlaylistItem>().map { it.key } }
                 val sectionPlaylistBookmarkStatesMap by remember(sectionPlaylistKeys) {
                     BookmarkStateManager.getPlaylistBookmarkStates(sectionPlaylistKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                 val sectionVideoKeys = remember(section.items) { section.items.filterIsInstance<Innertube.VideoItem>().map { it.key } }
                 val sectionVideoLikeStatesMap by remember(sectionVideoKeys) {
                     LikeStateManager.getLikeStates(sectionVideoKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 LazyRow(contentPadding = endPaddingValues) {
                     items(section.items, key = { it?.key ?: it.hashCode() }, contentType = { "item" }) { item ->

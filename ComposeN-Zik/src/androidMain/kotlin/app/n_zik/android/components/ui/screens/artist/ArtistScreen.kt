@@ -468,7 +468,7 @@ fun ArtistOverview(
         LikeStateManager.getLikeStates(songIds)
     }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadedIds by remember {
         derivedStateOf {
             downloadsMapState.values
@@ -879,7 +879,7 @@ fun ArtistOverview(
                         val videoKeys = remember(section.items) { section.items.fastMap { (it as Innertube.VideoItem).key } }
                         val videoLikeStatesMap by remember(videoKeys) {
                             LikeStateManager.getLikeStates(videoKeys)
-                        }.collectAsStateWithLifecycle(emptyMap())
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
                         LazyRow {
                             items(
                                 items = section.items.fastMap { it as Innertube.VideoItem },

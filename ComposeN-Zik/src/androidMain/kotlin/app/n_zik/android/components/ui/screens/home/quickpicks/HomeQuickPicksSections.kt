@@ -229,7 +229,7 @@ fun QuickPicksGrid(
     }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadedIds by remember {
         derivedStateOf {
             downloadsMapState.values
@@ -431,7 +431,7 @@ fun NewAlbumsOfYourArtistsSection(
                 val filteredAlbumKeys = remember(newReleaseAlbumsFiltered) { newReleaseAlbumsFiltered.map { it.key } }
                 val filteredBookmarkStatesMap by remember(filteredAlbumKeys) {
                     BookmarkStateManager.getAlbumBookmarkStates(filteredAlbumKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 LazyRow(contentPadding = endPaddingValues) {
                     items(
@@ -490,7 +490,7 @@ fun NewAlbumsSection(
                     val newAlbumsKeys = remember(albums) { albums.map { it.key } }
                     val newAlbumsBookmarkStatesMap by remember(newAlbumsKeys) {
                         BookmarkStateManager.getAlbumBookmarkStates(newAlbumsKeys)
-                    }.collectAsStateWithLifecycle(emptyMap())
+                    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                     LazyRow(contentPadding = endPaddingValues) {
                         items(
@@ -548,7 +548,7 @@ fun RelatedAlbumsSection(
                 val relatedAlbumKeys = remember(albums) { albums.map { it.key } }
                 val relatedAlbumBookmarkStatesMap by remember(relatedAlbumKeys) {
                     BookmarkStateManager.getAlbumBookmarkStates(relatedAlbumKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 LazyRow(contentPadding = endPaddingValues) {
                     items(
@@ -607,7 +607,7 @@ fun SimilarArtistsSection(
                 val similarArtistKeys = remember(artists) { artists.map { it.key } }
                 val similarArtistBookmarkStatesMap by remember(similarArtistKeys) {
                     BookmarkStateManager.getArtistBookmarkStates(similarArtistKeys)
-                }.collectAsStateWithLifecycle(emptyMap())
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 LazyRow(contentPadding = endPaddingValues) {
                     items(
@@ -891,7 +891,7 @@ fun ChartsSection(
                             val chartPlaylistKeys = remember(playlists) { playlists.map { it.key } }
                             val chartPlaylistBookmarkStatesMap by remember(chartPlaylistKeys) {
                                 BookmarkStateManager.getPlaylistBookmarkStates(chartPlaylistKeys)
-                            }.collectAsStateWithLifecycle(emptyMap())
+                            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                             LazyRow(contentPadding = endPaddingValues) {
                                 items(
@@ -982,7 +982,7 @@ fun ChartsSection(
                         val chartArtistKeys = remember(artists) { artists.map { it.key } }
                         val chartArtistBookmarkStatesMap by remember(chartArtistKeys) {
                             BookmarkStateManager.getArtistBookmarkStates(chartArtistKeys)
-                        }.collectAsStateWithLifecycle(emptyMap())
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                         BasicText(
                             text = stringResource(R.string.chart_top_artists),
@@ -1176,19 +1176,19 @@ fun GenericYtmSections(
             val sectionAlbumKeys = remember(section.items) { section.items.filterIsInstance<Innertube.AlbumItem>().map { it.key } }
             val sectionAlbumBookmarkStatesMap by remember(sectionAlbumKeys) {
                 BookmarkStateManager.getAlbumBookmarkStates(sectionAlbumKeys)
-            }.collectAsStateWithLifecycle(emptyMap())
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
             val sectionArtistKeys = remember(section.items) { section.items.filterIsInstance<Innertube.ArtistItem>().map { it.key } }
             val sectionArtistBookmarkStatesMap by remember(sectionArtistKeys) {
                 BookmarkStateManager.getArtistBookmarkStates(sectionArtistKeys)
-            }.collectAsStateWithLifecycle(emptyMap())
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
             val sectionPlaylistKeys = remember(section.items) { section.items.filterIsInstance<Innertube.PlaylistItem>().map { it.key } }
             val sectionPlaylistBookmarkStatesMap by remember(sectionPlaylistKeys) {
                 BookmarkStateManager.getPlaylistBookmarkStates(sectionPlaylistKeys)
-            }.collectAsStateWithLifecycle(emptyMap())
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
             val sectionVideoKeys = remember(section.items) { section.items.filterIsInstance<Innertube.VideoItem>().map { it.key } }
             val sectionVideoLikeStatesMap by remember(sectionVideoKeys) {
                 LikeStateManager.getLikeStates(sectionVideoKeys)
-            }.collectAsStateWithLifecycle(emptyMap())
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             LazyRow(contentPadding = endPaddingValues) {
                 items(section.items, key = { it?.hashCode() ?: 0 }, contentType = { "item" }) { item ->

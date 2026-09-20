@@ -131,7 +131,7 @@ fun HomeSongs(
 
     var items by remember { mutableStateOf(emptyList<Song>()) }
 
-    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+    val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
     val downloadedIds by remember {
         derivedStateOf {
             downloadsMapState.values

@@ -400,7 +400,7 @@ class PlayerItemMenu private constructor(
                         it?.state == Download.STATE_DOWNLOADING ||
                         it?.state == Download.STATE_RESTARTING
                 }
-        }.collectAsStateWithLifecycle(initialValue = false)
+        }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
         val isDownloadInProgressState = rememberUpdatedState(isDownloadInProgress)
 
         // Refresh Audio Waves

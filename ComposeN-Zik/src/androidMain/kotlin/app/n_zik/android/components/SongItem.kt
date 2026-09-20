@@ -310,7 +310,7 @@ fun SongItem(
 
                     val isExistedInAPlaylist by remember( showInPlaylistIndicator ) {
                         Database.songPlaylistMapTable.isMapped( displaySong.id )
-                    }.collectAsStateWithLifecycle(initialValue = false)
+                    }.collectAsStateWithLifecycle(initialValue = false, context = NzikDispatchers.DATA)
 
                     if( isExistedInAPlaylist )
                         object: SongIndicator {

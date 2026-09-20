@@ -582,7 +582,7 @@ fun AlbumDetails(
                     LikeStateManager.getLikeStates(albumSongIds)
                 }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
-                val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
+                val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle(initialValue = MyDownloadHelper.downloads.value, context = NzikDispatchers.DATA)
                 val downloadedIds by remember {
                     derivedStateOf {
                         downloadsMapState.values
@@ -827,7 +827,7 @@ fun AlbumDetails(
                                 val altAlbumKeys = remember(alternatives) { alternatives.map { it.key } }
                                 val altBookmarkStatesMap by remember(altAlbumKeys) {
                                     BookmarkStateManager.getAlbumBookmarkStates(altAlbumKeys)
-                                }.collectAsStateWithLifecycle(emptyMap())
+                                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                                 ItemsList(
                                     tag = "album/$browseId/alternatives_list",

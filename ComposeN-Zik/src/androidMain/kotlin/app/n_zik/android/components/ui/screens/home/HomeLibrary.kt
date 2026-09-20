@@ -786,7 +786,7 @@ fun HomeLibrary(
                                                 )
                                             }
                                         } else if (sort.sortBy == PlaylistSortBy.PlayCount) {
-                                            val playCount by Database.eventTable.getPlaylistPlayCount(preview.playlist.id).collectAsStateWithLifecycle(initialValue = 0)
+                                            val playCount by Database.eventTable.getPlaylistPlayCount(preview.playlist.id).collectAsStateWithLifecycle(initialValue = 0, context = NzikDispatchers.DATA)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
@@ -802,7 +802,7 @@ fun HomeLibrary(
                                                 )
                                             }
                                         } else if (sort.sortBy == PlaylistSortBy.ListeningTime) {
-                                            val playTime by Database.eventTable.getPlaylistTotalPlayTime(preview.playlist.id).collectAsStateWithLifecycle(initialValue = 0L)
+                                            val playTime by Database.eventTable.getPlaylistTotalPlayTime(preview.playlist.id).collectAsStateWithLifecycle(initialValue = 0L, context = NzikDispatchers.DATA)
                                             Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
