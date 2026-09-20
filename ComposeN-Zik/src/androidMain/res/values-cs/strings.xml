@@ -1323,6 +1323,7 @@
     <string name="login_to_discord">Přihlásit se k Discordu</string>
     <string name="discord_token_text_invalid">Váš Discord token je neplatný, přihlaste se prosím znovu</string>
     <string name="discord_login_successful">Discord přihlášení úspěšné</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
     <string name="youtube_disconnect">Odpojit</string>
     <string name="youtube_connect">Připojit</string>
     <string name="youtube_login_successful">YouTube přihlášení úspěšné</string>
