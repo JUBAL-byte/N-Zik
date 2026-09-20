@@ -1323,6 +1323,7 @@
     <string name="login_to_discord">Discordにログイン</string>
     <string name="discord_token_text_invalid">Discordトークンが無効です。もう一度ログインしてください。</string>
     <string name="discord_login_successful">Discordのログインに成功</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
     <string name="youtube_disconnect">切断する</string>
     <string name="youtube_connect">接続する</string>
     <string name="youtube_login_successful">YouTubeのログインに成功しました</string>
