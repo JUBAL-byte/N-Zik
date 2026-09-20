@@ -2,19 +2,27 @@ package app.n_zik.android.extensions.discord
 
 import android.content.Context
 import androidx.media3.common.MediaItem
+import app.kreate.android.me.knighthat.utils.Toaster
+import app.n_zik.android.R
 import app.n_zik.android.core.network.utils.NetworkQualityHelper
 import com.metrolist.music.discordrpc.DiscordRpcConnection
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
+import io.mockk.Runs
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkAll
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 
@@ -46,13 +54,15 @@ class DiscordBrowsingSettingTest {
         browsingEnabled: () -> Boolean,
         networkAvailable: Boolean = true,
         tokenValidator: (suspend (String) -> Boolean?)? = null,
+        reconnectAbandoned: MutableStateFlow<Boolean> = MutableStateFlow(false),
     ): DiscordPresenceManager {
         mockkObject(NetworkQualityHelper)
         every { NetworkQualityHelper.isNetworkAvailable(any()) } returns networkAvailable
         // The manager now watches the gateway's reconnect budget on every connection it
         // creates (watchReconnectAbandonment): give the relaxed mock a real StateFlow so
-        // that property access does not blow up inside the watch job.
-        every { connection.reconnectAbandoned } returns MutableStateFlow(false)
+        // that property access does not blow up inside the watch job. The tests that do not
+        // exercise the watch leave it pinned to false; the toast test drives it itself.
+        every { connection.reconnectAbandoned } returns reconnectAbandoned
         val manager = DiscordPresenceManager(
             context = mockk<Context>(relaxed = true),
             getToken = { "test-token" },
@@ -180,5 +190,29 @@ class DiscordBrowsingSettingTest {
         browsingEnabled = true
         manager.onBrowsingSettingChanged()
         assertBrowsingWrites(connection, 2)
+    }
+
+    @Test
+    fun `reconnect abandonment surfaces an error toast`() = runTest {
+        // The watch re-dispatches to the UI dispatcher to show the toast.
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            val dispatcher = UnconfinedTestDispatcher()
+            val connection = mockk<DiscordRpcConnection>(relaxed = true)
+            val abandoned = MutableStateFlow(false)
+            newManager(dispatcher, connection, { true }, reconnectAbandoned = abandoned)
+            mockkObject(Toaster)
+            every { Toaster.e(any<Int>()) } just Runs
+
+            // The connection (and its abandonment watch) is created by the write path.
+            DiscordUiState.currentRoute.value = "home"
+
+            abandoned.value = true
+            testScheduler.runCurrent()
+
+            verify(exactly = 1) { Toaster.e(R.string.discord_rpc_reconnect_failed) }
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 }
