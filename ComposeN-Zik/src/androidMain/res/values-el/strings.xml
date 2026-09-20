@@ -1323,6 +1323,7 @@
     <string name="login_to_discord">Συνδεθείτε στο Discord</string>
     <string name="discord_token_text_invalid">Το διακριτικό σας Discord δεν είναι έγκυρο, παρακαλώ συνδεθείτε ξανά</string>
     <string name="discord_login_successful">Επιτυχής σύνδεση στο Discord</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
     <string name="youtube_disconnect">Disconnect</string>
     <string name="youtube_connect">Connect</string>
     <string name="youtube_login_successful">Επιτυχής σύνδεση στο YouTube</string>
