@@ -122,7 +122,6 @@ import app.it.fast4x.rimusic.utils.queueSwipeLeftActionKey
 import app.it.fast4x.rimusic.utils.queueSwipeRightActionKey
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.n_zik.android.download.utils.MyDownloadHelper
 import androidx.media3.exoplayer.offline.Download
 import app.n_zik.android.components.ui.screens.player.DeleteFromQueue
