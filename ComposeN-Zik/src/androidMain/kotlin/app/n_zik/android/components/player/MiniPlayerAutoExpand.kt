@@ -31,3 +31,14 @@ fun CoroutineScope.presentMiniplayerThenExpand(
         sheetState.expandSoft()
     }
 }
+
+/**
+ * Brings the mini-player back when media is available but the sheet was left dismissed.
+ *
+ * A UI preference change recreates the activity: the player service is not bound yet, so media
+ * reads as absent and the sheet is dismissed, and nothing presents it again once media returns.
+ * Call this when media is present; a sheet that is showing or expanded is left untouched.
+ */
+fun PlayerSheetState.showMiniplayerIfDismissed() {
+    if (isDismissed) snapTo(collapsedBound)
+}

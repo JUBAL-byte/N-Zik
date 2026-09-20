@@ -1,0 +1,95 @@
+package app.n_zik.android.components.player
+
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import app.it.fast4x.rimusic.ui.styling.Dimensions
+
+/** Height of the app header row, without the status bar (see AppHeader). */
+internal val APP_HEADER_HEIGHT: Dp = 64.dp
+
+/** Breathing room between the header (or top navigation bar) and a top-anchored mini-player. */
+internal val MINI_PLAYER_TOP_GAP: Dp = 8.dp
+
+/** Breathing room kept between a top-anchored mini-player and the content that starts under it. */
+internal val MINI_PLAYER_CONTENT_GAP: Dp = 8.dp
+
+/**
+ * Height of the top navigation bar: the bar's 64dp minus the 10dp trim, plus the 5dp
+ * bottom padding it gets at the top (see HorizontalNavigationBar).
+ */
+internal val TOP_NAV_BAR_HEIGHT: Dp
+    get() = Dimensions.navigationBarHeight - 5.dp
+
+/**
+ * Distance from the top of the screen to the mini-player when it is anchored at the top:
+ * right below the app header, and below the navigation bar when that one is at the top too,
+ * with a small [gap] in between.
+ *
+ * @param barsHidden True when the app header and navigation bar are put away (landscape phone
+ *        on the bar-less screens); the mini-player then only stays clear of the status bar.
+ * @param hasTopNavBar True when the navigation bar sits at the top of the screen.
+ */
+internal fun miniPlayerTopInset(
+    statusBarTop: Dp,
+    barsHidden: Boolean,
+    hasTopNavBar: Boolean,
+    headerHeight: Dp = APP_HEADER_HEIGHT,
+    topNavBarHeight: Dp = TOP_NAV_BAR_HEIGHT,
+    gap: Dp = MINI_PLAYER_TOP_GAP,
+): Dp {
+    if (barsHidden) return statusBarTop
+    return statusBarTop + headerHeight + (if (hasTopNavBar) topNavBarHeight else 0.dp) + gap
+}
+
+/**
+ * Extra room the collapsed mini-player leaves at one side so it does not cover a navigation
+ * rail there. The card already keeps [standardPadding] from the screen edge, which counts.
+ *
+ * @param safeInset Cutout or system inset on that side, which the rail is placed after.
+ * @param railWidth Width of the rail; 0 when there is no rail on that side.
+ */
+internal fun miniPlayerSideInset(
+    railWidth: Dp,
+    safeInset: Dp,
+    standardPadding: Dp = 16.dp,
+    gap: Dp = MINI_PLAYER_TOP_GAP,
+): Dp = if (railWidth <= 0.dp) 0.dp else (safeInset + railWidth + gap - standardPadding).coerceAtLeast(0.dp)
+
+/**
+ * Room a screen keeps under a top-anchored mini-player so its content stays reachable.
+ * It shrinks as the header, the top nav bar and the mini-player slide out together, which
+ * leaves no empty band behind and keeps the content edge glued to the mini-player's bottom.
+ *
+ * @param reservePx Mini-player height plus the gaps around it, when it is fully shown.
+ * @param scrollOffsetPx Header scroll-hide offset: 0 when shown, [hideRangePx] below 0 when
+ *        entirely slid out.
+ */
+internal fun miniPlayerContentReservePx(
+    reservePx: Float,
+    scrollOffsetPx: Float,
+    hideRangePx: Float,
+): Float {
+    if (hideRangePx <= 0f) return reservePx
+    val hidden = (-scrollOffsetPx / hideRangePx).coerceIn(0f, 1f)
+    return reservePx * (1f - hidden)
+}
+
+/**
+ * Distance from the top of the screen to the mini-player while the header scrolls out.
+ * It leaves with the header: the further the header slid out, the closer the mini-player gets
+ * to being fully above the screen, which it is once the header is entirely gone.
+ *
+ * @param scrollOffsetPx Header scroll-hide offset: 0 when shown, [hideRangePx] below 0 when
+ *        entirely slid out.
+ * @param hideRangePx How far the header travels to be entirely hidden.
+ */
+internal fun miniPlayerTopPaddingPx(
+    insetPx: Float,
+    scrollOffsetPx: Float,
+    hideRangePx: Float,
+    collapsedHeightPx: Float,
+): Float {
+    if (hideRangePx <= 0f) return insetPx
+    val hidden = (-scrollOffsetPx / hideRangePx).coerceIn(0f, 1f)
+    return insetPx + (-collapsedHeightPx - insetPx) * hidden
+}

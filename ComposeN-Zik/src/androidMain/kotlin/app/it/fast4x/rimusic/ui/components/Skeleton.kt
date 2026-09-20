@@ -45,6 +45,7 @@ import app.n_zik.android.BuildConfig
 import app.n_zik.android.LocalPlayerSheetState
 import app.n_zik.android.colorPalette
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.ui.graphics.graphicsLayer
@@ -87,6 +88,16 @@ import app.n_zik.android.updater.services.Updater
 import app.it.fast4x.rimusic.utils.lastVersionCodeKey
 import app.it.fast4x.rimusic.utils.lastBuildTypeKey
 import app.n_zik.android.LocalBottomBarOffset
+import app.n_zik.android.LocalTopBarOffset
+import app.n_zik.android.components.player.APP_HEADER_HEIGHT
+import app.n_zik.android.components.player.MINI_PLAYER_CONTENT_GAP
+import app.n_zik.android.components.player.MINI_PLAYER_TOP_GAP
+import app.n_zik.android.components.player.TOP_NAV_BAR_HEIGHT
+import app.n_zik.android.components.player.miniPlayerContentReservePx
+import app.it.fast4x.rimusic.utils.currentMediaItemIdAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 
 // THIS IS THE SCAFFOLD
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -108,6 +119,30 @@ fun Skeleton(
     val currentInsets = LocalPlayerAwareWindowInsets.current
 
     val bottomBarOffsetState = LocalBottomBarOffset.current
+
+    // Top-anchored mini-player: it floats over the top of the screen, so the content gets the room
+    // it takes (it leaves with the header, see miniPlayerContentReservePx)
+    val topPlayerPosition by rememberPreference(playerPositionKey, PlayerPosition.Bottom)
+    val playerMediaId by (binder?.player?.currentMediaItemIdAsState() ?: remember { mutableStateOf<String?>(null) })
+    val hasPlayerMedia = playerMediaId != null
+    val density = LocalDensity.current
+    val topBarOffsetState = LocalTopBarOffset.current
+    val statusBarTopPx = WindowInsets.safeDrawing.getTop(density)
+    val topNavBarPx = if (navigationBarPosition == NavigationBarPosition.Top) {
+        with(density) { TOP_NAV_BAR_HEIGHT.roundToPx() }
+    } else 0
+    val playerReservePx = if (topPlayerPosition == PlayerPosition.Top && hasPlayerMedia) {
+        with(density) { (Dimensions.collapsedPlayer + MINI_PLAYER_TOP_GAP + MINI_PLAYER_CONTENT_GAP).toPx() }
+    } else 0f
+    // Eased so the content glides when the mini-player appears or leaves instead of popping. Held
+    // as State and only read while laying out: reading it here would recompose every frame.
+    val playerReserveState = animateFloatAsState(
+        targetValue = playerReservePx,
+        animationSpec = tween(250, easing = FastOutSlowInEasing),
+        label = "playerTopReserve"
+    )
+    // Same travel as the header's scroll-hide (see MainActivity)
+    val headerHideRangePx = with(density) { APP_HEADER_HEIGHT.toPx() } + statusBarTopPx + topNavBarPx
 
     val navigationBar: AbstractNavigationBar =
         if ( navigationBarPosition.isHorizontal )
@@ -195,6 +230,28 @@ fun Skeleton(
                         .padding(
                             top = scaffoldPadding.calculateTopPadding(),
                             bottom = 0.dp
+                        )
+                        .then(
+                            if (topPlayerPosition == PlayerPosition.Top) {
+                                // Read while laying out: the reserve changes every frame of the
+                                // scroll-hide and of the appear/leave animation
+                                Modifier.layout { measurable, constraints ->
+                                    val reserve = miniPlayerContentReservePx(
+                                        reservePx = playerReserveState.value,
+                                        scrollOffsetPx = topBarOffsetState.value,
+                                        hideRangePx = headerHideRangePx,
+                                    ).roundToInt()
+                                    val placeable = measurable.measure(
+                                        constraints.copy(
+                                            minHeight = (constraints.minHeight - reserve).coerceAtLeast(0),
+                                            maxHeight = (constraints.maxHeight - reserve).coerceAtLeast(0),
+                                        )
+                                    )
+                                    layout(constraints.maxWidth, constraints.maxHeight) {
+                                        placeable.place(0, reserve)
+                                    }
+                                }
+                            } else Modifier
                         )
                         .fillMaxSize()
                 ) {

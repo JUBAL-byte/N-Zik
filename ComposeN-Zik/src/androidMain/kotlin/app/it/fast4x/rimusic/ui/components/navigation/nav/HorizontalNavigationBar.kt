@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -181,10 +182,11 @@ class HorizontalNavigationBar(
             ) {
 
                 val scrollState = rememberScrollState()
-                val roundedCornerShape = if (isFloating) {
-                    uiRoundnessShape()
-                } else {
-                    topUiRoundnessShape()
+                // A bar at the top of the screen sits flush under the header: no rounded corners
+                val roundedCornerShape = when {
+                    isFloating -> uiRoundnessShape()
+                    NavigationBarPosition.Top.isCurrent() -> RectangleShape
+                    else -> topUiRoundnessShape()
                 }
 
                 // Settings button only visible when

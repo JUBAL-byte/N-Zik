@@ -66,6 +66,8 @@ import app.kreate.android.themed.rimusic.screen.artist.ArtistPlaylists
 import app.kreate.android.themed.rimusic.screen.artist.ArtistVideos
 import app.n_zik.android.core.database.Database
 import app.it.fast4x.rimusic.enums.NavRoutes
+import app.it.fast4x.rimusic.enums.NavigationBarPosition
+import app.n_zik.android.components.player.TOP_NAV_BAR_HEIGHT
 import app.it.fast4x.rimusic.enums.StatisticsType
 import app.it.fast4x.rimusic.enums.TransitionEffect
 import app.n_zik.android.components.ui.screens.easter.EasterScreen
@@ -268,6 +270,14 @@ fun AppNavigation(
 
     val density = LocalDensity.current
     val statusBarTopPx = WindowInsets.safeDrawing.getTop(density)
+    // A top nav bar is the first thing of every screen: when the header slides out it has to keep
+    // going up by its own height, or it stays stuck under the status bar
+    val topNavBarPx = if (NavigationBarPosition.Top.isCurrent()) {
+        with(density) { TOP_NAV_BAR_HEIGHT.roundToPx() }
+    } else 0
+    // A rail on a side runs the full height of the content: once the header is gone it must not
+    // climb into the status bar, or its top buttons cannot be reached
+    val hasSideRail = NavigationBarPosition.Left.isCurrent() || NavigationBarPosition.Right.isCurrent()
     // The header is the 64dp bar plus the status bar inset it pads for
     val headerHeightPx = with(density) { 64.dp.roundToPx() } + statusBarTopPx
     val scrollTopBarOffset = LocalTopBarOffset.current
@@ -297,8 +307,9 @@ fun AppNavigation(
             val topPaddingPx = if (toggleDriven) headerHeightPx
                                else innerPadding.calculateTopPadding().roundToPx()
             val offsetPx = topBarOffsetState.value.toInt()
-            // Header slid out: the content still stays clear of the status bar
-            val minPaddingPx = if (toggleDriven) statusBarTopPx else 0
+            // Header slid out: the content still stays clear of the status bar (always, with a side
+            // rail), except for a top nav bar which leaves the screen with the header
+            val minPaddingPx = if (toggleDriven || hasSideRail) statusBarTopPx else -topNavBarPx
             val effectivePadding = (topPaddingPx + offsetPx).coerceAtLeast(minPaddingPx)
 
             val placeable = measurable.measure(

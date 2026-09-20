@@ -94,6 +94,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
@@ -158,6 +159,12 @@ import app.it.fast4x.rimusic.ui.screens.player.PlayerSheetState
 import app.it.fast4x.rimusic.ui.screens.player.rememberPlayerSheetState
 import app.n_zik.android.components.CustomBottomSheet
 import app.n_zik.android.components.player.MiniPlayerQueueOverlay
+import app.n_zik.android.components.player.APP_HEADER_HEIGHT
+import app.n_zik.android.components.player.miniPlayerSideInset
+import app.n_zik.android.components.player.miniPlayerTopInset
+import app.n_zik.android.components.player.miniPlayerTopPaddingPx
+import app.n_zik.android.components.player.TOP_NAV_BAR_HEIGHT
+import app.n_zik.android.components.player.showMiniplayerIfDismissed
 import app.n_zik.android.components.player.PaletteFade
 import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import app.n_zik.android.components.player.presentMiniplayerThenExpand
@@ -1128,7 +1135,11 @@ class MainActivity :
             }
             val uiType by rememberPreference(UiTypeKey, UiType.RiMusic)
             val isViMusic = uiType == UiType.ViMusic
-            
+            // A top nav bar leaves with the header, so the scroll-hide travels that much further
+            val topNavBarPx = if (NavigationBarPosition.Top.isCurrent()) {
+                with(LocalDensity.current) { TOP_NAV_BAR_HEIGHT.roundToPx() }
+            } else 0
+
             val bottomBarHeightPx = with(LocalDensity.current) { 240.dp.roundToPx().toFloat() } // Enough to hide floating bar + miniplayer
             var isBarsVisible by remember { mutableStateOf(true) }
             var topBarOffset by remember { mutableFloatStateOf(0f) }
@@ -1178,7 +1189,7 @@ class MainActivity :
                 isBarsVisible = true
             }
 
-            val nestedScrollConnection = remember(isLandscape, isLandscapeBarless, isViMusic, isScrollableRoute, density, safeDrawingInsets, showQueueOverlay) {
+            val nestedScrollConnection = remember(isLandscape, isLandscapeBarless, isViMusic, topNavBarPx, isScrollableRoute, density, safeDrawingInsets, showQueueOverlay) {
                 object : NestedScrollConnection {
                     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                         // Disable scroll-hide while the full player sheet is on screen or the queue is open
@@ -1198,7 +1209,7 @@ class MainActivity :
                         if (!shouldHideOnScroll || isViMusic) return Offset.Zero
 
                         val statusBarsTopPx = safeDrawingInsets.getTop(density)
-                        val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx
+                        val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx + topNavBarPx
 
                         val delta = available.y
                         if (delta == 0f) return Offset.Zero
@@ -1226,7 +1237,7 @@ class MainActivity :
                         if (isPlayerSheetExpanded.value || showQueueOverlay || isLandscapeBarless) return super.onPostFling(consumed, available)
 
                         val statusBarsTopPx = safeDrawingInsets.getTop(density)
-                        val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx
+                        val topBarHeightPx = with(density) { 64.dp.roundToPx() } + statusBarsTopPx + topNavBarPx
 
                         val currentTopOffset = topBarOffset
                         val threshold = -topBarHeightPx / 2f
@@ -1234,7 +1245,7 @@ class MainActivity :
                         offsetAnimationJob.value?.cancel()
                         offsetAnimationJob.value = coroutineScope.launch {
                             if (currentTopOffset < threshold) {
-                                launch { androidx.compose.animation.core.Animatable(topBarOffset).animateTo(-topBarHeightPx.toFloat(), androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearEasing)) { topBarOffset = value } }
+                                launch { androidx.compose.animation.core.Animatable(topBarOffset).animateTo(-topBarHeightPx.toFloat(),androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearEasing)) { topBarOffset = value } }
                                 launch { androidx.compose.animation.core.Animatable(bottomBarOffset).animateTo(bottomBarHeightPx, androidx.compose.animation.core.tween(150, easing = androidx.compose.animation.core.LinearEasing)) { bottomBarOffset = value } }
                                 isBarsVisible = false
                             } else {
@@ -1308,6 +1319,45 @@ class MainActivity :
                     ),
                     label = "playerPadBottom"
                 )
+
+                // Top anchor: the mini-player sits under the app header (and the top nav bar).
+                // The provider is read at draw time so the scroll-hide offset moves it without
+                // recomposing this screen on every frame.
+                val isTopPlayer = playerPos == PlayerPosition.Top
+                val statusBarTopPx = safeDrawingInsets.getTop(density)
+                val playerTopInsetPx = with(density) {
+                    miniPlayerTopInset(
+                        statusBarTop = statusBarTopPx.toDp(),
+                        barsHidden = areBarsHidden,
+                        hasTopNavBar = NavigationBarPosition.Top.isCurrent(),
+                    ).toPx()
+                }
+                val collapsedPlayerHeight = Dimensions.collapsedPlayer
+                // A navigation rail on a side: the collapsed mini-player narrows to stay clear of it.
+                // The rail is put away with the other bars on the bar-less landscape screens.
+                val railWidth = if (areBarsHidden) 0.dp else Dimensions.navigationRailWidth
+                val playerStartInset = miniPlayerSideInset(
+                    railWidth = if (NavigationBarPosition.Left.isCurrent()) railWidth else 0.dp,
+                    safeInset = with(density) { safeDrawingInsets.getLeft(density, LayoutDirection.Ltr).toDp() },
+                )
+                val playerEndInset = miniPlayerSideInset(
+                    railWidth = if (NavigationBarPosition.Right.isCurrent()) railWidth else 0.dp,
+                    safeInset = with(density) { safeDrawingInsets.getRight(density, LayoutDirection.Ltr).toDp() },
+                )
+                // Same travel as the header's scroll-hide (64dp bar + status bar + top nav bar)
+                val headerHideRangePx = with(density) { APP_HEADER_HEIGHT.toPx() } + statusBarTopPx + topNavBarPx
+                val playerTopPadding: (() -> Dp)? = if (isTopPlayer) {
+                    {
+                        with(density) {
+                            miniPlayerTopPaddingPx(
+                                insetPx = playerTopInsetPx,
+                                scrollOffsetPx = topBarOffsetState.value,
+                                hideRangePx = headerHideRangePx,
+                                collapsedHeightPx = collapsedPlayerHeight.toPx(),
+                            ).toDp()
+                        }
+                    }
+                } else null
 
                 val playerSheetState = rememberPlayerSheetState(
                     dismissedBound = 0.dp,
@@ -1432,12 +1482,19 @@ class MainActivity :
                             // tappable strip stays at the bottom of the screen.
                             val currentMediaId by (binder?.player?.currentMediaItemIdAsState() ?: remember { mutableStateOf<String?>(null) })
 
-                            LaunchedEffect(currentMediaId) {
+                            // Keyed on the sheet too: a rebuilt sheet (rotation, insets) starts from
+                            // its last anchor and must be re-checked against the current media
+                            LaunchedEffect(currentMediaId, playerSheetState) {
                                 if (currentMediaId == null) {
                                     if (!playerSheetState.isDismissed) {
                                         playerSheetState.snapTo(playerSheetState.dismissedBound)
                                     }
                                     showQueueOverlay = false
+                                } else {
+                                    // After recreate() the player service is not bound yet, so media
+                                    // reads as absent and the sheet is dismissed above; bring the
+                                    // mini-player back once media returns
+                                    playerSheetState.showMiniplayerIfDismissed()
                                 }
                             }
 
@@ -1446,12 +1503,9 @@ class MainActivity :
                             // in a single composition tree, preventing animation jumps.
                             if (currentMediaId != null) {
                                 Box(
+                                    // Top anchor follows the header through topPadding instead
                                     modifier = Modifier.fillMaxSize()
-                                        .offset { IntOffset(0, bottomBarOffsetState.value.roundToInt()) },
-                                    contentAlignment = if (playerPos == PlayerPosition.Top)
-                                        Alignment.TopCenter
-                                    else
-                                        Alignment.BottomCenter
+                                        .offset { IntOffset(0, if (isTopPlayer) 0 else bottomBarOffsetState.value.roundToInt()) }
                                 ) {
                                     // Palette fade scope: the global palette switches in one
                                     // step, only this subtree (mini-player + full player)
@@ -1470,6 +1524,9 @@ class MainActivity :
                                                 }
                                             },
                                             bottomPadding = { playerPadBottom.value },
+                                            topPadding = playerTopPadding,
+                                            collapsedStartInset = playerStartInset,
+                                            collapsedEndInset = playerEndInset,
                                             collapsedContentHeight = Dimensions.collapsedPlayer,
                                             disableDismiss = disableClosingPlayerSwipingDown,
                                             collapsedContent = {

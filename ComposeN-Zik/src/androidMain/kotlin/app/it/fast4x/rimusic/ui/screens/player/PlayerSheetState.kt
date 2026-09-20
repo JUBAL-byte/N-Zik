@@ -110,13 +110,25 @@ class PlayerSheetState(
     }
 
     fun snapTo(value: Dp) {
+        anchorFor(value)?.let(onAnchorChanged)
         coroutineScope.launch {
             animatable.snapTo(value)
         }
     }
 
     suspend fun snapToAndWait(value: Dp) {
+        anchorFor(value)?.let(onAnchorChanged)
         animatable.snapTo(value)
+    }
+
+    // Snapping must be remembered like expand/collapse/dismiss: the state is rebuilt from the
+    // last anchor whenever the bounds change (rotation, insets), and a stale "dismissed" anchor
+    // would bring the mini-player back hidden. Values between two anchors keep the last one.
+    private fun anchorFor(value: Dp): Int? = when (value) {
+        dismissedBound -> dismissedAnchor
+        collapsedBound -> collapsedAnchor
+        expandedBound -> expandedAnchor
+        else -> null
     }
 
     suspend fun dismissAndWait() {

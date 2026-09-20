@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -54,11 +55,16 @@ internal fun computeCardGeometry(
     horizontalPaddingPx: Float,
     baseCornerPx: Float,
     corner28Px: Float,
+    startInsetPx: Float = 0f,
+    endInsetPx: Float = 0f,
 ): CardGeometry {
     val cardHeight = collapsedHeightPx + (size.height - collapsedHeightPx) * p
-    val startWidth = size.width - (horizontalPaddingPx * 2)
+    // The collapsed card can be narrowed on either side (a navigation rail there); it still
+    // grows to the full width, so its left edge goes from the collapsed edge to 0
+    val collapsedLeft = horizontalPaddingPx + startInsetPx
+    val startWidth = size.width - collapsedLeft - (horizontalPaddingPx + endInsetPx)
     val cardWidth = startWidth + (size.width - startWidth) * p
-    val cardLeft = (size.width - cardWidth) / 2f
+    val cardLeft = collapsedLeft * (1f - p)
     val cornerPx = if (p < 0.5f) {
         baseCornerPx + (corner28Px - baseCornerPx) * (p / 0.5f)
     } else {
@@ -66,6 +72,45 @@ internal fun computeCardGeometry(
     }
     return CardGeometry(cardLeft, cardWidth, cardHeight, cornerPx)
 }
+
+/**
+ * Vertical translation of the sheet box, which spans the whole parent and holds the
+ * mini-player at its top edge.
+ *
+ * At progress 1 the sheet is full screen (no translation). At progress 0 the box is pushed
+ * down so the mini-player sits at the bottom, or, when [topPaddingPx] is set, only down to
+ * that distance from the top of the parent.
+ *
+ * @param topPaddingPx Distance from the parent's top edge when the mini-player is anchored
+ *        at the top; null anchors it at the bottom above [bottomPaddingPx].
+ */
+internal fun sheetTranslationY(
+    progress: Float,
+    parentHeightPx: Float,
+    collapsedHeightPx: Float,
+    bottomPaddingPx: Float,
+    topPaddingPx: Float?,
+): Float {
+    val collapsedY = topPaddingPx ?: (parentHeightPx - collapsedHeightPx - bottomPaddingPx)
+    return collapsedY * (1f - progress.coerceIn(0f, 1f))
+}
+
+/**
+ * Drag delta handed to the sheet state, which opens the sheet on a negative (upward) delta.
+ * Anchored at the top the sheet deploys downwards, so the gesture is mirrored: dragging
+ * down opens it and dragging up closes it.
+ */
+internal fun sheetDragDelta(dragAmountPx: Float, anchoredAtTop: Boolean): Float =
+    if (anchoredAtTop) -dragAmountPx else dragAmountPx
+
+/**
+ * Fling velocity handed to [PlayerSheetState.performFling], where a positive value expands the
+ * sheet and a negative one collapses or dismisses it. Mirrored when anchored at the top.
+ *
+ * @param velocityYPx Vertical velocity of the finger: negative when moving up.
+ */
+internal fun sheetFlingVelocity(velocityYPx: Float, anchoredAtTop: Boolean): Float =
+    if (anchoredAtTop) velocityYPx else -velocityYPx
 
 /**
  * Fade-in progress of the full player content (0 = hidden, 1 = visible).
@@ -120,6 +165,11 @@ private class CardClipShape(private val geometry: CardGeometry) : Shape {
  *
  * @param bottomPadding Padding from the bottom to adjust the collapsed position. A provider,
  *        read at draw time, so an animated value moves the sheet without recomposing it.
+ * @param topPadding When non-null the mini-player is anchored at the top of the screen at this
+ *        distance from the top edge (also a draw-time provider) instead of the bottom.
+ * @param collapsedStartInset Extra room kept free at the start while collapsed, on top of the usual
+ *        16dp margin (a navigation rail there). The card still deploys to full width.
+ * @param collapsedEndInset Same, at the end.
  * @param collapsedContentHeight The visual height of the mini-player content (without system bar insets).
  *        Used for the collapsed hit target. Defaults to [PlayerSheetState.collapsedBound].
  */
@@ -129,6 +179,9 @@ fun CustomBottomSheet(
     modifier: Modifier = Modifier,
     onDismiss: (() -> Unit)? = null,
     bottomPadding: () -> Dp = { 0.dp },
+    topPadding: (() -> Dp)? = null,
+    collapsedStartInset: Dp = 0.dp,
+    collapsedEndInset: Dp = 0.dp,
     collapsedContentHeight: Dp = state.collapsedBound,
     disableDismiss: Boolean = false,
     collapsedContent: @Composable BoxScope.() -> Unit,
@@ -139,6 +192,7 @@ fun CustomBottomSheet(
     val scope = rememberCoroutineScope()
 
     val miniPlayerColor = colorPalette().background2
+    val anchoredAtTop = topPadding != null
 
     Box(
         modifier = modifier
@@ -146,11 +200,13 @@ fun CustomBottomSheet(
             .graphicsLayer {
                 // Single smooth formula — no branching on isCollapsedOrDismissed.
                 // progress: 0 = collapsed, 1 = expanded.
-                // targetY: distance to push the Box down so the miniplayer (at Box top)
-                // sits at the bottom of the parent.
-                val targetY = (size.height - collapsedContentHeight.toPx() - bottomPadding().toPx())
-                val p = state.progress.coerceIn(0f, 1f)
-                translationY = targetY * (1f - p)
+                translationY = sheetTranslationY(
+                    progress = state.progress,
+                    parentHeightPx = size.height,
+                    collapsedHeightPx = collapsedContentHeight.toPx(),
+                    bottomPaddingPx = bottomPadding().toPx(),
+                    topPaddingPx = topPadding?.invoke()?.toPx(),
+                )
             }
             // ── Clip to the exact animated card rect (same geometry as drawBehind) ──
             // MUST precede the pointerInput below: the hit-test walks this chain
@@ -170,25 +226,27 @@ fun CustomBottomSheet(
                     horizontalPaddingPx = 16.dp.toPx(),
                     baseCornerPx = baseCornerPx,
                     corner28Px = 28.dp.toPx(),
+                    startInsetPx = collapsedStartInset.toPx(),
+                    endInsetPx = collapsedEndInset.toPx(),
                 )
                 shape = CardClipShape(geometry)
                 clip = true
             }
-            .pointerInput(state, isExpandable, disableDismiss) {
+            .pointerInput(state, isExpandable, disableDismiss, anchoredAtTop) {
                 if (!isExpandable) return@pointerInput
                 val velocityTracker = VelocityTracker()
 
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
                         velocityTracker.addPointerInputChange(change)
-                        state.dispatchRawDelta(dragAmount)
+                        state.dispatchRawDelta(sheetDragDelta(dragAmount, anchoredAtTop))
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
                         state.snapTo(state.collapsedBound)
                     },
                     onDragEnd = {
-                        val velocity = -velocityTracker.calculateVelocity().y
+                        val velocity = sheetFlingVelocity(velocityTracker.calculateVelocity().y, anchoredAtTop)
                         velocityTracker.resetTracking()
                         state.performFling(velocity, if (!disableDismiss) onDismiss else null)
                     }
@@ -206,6 +264,8 @@ fun CustomBottomSheet(
                         horizontalPaddingPx = 16.dp.toPx(),
                         baseCornerPx = baseCornerPx,
                         corner28Px = 28.dp.toPx(),
+                        startInsetPx = collapsedStartInset.toPx(),
+                        endInsetPx = collapsedEndInset.toPx(),
                     )
                     // The card keeps the mini-player background color throughout
                     // the deploy animation instead of lerping toward the player color.
@@ -270,6 +330,8 @@ fun CustomBottomSheet(
             Box(
                 modifier =
                 Modifier
+                    // Before the click target, so a navigation rail beside the mini-player keeps its taps
+                    .padding(start = collapsedStartInset, end = collapsedEndInset)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
