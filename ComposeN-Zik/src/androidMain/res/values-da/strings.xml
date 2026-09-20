@@ -355,6 +355,12 @@
     <string name="disable_scrolling_text">Deaktivér rullende tekst</string>
     <string name="scrolling_text_is_used_for_long_texts">Rullende tekst bruges til lang tekst</string>
     <string name="audio_quality_format">Lydkvalitet</string>
+    <string name="download_quality_format">Download Quality</string>
+    <string name="update_downloads">Update downloads</string>
+    <string name="update_downloads_description">Re-download the songs that were downloaded with a different quality</string>
+    <string name="update_downloads_count">Re-download %d downloads?</string>
+    <string name="update_downloads_nothing">All downloads already match the selected quality</string>
+    <string name="download_quality">Download quality</string>
     <string name="persian">Persisk</string>
     <string name="hungarian">Ungarsk</string>
     <string name="korean">Koreansk</string>
