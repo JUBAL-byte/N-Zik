@@ -1,3 +1,12 @@
+fix(discord): browsing key randomly ignored — re-validate before the RPC write, never re-send a cleared presence
+  - `GatewayWebSocket.clearPresence()` (submodule `discordrpc`) now nulls `lastPresence`, so `resendLastPresence()` (fired on READY/RESUMED after each reconnect) can no longer re-emit a presence the user already cleared — root cause of the "browsing" status coming back randomly (after BDD import / reconnects, fixed by a manual toggle off→on)
+  - `DiscordPresenceManager.sendActivity` re-evaluates a `browsingPrecondition` right before the gateway write: an in-flight browsing write started while the setting was on is cancelled if it is disabled before the write lands (the gateway can wait up to 30 s for the session before writing)
+  - `onPlayingStateChanged` updates `hasActiveMediaItem` before the token/network early-returns, so a media event seen while offline no longer leaves the flag stale for later route changes
+  - Test seams added to `DiscordPresenceManager` (`connectionFactory`, nullable `tokenValidator`; defaults via the `defaultConnection` companion) — no production behavior change
+  - New `DiscordBrowsingSettingTest` (6 tests): OFF never sends, ON + no media sends, ON + active media never sends, in-flight write cancelled on toggle-off, flag survives a network early-return, toggle handler clears on off and re-sends on on
+  - Verification: `:ComposeN-Zik:assembleDebug` green, targeted Discord unit tests 8/8 green (6 new + 2 existing seam tests); full-suite run interrupted by the user at the compile-OK stage
+  - Note: `modules/discordrpc` is a git submodule — its 1-line fix was committed in the submodule first, then the pointer was bumped in the main repo
+
 refactor(legacy): #606 part 5 — dedup 19 duplicated uiRoundnessShape imports (issue https://github.com/N-Zik-Group/N-Zik/issues/606)
   - The post-part-4 global re-audit (6 sub-agents) found 11 legacy files carrying 2-7 identical `import app.n_zik.android.uiRoundnessShape` lines (successive-merge artifacts) — 19 redundant lines removed, exactly one import kept per file (`Developer`, `Translator`, `SwipeableContent`, `HorizontalNavigationBar`, `Dialog`, `ArtistItem`, `PlaylistItem`, `SongItem`, `MiniPlayer`, `Modern`, kreate `ActionBar`)
   - Pure import hygiene, zero behavior change; verification: `:ComposeN-Zik:assembleDebug` green + repo-wide grep: 0 legacy file left with ≥2 identical `uiRoundnessShape` imports

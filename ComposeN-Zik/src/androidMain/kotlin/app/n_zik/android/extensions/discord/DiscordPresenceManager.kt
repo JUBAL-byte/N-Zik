@@ -30,7 +30,9 @@ class DiscordPresenceManager(
     private val context: Context,
     private val getToken: () -> String?,
     private val getBrowsingEnabled: () -> Boolean = { true },
-    private val externalScope: CoroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA)
+    private val externalScope: CoroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA),
+    private val connectionFactory: (String) -> DiscordRpcConnection = { defaultConnection(it) },
+    private val tokenValidator: (suspend (String) -> Boolean?)? = null
 ) {
     companion object {
         private const val APPLICATION_ID = "1379051016007454760"
@@ -41,6 +43,16 @@ class DiscordPresenceManager(
          * This prevents RPC spam, wrong-song flashes, and false "paused" states.
          */
         private const val DEBOUNCE_DELAY_MS = 5000L
+
+        /** Default RPC connection (production); tests inject their own factory. */
+        internal fun defaultConnection(token: String): DiscordRpcConnection = DiscordRpcConnection(
+            token = token,
+            os = "Android",
+            browser = "Discord Android",
+            device = Build.DEVICE,
+            userAgent = SuperProperties.userAgent,
+            superPropertiesBase64 = SuperProperties.superPropertiesBase64
+        )
     }
 
     private var rpc: DiscordRpcConnection? = null
@@ -118,6 +130,18 @@ class DiscordPresenceManager(
 
     fun onPlayingStateChanged(mediaItem: MediaItem?, isPlaying: Boolean, position: Long = 0L, duration: Long = 0L, now: Long = System.currentTimeMillis(), getCurrentPosition: (() -> Long)? = null, isPlayingProvider: (() -> Boolean)? = null) {
         if (isStopped) return
+
+        // Update the player state BEFORE any conditional return below: a transient
+        // token/network condition must never leave hasActiveMediaItem stale,
+        // otherwise the route collector and onBrowsingSettingChanged() would make
+        // Browsing decisions on an outdated player state (browsing setting ignored).
+        lastMediaItem = mediaItem
+        lastPosition = position
+
+        // Update the active media item flag:
+        // true when a media item exists (playing or paused), false when null (no player)
+        hasActiveMediaItem = mediaItem != null
+
         val token = getToken() ?: return
         if (token.isEmpty()) return
 
@@ -130,23 +154,9 @@ class DiscordPresenceManager(
 
         if (token != lastToken) {
             rpc?.closeDirect()
-            rpc = DiscordRpcConnection(
-                token = token,
-                os = "Android",
-                browser = "Discord Android",
-                device = Build.DEVICE,
-                userAgent = SuperProperties.userAgent,
-                superPropertiesBase64 = SuperProperties.superPropertiesBase64
-            )
+            rpc = connectionFactory(token)
             lastToken = token
         }
-
-        lastMediaItem = mediaItem
-        lastPosition = position
-
-        // Update the active media item flag:
-        // true when a media item exists (playing or paused), false when null (no player)
-        hasActiveMediaItem = mediaItem != null
 
         if (mediaItem == null) {
             // No media item = no music at all → show browsing if enabled and we have a route
@@ -222,6 +232,7 @@ class DiscordPresenceManager(
     private fun sendBrowsingPresence(route: String) {
         if (isStopped) return
         val formattedRoute = formatRouteName(route)
+        Timber.tag("DiscordPresence").d("Browsing presence requested: route=$formattedRoute, enabled=${getBrowsingEnabled()}, hasMediaItem=$hasActiveMediaItem")
         discordScope.launch {
             if (isStopped) return@launch
             sendActivity(
@@ -231,7 +242,8 @@ class DiscordPresenceManager(
                 start = appStartTime,
                 end = 0L,
                 status = "online",
-                paused = false
+                paused = false,
+                browsingPrecondition = { getBrowsingEnabled() && !hasActiveMediaItem }
             )
         }
     }
@@ -246,14 +258,16 @@ class DiscordPresenceManager(
         start: Long,
         end: Long,
         status: String,
-        paused: Boolean
+        paused: Boolean,
+        browsingPrecondition: (() -> Boolean)? = null
     ) {
         if (isStopped) return
         val token = getToken() ?: return
         if (token.isEmpty()) return
 
         if (token != lastToken) {
-            when (validateToken(token)) {
+            val validate = tokenValidator ?: { validateToken(it) }
+            when (validate(token)) {
                 false -> {
                     Timber.tag("DiscordPresence").e("Invalid token, stopping presence updates")
                     withContext(NzikDispatchers.UI) {
@@ -269,16 +283,18 @@ class DiscordPresenceManager(
             }
 
             rpc?.closeDirect()
-            rpc = DiscordRpcConnection(
-                token = token,
-                os = "Android",
-                browser = "Discord Android",
-                device = Build.DEVICE,
-                userAgent = SuperProperties.userAgent,
-                superPropertiesBase64 = SuperProperties.superPropertiesBase64
-            )
+            rpc = connectionFactory(token)
             lastToken = token
         }
+
+        // Browsing writes are re-validated right before the RPC write, not only at
+        // launch time: token validation above can take seconds, and the user may
+        // have disabled browsing (or started music) in that window.
+        if (browsingPrecondition != null && !browsingPrecondition()) {
+            Timber.tag("DiscordPresence").d("Browsing presence write cancelled: setting disabled or media item active before the write")
+            return
+        }
+
         val rawUri = mediaItem?.mediaMetadata?.artworkUri?.toString()
         val largeImageUrl = if (rawUri != null && rawUri.startsWith("http")) rawUri else getLargeImageFallback()
         val smallImageUrl = getSmallImageUrl()
@@ -327,14 +343,17 @@ class DiscordPresenceManager(
      * Called when the discord browsing setting is toggled
      */
     fun onBrowsingSettingChanged() {
-        if (!isStopped && !hasActiveMediaItem) {
-            if (getBrowsingEnabled()) {
-                DiscordUiState.currentRoute.value?.let { route ->
-                    sendBrowsingPresence(route)
-                }
-            } else {
-                discordScope.launch { rpc?.clearActivity() }
+        if (isStopped || hasActiveMediaItem) {
+            Timber.tag("DiscordPresence").d("Browsing setting changed, ignored: stopped=$isStopped, hasMediaItem=$hasActiveMediaItem (music status takes priority)")
+            return
+        }
+        if (getBrowsingEnabled()) {
+            DiscordUiState.currentRoute.value?.let { route ->
+                sendBrowsingPresence(route)
             }
+        } else {
+            Timber.tag("DiscordPresence").d("Browsing setting disabled, clearing activity")
+            discordScope.launch { rpc?.clearActivity() }
         }
     }
 
