@@ -43,8 +43,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -152,6 +154,7 @@ import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.utils.isDownloadedSong
 import app.it.fast4x.rimusic.utils.manageDownload
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import app.n_zik.android.core.coil.ImageCacheFactory
@@ -163,6 +166,9 @@ import app.n_zik.android.uiRoundnessShape
 import androidx.compose.runtime.LaunchedEffect
 import app.it.fast4x.rimusic.utils.getBitmapFromUrl
 import app.n_zik.android.core.coil.thumbnail
+import app.n_zik.android.components.player.MiniPlayerSwipeAction
+import app.n_zik.android.components.player.SwipeActionLatch
+import app.n_zik.android.components.player.miniPlayerSwipeAction
 import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import androidx.compose.foundation.isSystemInDarkTheme
 import app.it.fast4x.rimusic.enums.ColorPaletteMode
@@ -409,24 +415,62 @@ fun MiniPlayer(
         derivedStateOf { positionAndDurationState.value.second }
     }
 
+    // rememberSwipeToDismissBoxState keeps the confirmValueChange it got at the first composition:
+    // read what the swipe needs through these, or it uses the sheet and mini-player type of that
+    // first composition. The song is not taken from composition at all: it is read from the player
+    // when the swipe happens (issue #816: swipe-to-like liked the first song of the queue)
+    val swipeSheetState by rememberUpdatedState(playerSheetState)
+    val swipeMiniPlayerType by rememberUpdatedState(miniPlayerType)
+    val swipeBinder by rememberUpdatedState(binder)
+    val swipeContext by rememberUpdatedState(context)
+    // The callback is called again on every drag delta once the finger reaches the end anchor (it
+    // never settles, as it answers false): run the action once per gesture (issue #818)
+    val swipeActionLatch = remember { SwipeActionLatch() }
+
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (playerSheetState.progress > 0f) return@rememberSwipeToDismissBoxState false
+            if (swipeSheetState.progress > 0f) return@rememberSwipeToDismissBoxState false
 
-            if (value == SwipeToDismissBoxValue.StartToEnd)
-                if (miniPlayerType == MiniPlayerType.Essential)
-                    toggleLike()
-                else
-                    binder.player.seekToPrevious()
-            else
-                if (value == SwipeToDismissBoxValue.EndToStart)
-                    binder.player.seekToNext()
+            val action = miniPlayerSwipeAction(value, swipeMiniPlayerType == MiniPlayerType.Essential)
+            if (action != null && swipeActionLatch.tryFire()) {
+                val player = swipeBinder.player
+                when (action) {
+                    MiniPlayerSwipeAction.LikeCurrentSong -> player.currentMediaItem?.let { current ->
+                        NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
+                            YouTubeSync.rotateSongLikeState( swipeContext, current )
+                        }
+                    }
 
-            hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    MiniPlayerSwipeAction.SeekToPrevious -> player.seekToPrevious()
+                    MiniPlayerSwipeAction.SeekToNext -> player.seekToNext()
+                }
+
+                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
 
             return@rememberSwipeToDismissBoxState false
         }
     )
+
+    // Back at rest means the gesture is over: rearm the latch. The offset is not readable before
+    // the first layout, which is also a state at rest.
+    LaunchedEffect(dismissState) {
+        snapshotFlow {
+            try { dismissState.requireOffset() == 0f } catch (e: IllegalStateException) { true }
+        }
+            .distinctUntilChanged()
+            .filter { atRest -> atRest }
+            .collect { swipeActionLatch.release() }
+    }
+
+    // The action changes the content (new title, like icon), which recomputes the swipe anchors:
+    // the state can then settle in a dismissed direction and stay displaced, its gestures being off
+    // until it is back at rest. Bring the mini-player back to its position.
+    LaunchedEffect(dismissState) {
+        snapshotFlow { dismissState.settledValue }
+            .filter { settled -> settled != SwipeToDismissBoxValue.Settled }
+            .collect { dismissState.reset() }
+    }
     val backgroundProgress by rememberPreference(backgroundProgressKey, BackgroundProgress.MiniPlayer)
     val effectRotationEnabled by rememberPreference(effectRotationKey, false)
     val shouldBePlayingTransition = updateTransition(shouldBePlaying, label = stringResource(R.string.txt_shouldbeplaying))
