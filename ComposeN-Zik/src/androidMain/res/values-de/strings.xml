@@ -355,6 +355,12 @@
     <string name="disable_scrolling_text">Lauftext deaktivieren</string>
     <string name="scrolling_text_is_used_for_long_texts">Lauftext wird für lange Texte verwendet</string>
     <string name="audio_quality_format">Audioqualität</string>
+    <string name="download_quality_format">Download Quality</string>
+    <string name="update_downloads">Update downloads</string>
+    <string name="update_downloads_description">Re-download the songs that were downloaded with a different quality</string>
+    <string name="update_downloads_count">Re-download %d downloads?</string>
+    <string name="update_downloads_nothing">All downloads already match the selected quality</string>
+    <string name="download_quality">Download quality</string>
     <string name="persian">Persisch (فارسی)</string>
     <string name="hungarian">Ungarisch (Magyar)</string>
     <string name="korean">Koreanisch (한국어 / 조선말)</string>
