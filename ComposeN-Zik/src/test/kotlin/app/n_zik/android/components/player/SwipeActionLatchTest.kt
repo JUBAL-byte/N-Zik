@@ -44,6 +44,21 @@ class SwipeActionLatchTest {
     }
 
     @Test
+    fun `it reports fired from the first call until the release`() {
+        val latch = SwipeActionLatch()
+        assertFalse(latch.isFired)
+
+        latch.tryFire()
+        assertTrue(latch.isFired)
+
+        latch.tryFire()
+        assertTrue(latch.isFired)
+
+        latch.release()
+        assertFalse(latch.isFired)
+    }
+
+    @Test
     fun `releasing an unused latch keeps it usable`() {
         val latch = SwipeActionLatch()
 

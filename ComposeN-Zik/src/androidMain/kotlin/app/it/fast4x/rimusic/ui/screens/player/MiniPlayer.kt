@@ -168,6 +168,8 @@ import app.it.fast4x.rimusic.utils.getBitmapFromUrl
 import app.n_zik.android.core.coil.thumbnail
 import app.n_zik.android.components.player.MiniPlayerSwipeAction
 import app.n_zik.android.components.player.SwipeActionLatch
+import app.n_zik.android.components.player.WithDoubledTouchSlop
+import app.n_zik.android.components.player.isMiniPlayerSwipeEnabled
 import app.n_zik.android.components.player.miniPlayerSwipeAction
 import app.n_zik.android.components.player.m3eDynamicColorPaletteOf
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -463,6 +465,12 @@ fun MiniPlayer(
             .collect { swipeActionLatch.release() }
     }
 
+    // Once the action ran the swipe is off (see gesturesEnabled): send the box back to its position.
+    // It comes back on when the box is at rest, which releases the latch above.
+    LaunchedEffect(swipeActionLatch.isFired) {
+        if (swipeActionLatch.isFired) dismissState.reset()
+    }
+
     // The action changes the content (new title, like icon), which recomputes the swipe anchors:
     // the state can then settle in a dismissed direction and stay displaced, its gestures being off
     // until it is back at rest. Bring the mini-player back to its position.
@@ -503,6 +511,8 @@ fun MiniPlayer(
     val isFloating = NavigationBarPosition.BottomFloating.isCurrent()
     val shape = if (isFloating) uiRoundnessShape() else uiRoundnessShape()
 
+    // The swipe waits for twice the usual movement, so the vertical open gesture wins on a slow diagonal drag
+    WithDoubledTouchSlop {
     SwipeToDismissBox(
         modifier = Modifier
             .padding(horizontal = 16.dp)
@@ -510,6 +520,10 @@ fun MiniPlayer(
             .clip(shape),
         enableDismissFromStartToEnd = playerSheetState.progress == 0f,
         enableDismissFromEndToStart = playerSheetState.progress == 0f,
+        // Switched off once the action ran: that ends a drag the finger keeps alive, so the box
+        // goes back to its position without waiting for the release. Also off as soon as the sheet
+        // leaves its original position (being opened)
+        gesturesEnabled = isMiniPlayerSwipeEnabled(swipeActionLatch.isFired, playerSheetState.progress),
         state = dismissState,
         backgroundContent = {
             /*
@@ -788,6 +802,7 @@ fun MiniPlayer(
         /*****  */
 
 
+    }
     }
 }
 

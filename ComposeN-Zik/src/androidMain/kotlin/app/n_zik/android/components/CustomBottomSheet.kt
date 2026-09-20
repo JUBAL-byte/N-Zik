@@ -2,7 +2,6 @@ package app.n_zik.android.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -236,17 +235,22 @@ fun CustomBottomSheet(
                 if (!isExpandable) return@pointerInput
                 val velocityTracker = VelocityTracker()
 
-                detectVerticalDragGestures(
+                detectMostlyVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
                         velocityTracker.addPointerInputChange(change)
                         state.dispatchRawDelta(sheetDragDelta(dragAmount, anchoredAtTop))
+                    },
+                    onDragAbort = {
+                        velocityTracker.resetTracking()
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
                         state.snapTo(state.collapsedBound)
                     },
-                    onDragEnd = {
-                        val velocity = sheetFlingVelocity(velocityTracker.calculateVelocity().y, anchoredAtTop)
+                    onDragEnd = { aborted ->
+                        // A gesture that ended sideways must not fling with the velocity of the
+                        // vertical phase that preceded it: settle with a zero velocity instead.
+                        val velocity = if (aborted) 0f else sheetFlingVelocity(velocityTracker.calculateVelocity().y, anchoredAtTop)
                         velocityTracker.resetTracking()
                         state.performFling(velocity, if (!disableDismiss) onDismiss else null)
                     }

@@ -92,6 +92,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import app.n_zik.android.components.player.isPlayerHorizontalSwipeEnabled
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -395,7 +397,19 @@ fun Player(
     val binder = LocalPlayerServiceBinder.current ?: return
     val playerSheetState = LocalPlayerSheetState.current
     // Settings
-    val disablePlayerHorizontalSwipe by rememberPreference(disablePlayerHorizontalSwipeKey, false)
+    val disablePlayerHorizontalSwipePref by rememberPreference(disablePlayerHorizontalSwipeKey, false)
+    // Also off until the sheet is completely open: a horizontal drag on a half-open player (the
+    // finger stopped in the middle of the opening) must not skip songs. Held as derived State,
+    // because the pointer handlers below read it at drag time
+    val currentPlayerSheetState by rememberUpdatedState(playerSheetState)
+    val disablePlayerHorizontalSwipe by remember {
+        derivedStateOf {
+            !isPlayerHorizontalSwipeEnabled(
+                disabledByUser = disablePlayerHorizontalSwipePref,
+                sheetExpanded = currentPlayerSheetState.isExpanded,
+            )
+        }
+    }
     val showlyricsthumbnail by rememberPreference(showlyricsthumbnailKey, true)
     val effectRotationEnabled by rememberPreference(effectRotationKey, false)
     val thumbnailSizeDp by rememberPreference( thumbnailSizeDpKey, 90f )

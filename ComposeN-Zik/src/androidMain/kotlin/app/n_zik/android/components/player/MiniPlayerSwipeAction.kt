@@ -11,6 +11,21 @@ enum class MiniPlayerSwipeAction {
 }
 
 /**
+ * Whether the mini-player's own swipe is on: only while it sits at its original position (the
+ * sheet is not being opened) and no action has just run.
+ */
+fun isMiniPlayerSwipeEnabled(actionFired: Boolean, sheetProgress: Float): Boolean =
+    !actionFired && sheetProgress == 0f
+
+/**
+ * Whether the full player's horizontal swipe (skip to the previous or next song) is on: only
+ * once the sheet is completely open. A half-open sheet, whether it is animating or the finger
+ * stopped in the middle of the opening, must not turn a horizontal drag into a skip.
+ */
+fun isPlayerHorizontalSwipeEnabled(disabledByUser: Boolean, sheetExpanded: Boolean): Boolean =
+    !disabledByUser && sheetExpanded
+
+/**
  * Maps a swipe direction to its action.
  *
  * @param isEssentialType The Essential mini-player has no previous button, so its right swipe

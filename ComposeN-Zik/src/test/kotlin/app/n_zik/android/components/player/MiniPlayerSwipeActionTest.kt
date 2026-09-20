@@ -2,7 +2,9 @@ package app.n_zik.android.components.player
 
 import androidx.compose.material3.SwipeToDismissBoxValue
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class MiniPlayerSwipeActionTest {
@@ -33,6 +35,30 @@ class MiniPlayerSwipeActionTest {
             MiniPlayerSwipeAction.SeekToNext,
             miniPlayerSwipeAction(SwipeToDismissBoxValue.EndToStart, isEssentialType = false),
         )
+    }
+
+    @Test
+    fun `mini-player swipe is on only at its original position and before an action ran`() {
+        assertTrue(isMiniPlayerSwipeEnabled(actionFired = false, sheetProgress = 0f))
+        assertFalse(isMiniPlayerSwipeEnabled(actionFired = true, sheetProgress = 0f))
+    }
+
+    @Test
+    fun `mini-player swipe is off as soon as the sheet leaves its original position`() {
+        assertFalse(isMiniPlayerSwipeEnabled(actionFired = false, sheetProgress = 0.01f))
+        assertFalse(isMiniPlayerSwipeEnabled(actionFired = false, sheetProgress = 1f))
+    }
+
+    @Test
+    fun `player swipe is on only when the sheet is completely open`() {
+        assertTrue(isPlayerHorizontalSwipeEnabled(disabledByUser = false, sheetExpanded = true))
+        assertFalse(isPlayerHorizontalSwipeEnabled(disabledByUser = false, sheetExpanded = false))
+    }
+
+    @Test
+    fun `player swipe stays off when the user disabled it`() {
+        assertFalse(isPlayerHorizontalSwipeEnabled(disabledByUser = true, sheetExpanded = true))
+        assertFalse(isPlayerHorizontalSwipeEnabled(disabledByUser = true, sheetExpanded = false))
     }
 
     @Test
