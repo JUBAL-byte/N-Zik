@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -202,7 +203,7 @@ class OnlinePlaylistItemMenu private constructor(
                     }
 
                     val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-                    val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
+                    val localPlaylist by localPlaylistFlow.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
                     val isBookmarked = localPlaylist?.isYoutubePlaylist == true
 
                     if (isBookmarked)
@@ -246,7 +247,7 @@ class OnlinePlaylistItemMenu private constructor(
 
                 // Trailing content (Bookmark & Share)
                 val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-                val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
+                val localPlaylist by localPlaylistFlow.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
                 val isBookmarked = localPlaylist?.isYoutubePlaylist == true
                 val coroutineScope = rememberCoroutineScope()
 
@@ -322,7 +323,7 @@ class OnlinePlaylistItemMenu private constructor(
         var displayThumbnailUrl by remember { mutableStateOf(playlist.thumbnail?.url) }
 
         val localPlaylistFlow = remember(playlist.key) { Database.playlistTable.findByBrowseId(playlist.key) }
-        val localPlaylist by localPlaylistFlow.collectAsState(null, NzikDispatchers.DATA)
+        val localPlaylist by localPlaylistFlow.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
         val changePlaylistId = localPlaylist?.let { lp ->
             ChangePlaylistBrowseIdDialog(menuState = menuState) { lp }
         }

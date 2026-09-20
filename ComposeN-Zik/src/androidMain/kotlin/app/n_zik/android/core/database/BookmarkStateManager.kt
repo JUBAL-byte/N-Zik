@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
  * Usage in Composable:
  *   val bookmarkStatesMap by remember(ids) {
  *       BookmarkStateManager.getArtistBookmarkStates(ids)
- *   }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+ *   }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
  *   val bookmarkState = bookmarkStatesMap[id]  // true=bookmarked, false=disliked, null=neutral
  */
 object BookmarkStateManager {

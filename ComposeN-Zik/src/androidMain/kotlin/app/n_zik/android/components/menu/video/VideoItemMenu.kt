@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -318,7 +317,7 @@ class VideoItemMenu private constructor(
 
         val albumForInfo by remember(song.id) {
             Database.albumTable.findBySongId(song.id)
-        }.collectAsState(null, NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
         val infoButton = remember {
             object : MenuIcon, Descriptive, Clickable {
@@ -369,7 +368,7 @@ class VideoItemMenu private constructor(
         // Reactively collect artists from DB for per-artist "More of" buttons
         val artistsData by remember(song.id) {
             Database.artistTable.findBySongId(song.id)
-        }.collectAsState(emptyList(), NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
         val goToArtistFallback = remember {
             GoToArtist( navController, song, menuState )
@@ -535,7 +534,7 @@ class VideoItemMenu private constructor(
                             Database.songTable
                                     .likeState( song.id )
                                     .distinctUntilChanged()
-                        }.collectAsState( null, NzikDispatchers.DATA )
+                        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                         Column(
                             Modifier.width( TabToolBar.TOOLBAR_ICON_SIZE )

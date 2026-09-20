@@ -13,7 +13,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -39,7 +39,7 @@ object SyncStatusDialog : InteractiveDialog {
 
     @Composable
     override fun DialogBody() {
-        val status by syncStatus.collectAsState()
+        val status by syncStatus.collectAsStateWithLifecycle()
         var expandedItem by androidx.compose.runtime.remember { mutableStateOf<String?>(null) }
 
         val statusItems = listOf(

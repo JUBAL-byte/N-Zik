@@ -21,7 +21,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -256,7 +256,7 @@ class AlbumItemMenu private constructor(
                         Database.albumTable
                             .likeState(album.id)
                             .distinctUntilChanged()
-                    }.collectAsState(null, NzikDispatchers.DATA)
+                    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -321,13 +321,13 @@ class AlbumItemMenu private constructor(
                     Database.albumTable
                         .isBookmarked(album.id)
                         .distinctUntilChanged()
-                }.collectAsState(false, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
 
                 val likeState by remember(album.id) {
                     Database.albumTable
                         .likeState(album.id)
                         .distinctUntilChanged()
-                }.collectAsState(null, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -436,7 +436,7 @@ class AlbumItemMenu private constructor(
             Database.songAlbumMapTable
                     .allSongsOf( album.id )
                     .distinctUntilChanged()
-        }.collectAsState( emptyList(), NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
         // Collect artists from the first song if available
         // We observe the songs list to react to its population
@@ -450,7 +450,7 @@ class AlbumItemMenu private constructor(
                     flowOf(emptyList())
                 }
             }
-        }.collectAsState(emptyList(), NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
         
         val changeArtistId = ChangeArtistBrowseIdDialog(menuState = menuState) { artistsData.firstOrNull() }
 

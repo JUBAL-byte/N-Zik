@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.distinctUntilChanged
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -321,11 +320,11 @@ class PlayerItemMenu private constructor(
         // Reactively collect Album and Artists (like the old menu)
         val albumData by remember(mediaItem.mediaId) {
             Database.albumTable.findBySongId(mediaItem.mediaId)
-        }.collectAsState(null, NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
         
         val artistsData by remember(mediaItem.mediaId) {
             Database.artistTable.findBySongId(mediaItem.mediaId)
-        }.collectAsState(emptyList(), NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
         // Pre-create GoTo objects to avoid race condition on channelId lookup
         val goToArtistObj = remember(song) { GoToArtist(navController, song, menuState) }
@@ -803,7 +802,7 @@ class PlayerItemMenu private constructor(
                             Database.songTable
                                     .likeState(song.id)
                                     .distinctUntilChanged()
-                        }.collectAsState(null, NzikDispatchers.DATA)
+                        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                         Column {
                             IconButton(

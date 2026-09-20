@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -161,7 +160,7 @@ fun YtmSectionItems(
                 val sectionSongIds = remember(songItems) { songItems.mapNotNull { it.key } }
                 val sectionLikeStatesMap by remember(sectionSongIds) {
                     LikeStateManager.getLikeStates(sectionSongIds)
-                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 // Download state cache
                 val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

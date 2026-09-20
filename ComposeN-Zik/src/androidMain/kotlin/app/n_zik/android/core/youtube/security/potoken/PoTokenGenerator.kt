@@ -2,7 +2,7 @@ package app.n_zik.android.core.security.potoken
 
 import android.webkit.CookieManager
 import app.n_zik.android.appContext
-import kotlinx.coroutines.Dispatchers
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,7 +42,7 @@ class PoTokenGenerator {
             Timber.tag(TAG).w("poToken generation timed out after ${POTOKEN_TIMEOUT_MS}ms; proceeding without PoToken")
             webPoTokenGenLock.withLock {
                 try {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         webPoTokenGenerator?.close()
                     }
                 } catch (closeEx: Exception) {
@@ -69,7 +69,7 @@ class PoTokenGenerator {
     suspend fun close() {
         webPoTokenGenLock.withLock {
             try {
-                withContext(Dispatchers.Main) {
+                withContext(NzikDispatchers.UI) {
                     webPoTokenGenerator?.close()
                 }
             } catch (e: Exception) {
@@ -108,7 +108,7 @@ class PoTokenGenerator {
                     webPoTokenSessionId = sessionId
                     webPoTokenStreamingPot = null
 
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         webPoTokenGenerator?.close()
                     }
                     webPoTokenGenerator = null
@@ -124,7 +124,7 @@ class PoTokenGenerator {
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "Failed to generate streaming poToken")
                         // Close the freshly created WebView to avoid leaking it
-                        withContext(Dispatchers.Main) {
+                        withContext(NzikDispatchers.UI) {
                             runCatching { webPoTokenGenerator?.close() }
                         }
                         webPoTokenGenerator = null

@@ -14,8 +14,6 @@ import app.n_zik.android.BuildConfig
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
@@ -45,7 +43,7 @@ class PoTokenWebView private constructor(
     private val continuation: Continuation<PoTokenWebView>,
 ) {
     private val webView = WebView(context)
-    private val scope = MainScope()
+    private val scope = NzikDispatchers.fireAndForget(NzikDispatchers.UI)
 
     // Guards the single-shot init continuation: initialization errors can arrive from several
     // paths (JS console "Uncaught", botguard request failure, renderer-gone) and a second resume
@@ -295,7 +293,7 @@ class PoTokenWebView private constructor(
     }
 
     private suspend fun generatePoTokenInternal(identifier: String, requestKey: String): String {
-        return withContext(Dispatchers.Main) {
+        return withContext(NzikDispatchers.UI) {
             suspendCancellableCoroutine { cont ->
                 Timber.tag(TAG).d("generatePoToken() called with identifier $identifier")
                 addPoTokenEmitter(requestKey, cont)
@@ -471,7 +469,7 @@ class PoTokenWebView private constructor(
             var created: PoTokenWebView? = null
             try {
                 return withTimeout(INIT_TIMEOUT_MS) {
-                    withContext(Dispatchers.Main) {
+                    withContext(NzikDispatchers.UI) {
                         suspendCancellableCoroutine { cont ->
                             val potWv = PoTokenWebView(context, cont)
                             created = potWv
@@ -492,7 +490,7 @@ class PoTokenWebView private constructor(
 
         private suspend fun closeQuietly(potWv: PoTokenWebView?) {
             if (potWv == null) return
-            withContext(NonCancellable + Dispatchers.Main) {
+            withContext(NonCancellable + NzikDispatchers.UI) {
                 // Mark init resumed so a late JS/network callback can't resume a cancelled
                 // continuation.
                 potWv.initResumed.set(true)

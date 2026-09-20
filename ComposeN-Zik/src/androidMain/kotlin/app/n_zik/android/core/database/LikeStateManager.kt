@@ -22,7 +22,7 @@ data class SongLikeState(
  * Usage in Composable:
  *   val likeStatesMap by remember(songIds) {
  *       LikeStateManager.getLikeStates(songIds)
- *   }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+ *   }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
  *   val likeState = likeStatesMap[songId]  // true=liked, false=disliked, null=neutral
  */
 object LikeStateManager {

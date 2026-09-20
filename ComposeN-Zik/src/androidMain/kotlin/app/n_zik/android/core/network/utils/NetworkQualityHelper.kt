@@ -11,13 +11,14 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
-import androidx.compose.runtime.produceState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.it.fast4x.rimusic.utils.isConnectionMeteredEnabledKey
 import app.it.fast4x.rimusic.utils.preferences
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 import timber.log.Timber
 
 object NetworkQualityHelper {
@@ -184,8 +185,9 @@ object NetworkQualityHelper {
 
     @Composable
     fun isNetworkAvailableComposable(context: Context): State<Boolean> {
-        return produceState(initialValue = isNetworkConnected(context)) {
-            observeConnection(context).collect { value = it }
-        }
+        return observeConnection(context).collectAsStateWithLifecycle(
+            initialValue = isNetworkConnected(context),
+            context = NzikDispatchers.DATA
+        )
     }
 }

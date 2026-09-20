@@ -4,7 +4,7 @@ import app.n_zik.android.core.database.*
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,12 +92,12 @@ fun AlbumBookmark(
     val likeState by remember(albumId) {
         Database.albumTable.likeState( albumId )
             .distinctUntilChanged()
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     val album by remember(albumId) {
         Database.albumTable.findById( albumId )
             .distinctUntilChanged()
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     val showDisliked = rememberPreference(excludeDislikedAlbumsKey, DislikeMode.Enabled).value.isEnabled
 

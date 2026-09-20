@@ -19,6 +19,8 @@ import app.n_zik.android.playback.services.automotive.models.AutoMediaItemMapper
 import app.n_zik.android.playback.services.automotive.session.AutoSessionConstants
 import app.n_zik.android.playback.services.isLocal
 import app.n_zik.android.R
+import app.n_zik.android.utils.coroutines.NzikDispatchers
+import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayOutputStream
 import java.io.File
 import app.it.fast4x.rimusic.utils.durationTextToMillis
@@ -57,7 +59,7 @@ object SessionMediaItemMapper {
                 return stream.toByteArray()
             }
             // runBlocking justified: loadArtworkBytes is private non-suspend called from 5 non-suspend public mappers
-            val bitmap = kotlinx.coroutines.runBlocking {
+            val bitmap = runBlocking(NzikDispatchers.DATA) {
                 ImageCacheFactory.loadBitmap(url, allowHardware = false)
             } ?: return null
             val stream = ByteArrayOutputStream()

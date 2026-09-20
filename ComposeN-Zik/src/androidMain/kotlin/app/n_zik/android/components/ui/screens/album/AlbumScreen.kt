@@ -53,7 +53,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -448,7 +447,7 @@ fun AlbumDetails(
         Database.songAlbumMapTable
             .allSongsOf(browseId)
             .distinctUntilChanged()
-    }.collectAsState(emptyList(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     val items = remember(rawItems, parentalControlEnabled) {
         rawItems.filter { !parentalControlEnabled || it.title.startsWith(EXPLICIT_PREFIX, true) != true }
@@ -581,7 +580,7 @@ fun AlbumDetails(
                 val albumSongIds = remember(items) { items.map { it.id } }
                 val likeStatesMap by remember(albumSongIds) {
                     LikeStateManager.getLikeStates(albumSongIds)
-                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
                 val downloadedIds by remember {

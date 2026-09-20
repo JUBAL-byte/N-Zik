@@ -17,12 +17,6 @@ Lyrics
 Download
 - Download quality selection
 
-Miniplayer
-- Fix for the mini player, if you open it and slide (swipe action)
-
-Optimization
-- Ensure that the app uses everywhere the new threading system so it remains smooth.
-
 Discord RPC
 - Discord browsing key not being respected randomly
 

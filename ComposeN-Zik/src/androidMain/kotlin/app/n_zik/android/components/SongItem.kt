@@ -100,7 +100,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Icon
-import androidx.compose.runtime.collectAsState
 import app.it.fast4x.rimusic.MODIFIED_PREFIX
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -274,7 +273,7 @@ fun SongItem(
                     Database.songTable
                         .likeState( displaySong.id )
                         .distinctUntilChanged()
-                }.collectAsState( null, NzikDispatchers.DATA )
+                }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
             }
 
             // Only show icon for liked (true) or disliked (false), NEVER for neutral (null)

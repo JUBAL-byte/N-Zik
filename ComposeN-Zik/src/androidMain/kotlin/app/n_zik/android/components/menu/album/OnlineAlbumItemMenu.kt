@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -221,7 +222,7 @@ class OnlineAlbumItemMenu private constructor(
                         Database.albumTable
                             .likeState(album.key)
                             .distinctUntilChanged()
-                    }.collectAsState(null, NzikDispatchers.DATA)
+                    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -290,13 +291,13 @@ class OnlineAlbumItemMenu private constructor(
                     Database.albumTable
                         .isBookmarked(album.key)
                         .distinctUntilChanged()
-                }.collectAsState(false, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
 
                 val likeState by remember(album.key) {
                     Database.albumTable
                         .likeState(album.key)
                         .distinctUntilChanged()
-                }.collectAsState(null, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),

@@ -41,7 +41,6 @@ import app.it.fast4x.rimusic.utils.parentalControlEnabledKey
 import app.it.fast4x.rimusic.utils.parseArtists
 
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
@@ -875,7 +874,7 @@ fun DataSpec.process(
     // We catch CancellationException (caused by thread interruption during media item transitions)
     // and re-throw as IOException so ExoPlayer treats it as a recoverable error.
     return try {
-        runBlocking(Dispatchers.IO) {
+        runBlocking(NzikDispatchers.DATA) {
             val isLoggedIn = !Innertube.cookie.isNullOrBlank() && Innertube.cookie?.contains("SAPISID") == true
             Timber.tag(TAG).d("Resolving stream for videoId=$videoId, isLoggedIn=$isLoggedIn")
 
@@ -1064,7 +1063,7 @@ private fun DataSpec.processForDownload(
     audioQualityFormat: AudioQualityFormat
 ): DataSpec {
     return try {
-        runBlocking(Dispatchers.IO) {
+        runBlocking(NzikDispatchers.DATA) {
             val parentalControlEnabled = appContext().preferences.getBoolean(parentalControlEnabledKey, false)
             if (parentalControlEnabled) {
                 val song = Database.songTable.findByIdDirect(videoId)

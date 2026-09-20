@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -140,7 +140,7 @@ class FollowButton private constructor(
         val likeState by remember {
             Database.artistTable
                     .likeState( getArtist().id )
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
         val colorPalette = colorPalette()
 
         val buttonProps: Triple<Int, Color, Color> = remember( likeState ) {

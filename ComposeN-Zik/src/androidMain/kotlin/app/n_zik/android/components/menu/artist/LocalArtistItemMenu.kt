@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,7 +162,7 @@ class LocalArtistItemMenu private constructor(
                     Database.artistTable
                         .likeState(artist.id)
                         .distinctUntilChanged()
-                }.collectAsState(null, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                 // Artist's thumbnail
                 Box(
@@ -232,7 +233,7 @@ class LocalArtistItemMenu private constructor(
                     Database.artistTable
                         .isFollowing(artist.id)
                         .distinctUntilChanged()
-                }.collectAsState(false, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -325,7 +326,7 @@ class LocalArtistItemMenu private constructor(
         var displayTitle by remember { mutableStateOf(artist.name) }
         var displayThumbnailUrl by remember { mutableStateOf(artist.thumbnailUrl) }
 
-        val dbArtist by Database.artistTable.findById(artist.id).collectAsState(initial = artist, context = NzikDispatchers.DATA)
+        val dbArtist by Database.artistTable.findById(artist.id).collectAsStateWithLifecycle(initialValue = artist, context = NzikDispatchers.DATA)
 
         LaunchedEffect(dbArtist) {
             dbArtist?.let {
@@ -335,7 +336,7 @@ class LocalArtistItemMenu private constructor(
         }
 
         val binder = LocalPlayerServiceBinder.current
-        val songs by Database.artistSongs(artist.id).collectAsState(initial = emptyList(), context = NzikDispatchers.DATA)
+        val songs by Database.artistSongs(artist.id).collectAsStateWithLifecycle(initialValue = emptyList(), context = NzikDispatchers.DATA)
 
         val playAll = object : MenuIcon, Descriptive, Clickable {
             override val iconId: Int = R.drawable.play

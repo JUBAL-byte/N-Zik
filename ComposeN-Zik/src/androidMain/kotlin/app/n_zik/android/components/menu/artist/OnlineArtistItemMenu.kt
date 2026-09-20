@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -184,7 +185,7 @@ class OnlineArtistItemMenu private constructor(
                         Database.artistTable
                             .likeState(artist.key)
                             .distinctUntilChanged()
-                    }.collectAsState(null, NzikDispatchers.DATA)
+                    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                     if (likeState != null)
                         HeaderIconButton(
@@ -240,13 +241,13 @@ class OnlineArtistItemMenu private constructor(
                     Database.artistTable
                         .isFollowing(artist.key)
                         .distinctUntilChanged()
-                }.collectAsState(false, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
 
                 val likeState by remember(artist.key) {
                     Database.artistTable
                         .likeState(artist.key)
                         .distinctUntilChanged()
-                }.collectAsState(null, NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                 Column(
                     Modifier.width(48.dp),
@@ -338,7 +339,7 @@ class OnlineArtistItemMenu private constructor(
 
     @Composable
     override fun MenuComponent() {
-        val dbArtist by Database.artistTable.findById(artist.key).collectAsState(initial = null, context = NzikDispatchers.DATA)
+        val dbArtist by Database.artistTable.findById(artist.key).collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
 
         var displayTitle by remember { mutableStateOf(artist.info?.name) }
         var displayThumbnailUrl by remember { mutableStateOf(artist.thumbnail?.url) }

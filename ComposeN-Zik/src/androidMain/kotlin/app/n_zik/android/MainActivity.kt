@@ -83,7 +83,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -556,9 +556,6 @@ class MainActivity :
             val colorPaletteMode by rememberPreference(colorPaletteModeKey, ColorPaletteMode.Dark)
 
             //TODO: Check internet connection
-//            val internetConnectivityObserver = InternetConnectivityObserver(this)
-//            val internetConnected by internetConnectivityObserver.networkStatus.collectAsState(false)
-//            if (internetConnected) downloadHelper.resumeDownloads(this)
 
             val coroutineScope = rememberCoroutineScope()
             val paletteJob = remember { mutableStateOf<Job?>(null) }
@@ -1172,7 +1169,7 @@ class MainActivity :
             val density = LocalDensity.current
             val safeDrawingInsets = WindowInsets.safeDrawing
 
-            val currentRoute by app.n_zik.android.extensions.discord.DiscordUiState.currentRoute.collectAsState()
+            val currentRoute by app.n_zik.android.extensions.discord.DiscordUiState.currentRoute.collectAsStateWithLifecycle()
             
             val isScrollableRoute = currentRoute == "home" ||
                     currentRoute?.startsWith("artist") == true ||
@@ -1654,7 +1651,7 @@ class MainActivity :
 
                 }
                 var isPlayerInitialized by rememberSaveable { mutableStateOf(false) }
-                val playerUpdateTrigger by binder?.playerUpdateTrigger?.collectAsState(0) ?: remember { mutableStateOf(0) }
+                val playerUpdateTrigger by binder?.playerUpdateTrigger?.collectAsStateWithLifecycle(0) ?: remember { mutableStateOf(0) }
                 DisposableEffect(binder?.player, playerUpdateTrigger) {
                     val player = binder?.player ?: return@DisposableEffect onDispose { }
 

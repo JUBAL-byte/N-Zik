@@ -226,7 +226,7 @@ fun QuickPicksGrid(
     val songIds = remember(recommendations) { recommendations.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
@@ -700,7 +700,7 @@ fun MyTopSection(
     val songIds = remember(myTopSongs) { myTopSongs.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     if (showMyTopPlaylist) {
         if (myTopSongs.isNotEmpty()) {
@@ -923,7 +923,7 @@ fun ChartsSection(
                         val chartSongIds = remember(songs) { songs.mapNotNull { it.key } }
                         val chartLikeStatesMap by remember(chartSongIds) {
                             LikeStateManager.getLikeStates(chartSongIds)
-                        }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+                        }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                         BasicText(
                             text = stringResource(R.string.chart_top_songs),
@@ -1126,7 +1126,7 @@ fun GenericYtmSections(
                 val sectionSongIds = remember(songItems) { songItems.mapNotNull { it.key } }
                 val sectionLikeStatesMap by remember(sectionSongIds) {
                     LikeStateManager.getLikeStates(sectionSongIds)
-                }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+                }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
                 LazyHorizontalGrid(
                 rows = GridCells.Fixed(3),
