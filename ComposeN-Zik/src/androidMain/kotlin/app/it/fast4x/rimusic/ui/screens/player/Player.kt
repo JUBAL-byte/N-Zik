@@ -85,7 +85,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -458,7 +458,7 @@ fun Player(
     val expandPlayerState = rememberPreference( expandedplayerKey, false )
     var expandedplayer by expandPlayerState
 
-    val playerUpdateTrigger by binder.playerUpdateTrigger.collectAsState()
+    val playerUpdateTrigger by binder.playerUpdateTrigger.collectAsStateWithLifecycle(0, context = NzikDispatchers.DATA)
 
     val nullableMediaItemState = remember {
         mutableStateOf(binder.player.currentMediaItem, neverEqualPolicy())
@@ -696,7 +696,7 @@ fun Player(
 
     val sleepTimerMillisLeft by (binder.sleepTimerMillisLeft
         ?: flowOf(null))
-        .collectAsState(initial = null)
+        .collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
 
     val positionAndDurationState = binder.player.positionAndDurationState(playerUpdateTrigger, playerContentVisible)
     val playbackState by binder.player.playbackStateState(playerUpdateTrigger)
@@ -1174,7 +1174,7 @@ fun Player(
             Database.songTable
                 .isLiked( mediaItem.mediaId )
                 .distinctUntilChanged()
-        }.collectAsState( false, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
 
             Thumbnail(
                 thumbnailTapEnabledKey = thumbnailTapEnabled,

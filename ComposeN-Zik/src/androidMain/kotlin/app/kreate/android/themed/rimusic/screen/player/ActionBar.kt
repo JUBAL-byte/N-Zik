@@ -47,7 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -558,7 +558,7 @@ fun BoxScope.ActionBar(
                                 val color = colorPalette()
                                 val isSongMappedToPlaylist by remember( mediaItem.mediaId ) {
                                     Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
-                                }.collectAsState( false, NzikDispatchers.DATA )
+                                }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
                                 IconButton(
                                     icon = R.drawable.add_in_playlist,
                                     color = if (isSongMappedToPlaylist && showPlaylistIndicator) Color.White else color.accent,
@@ -644,7 +644,7 @@ fun BoxScope.ActionBar(
                             val showButtonPlayerSleepTimer by rememberPreference( showButtonPlayerSleepTimerKey, false )
                             if (showButtonPlayerSleepTimer) {
                                 val sleepTimerMillisLeft: Long? by
-                                    (binder.sleepTimerMillisLeft ?: flowOf(null)).collectAsState( null )
+                                    (binder.sleepTimerMillisLeft ?: flowOf(null)).collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
                                 IconButton(
                                     icon = R.drawable.sleep,
                                     color = if (sleepTimerMillisLeft != null) colorPalette().accent else Color.Gray,

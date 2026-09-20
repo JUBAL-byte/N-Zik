@@ -28,7 +28,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -108,7 +108,7 @@ fun Thumbnail(
 ) {
     val context = LocalContext.current
     val binder = LocalPlayerServiceBinder.current
-    val playerUpdateTrigger by binder?.playerUpdateTrigger?.collectAsState() ?: remember { mutableStateOf(0) }
+    val playerUpdateTrigger by binder?.playerUpdateTrigger?.collectAsStateWithLifecycle(0, context = NzikDispatchers.DATA) ?: remember { mutableStateOf(0) }
     val player = binder?.player ?: return
 
     val (thumbnailSizeDp, thumbnailSizePx) = Dimensions.thumbnails.player.song.let {

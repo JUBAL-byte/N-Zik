@@ -37,7 +37,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -217,7 +217,7 @@ fun MiniPlayer(
 
     val pendingMiniPlayerAction = LocalPendingMiniPlayerAction.current
     
-    val playerUpdateTrigger by binder.playerUpdateTrigger.collectAsState()
+    val playerUpdateTrigger by binder.playerUpdateTrigger.collectAsStateWithLifecycle(0, context = NzikDispatchers.DATA)
 
     var nullableMediaItem by remember(playerUpdateTrigger) {
         mutableStateOf(
@@ -263,7 +263,7 @@ fun MiniPlayer(
         Database.songTable
                 .likeState( mediaItem.mediaId )
                 .distinctUntilChanged()
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     var miniPlayerType by rememberPreference(
         miniPlayerTypeKey,

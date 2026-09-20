@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -160,7 +159,7 @@ fun MoodList(
             }
             val likeStatesMap by remember(moodSongIds) {
                 LikeStateManager.getLikeStates(moodSongIds)
-            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             val moodSongs = remember(moodResult) {
                 moodResult.items.flatMap { section ->

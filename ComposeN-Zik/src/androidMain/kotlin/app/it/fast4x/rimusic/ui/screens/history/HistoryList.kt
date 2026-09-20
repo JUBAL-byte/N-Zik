@@ -27,7 +27,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -176,7 +175,7 @@ fun HistoryList(
                         }
                     }
                 }
-    }.collectAsState( emptyMap(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     val buttonsList = mutableListOf(HistoryType.History to stringResource(R.string.history))
     val syncImportHistory by rememberPreference(syncImportHistoryKey, false)
@@ -293,7 +292,7 @@ fun HistoryList(
             }
             val likeStatesMap by remember(allHistorySongIds) {
                 LikeStateManager.getLikeStates(allHistorySongIds)
-            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             val allHistorySongs = remember(events) { events.values.flatten().map { it.song } }
             val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

@@ -68,7 +68,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -682,7 +682,7 @@ inline fun SelectorArtistsDialog(
                         val browseId = values[idArtist].id
                         val artist by remember( browseId ) {
                             Database.artistTable.findById( browseId )
-                        }.collectAsState( null, NzikDispatchers.DATA )
+                        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
                         LaunchedEffect(Unit) {
                             if (artist?.thumbnailUrl == null) {

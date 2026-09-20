@@ -4,7 +4,7 @@ import app.n_zik.android.core.database.*
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,7 +20,7 @@ fun getLikeState(mediaId: String): Int {
         Database.songTable
                 .likeState( mediaId )
                 .distinctUntilChanged()
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     return when( songLikeState ) {
         false -> getDislikedIcon()

@@ -18,6 +18,7 @@ import app.n_zik.android.R
 import app.it.fast4x.rimusic.enums.DurationInMinutes
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import app.kreate.android.me.knighthat.utils.Toaster
 import timber.log.Timber
 import java.util.ArrayDeque
@@ -365,7 +366,8 @@ fun Player.excludeMediaItems(mediaItems: List<MediaItem>, context: Context): Lis
         // Filter disliked songs if setting is enabled
         val excludeDislikedSongs = preferences.getString(excludeDislikedSongsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
         if (excludeDislikedSongs.isEnabled) {
-            val dislikedSongIds = kotlinx.coroutines.runBlocking {
+            // runBlocking justified: excludeMediaItems is a public non-suspend API with 11+ callers; the Room query runs on the named dispatcher while the caller thread waits (gh-606)
+            val dislikedSongIds = runBlocking(NzikDispatchers.DATA) {
                 Database.songTable.getAllDislikedIds()
             }
             if (dislikedSongIds.isNotEmpty()) {
@@ -382,7 +384,8 @@ fun Player.excludeMediaItems(mediaItems: List<MediaItem>, context: Context): Lis
         // Filter songs from disliked artists if setting is enabled
         val excludeDislikedArtists = preferences.getString(excludeDislikedArtistsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
         if (excludeDislikedArtists.isEnabled) {
-            val dislikedArtistSongIds = kotlinx.coroutines.runBlocking {
+            // runBlocking justified: excludeMediaItems is a public non-suspend API with 11+ callers; the Room query runs on the named dispatcher while the caller thread waits (gh-606)
+            val dislikedArtistSongIds = runBlocking(NzikDispatchers.DATA) {
                 Database.songTable.getSongsByDislikedArtists()
             }
             if (dislikedArtistSongIds.isNotEmpty()) {
@@ -399,7 +402,8 @@ fun Player.excludeMediaItems(mediaItems: List<MediaItem>, context: Context): Lis
         // Filter songs from disliked albums if setting is enabled
         val excludeDislikedAlbums = preferences.getString(excludeDislikedAlbumsKey, DislikeMode.Enabled.name)?.let { runCatching { DislikeMode.valueOf(it) }.getOrNull() } ?: DislikeMode.Enabled
         if (excludeDislikedAlbums.isEnabled) {
-            val dislikedAlbumSongIds = kotlinx.coroutines.runBlocking {
+            // runBlocking justified: excludeMediaItems is a public non-suspend API with 11+ callers; the Room query runs on the named dispatcher while the caller thread waits (gh-606)
+            val dislikedAlbumSongIds = runBlocking(NzikDispatchers.DATA) {
                 Database.songTable.getSongsByDislikedAlbums()
             }
             if (dislikedAlbumSongIds.isNotEmpty()) {

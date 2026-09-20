@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -183,7 +183,7 @@ fun PlaylistItem(
                         // Ensure it only takes not null thumbnailUrl
                         list.mapNotNull( Song::thumbnailUrl ).takeLast( 4 )
                     }
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     PlaylistItem(
         browseId = playlist.playlist.browseId,
@@ -223,7 +223,7 @@ fun PlaylistItem(
     } else {
         remember(playlist.key) {
             Database.playlistTable.findByBrowseId(playlist.key)
-        }.collectAsState(null, NzikDispatchers.DATA)
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
     val isBookmarkedResolved = isBookmarked ?: (localPlaylist?.isYoutubePlaylist == true)
 

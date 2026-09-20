@@ -24,7 +24,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -219,7 +219,7 @@ fun SwipeableQueueItem(
                     .likeState( mediaItem.mediaId )
                     .distinctUntilChanged()
             }
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     val onFavourite: () -> Unit = {
@@ -301,7 +301,7 @@ fun SwipeablePlaylistItem(
             Database.songTable
                 .likeState( mediaItem.mediaId )
                 .distinctUntilChanged()
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     val onFavourite: () -> Unit = {
@@ -391,7 +391,7 @@ fun SwipeableAlbumItem(
     val album by remember( albumItem.key ) {
         Database.albumTable
                 .findById( albumItem.key )
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     val albumSwipeLeftAction by rememberPreference(albumSwipeLeftActionKey, AlbumSwipeAction.PlayNext)
     val albumSwipeRightAction by rememberPreference(albumSwipeRightActionKey, AlbumSwipeAction.Bookmark)

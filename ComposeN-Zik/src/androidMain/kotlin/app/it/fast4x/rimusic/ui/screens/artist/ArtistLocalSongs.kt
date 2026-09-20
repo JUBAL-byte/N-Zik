@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -152,7 +151,7 @@ fun ArtistLocalSongs(
     val songIds = remember(songs) { songs?.map { it.id }.orEmpty() }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()
@@ -426,7 +425,7 @@ fun ArtistLocalSongs(
     val artistSongIds = remember(songs) { songs?.map { it.id }.orEmpty() }
     val likeStatesMap by remember(artistSongIds) {
         LikeStateManager.getLikeStates(artistSongIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     var showConfirmDeleteDownloadDialog by remember {
         mutableStateOf(false)

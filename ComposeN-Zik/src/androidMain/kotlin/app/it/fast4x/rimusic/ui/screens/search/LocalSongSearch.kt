@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,7 +103,7 @@ fun LocalSongSearch(
         Database.songTable
                 .findAllTitleArtistContains( textFieldValue.text )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     val thumbnailSizeDp = Dimensions.thumbnails.song
     val thumbnailSizePx = thumbnailSizeDp.px
@@ -126,7 +125,7 @@ fun LocalSongSearch(
     val songIds = remember(items) { items.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

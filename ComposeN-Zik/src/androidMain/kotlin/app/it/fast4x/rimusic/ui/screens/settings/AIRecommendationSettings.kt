@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -592,7 +592,7 @@ fun AIRecommendationSettings(
                     val eventsCount by remember {
                         Database.eventTable
                                 .countAll()
-                    }.collectAsState( 0L, NzikDispatchers.DATA )
+                    }.collectAsStateWithLifecycle(0L, context = NzikDispatchers.DATA)
 
                     if (search.inputValue.isBlank() || stringResource(R.string.reset_quick_picks).contains(search.inputValue, true)) {
                         OtherSettingsEntry(

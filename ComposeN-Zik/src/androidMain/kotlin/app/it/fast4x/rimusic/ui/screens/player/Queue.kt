@@ -42,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -346,7 +345,7 @@ fun Queue(
             val queueSongIds = remember(windowsOnDisplay) { windowsOnDisplay.map { it.mediaItem.asSong.id } }
             val likeStatesMap by remember(queueSongIds) {
                 LikeStateManager.getLikeStates(queueSongIds)
-            }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+            }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
             val queueSongs = remember(windowsOnDisplay) { windowsOnDisplay.map { it.mediaItem.asSong } }
 

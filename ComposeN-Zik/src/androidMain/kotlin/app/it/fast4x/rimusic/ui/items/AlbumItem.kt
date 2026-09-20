@@ -21,7 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -84,7 +84,7 @@ fun AlbumItem(
             Database.albumTable
                 .likeState( album.id )
                 .distinctUntilChanged()
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     AlbumItem(
@@ -128,7 +128,7 @@ fun AlbumItem(
             Database.albumTable
                 .likeState( album.key )
                 .distinctUntilChanged()
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     AlbumItem(

@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -106,7 +105,7 @@ fun NewAlbumsFromArtists(
                 Database.artistTable
                         .sortFollowingByName()
                         .distinctUntilChanged()
-            }.collectAsState( emptyList(), NzikDispatchers.DATA )
+            }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
             var newReleaseAlbumsFiltered by persistList<Innertube.AlbumItem>("home/shared/newalbumsartist")
             page.newReleaseAlbums.forEach { album ->

@@ -31,7 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -363,7 +363,7 @@ fun SongItem(
     val playlistindicator by rememberPreference(playlistindicatorKey,false)
     val isSongMappedToPlaylist by remember {
         Database.songPlaylistMapTable.isMapped( mediaItem.mediaId )
-    }.collectAsState( false, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(false, context = NzikDispatchers.DATA)
     val colorPaletteName by rememberPreference(colorPaletteNameKey, ColorPaletteName.Dynamic)
 
     val context = LocalContext.current
@@ -390,7 +390,7 @@ fun SongItem(
                 Database.songTable
                     .likeState( mediaItem.mediaId )
                     .distinctUntilChanged()
-            }.collectAsState( null, NzikDispatchers.DATA )
+            }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
             if ( likeState != null )
                 HeaderIconButton(

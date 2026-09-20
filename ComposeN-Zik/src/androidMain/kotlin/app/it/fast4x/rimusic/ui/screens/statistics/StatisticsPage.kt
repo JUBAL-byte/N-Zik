@@ -33,7 +33,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -171,7 +170,7 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
     val albums by remember {
         Database.eventTable
                 .findAlbumsMostPlayedBetween(
@@ -179,7 +178,7 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
     val playlists by remember {
         Database.eventTable
                 .findPlaylistMostPlayedBetweenAsPreview(
@@ -187,14 +186,14 @@ fun StatisticsPage(
                     limit = maxStatisticsItems.toInt(maxStatisticsItemsCustomValue)
                 )
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
     var totalPlayTimes by remember { mutableLongStateOf(0L) }
     val totalPlayTimesFlow = remember(from) {
         Database.eventTable
             .getTotalPlayTimeBetween(from = from)
             .distinctUntilChanged()
     }
-    val totalPlayTimesState = totalPlayTimesFlow.collectAsState(0L, NzikDispatchers.DATA)
+    val totalPlayTimesState = totalPlayTimesFlow.collectAsStateWithLifecycle(0L, context = NzikDispatchers.DATA)
     totalPlayTimes = totalPlayTimesState.value
 
     var distinctSongsPlayedCount by remember { mutableIntStateOf(0) }
@@ -203,7 +202,7 @@ fun StatisticsPage(
             .countDistinctSongsPlayedBetween(from = from)
             .distinctUntilChanged()
     }
-    val distinctSongsPlayedCountState = distinctSongsPlayedCountFlow.collectAsState(0, NzikDispatchers.DATA)
+    val distinctSongsPlayedCountState = distinctSongsPlayedCountFlow.collectAsStateWithLifecycle(0, context = NzikDispatchers.DATA)
     distinctSongsPlayedCount = distinctSongsPlayedCountState.value
 
     val songsWithLikeStates by remember(parentalControlEnabled, maxStatisticsItems, maxStatisticsItemsCustomValue) {
@@ -231,7 +230,7 @@ fun StatisticsPage(
                         .map { likeMap -> Pair(songsList, likeMap) }
                 }
             }
-    }.collectAsState(Pair(emptyList(), emptyMap()), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(Pair(emptyList(), emptyMap()), context = NzikDispatchers.DATA)
 
     val songs = songsWithLikeStates.first
     val likeStatesMap = songsWithLikeStates.second
@@ -524,7 +523,7 @@ fun StatisticsPage(
                                             song.thumbnailUrl.thumbnail( playlistThumbnailSizePx / 2 )
                                         }
                                     }
-                        }.collectAsState( emptyList(), NzikDispatchers.DATA )
+                        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
                         PlaylistItem(
                             thumbnailContent = {

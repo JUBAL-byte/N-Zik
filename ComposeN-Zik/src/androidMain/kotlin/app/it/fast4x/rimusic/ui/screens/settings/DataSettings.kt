@@ -69,6 +69,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import app.n_zik.android.core.backup.ui.AutoBackupSettingsBlock
 import app.n_zik.android.utils.coroutines.NzikDispatchers
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import java.io.File
@@ -584,7 +585,7 @@ fun DataSettings() {
                         Database.searchTable
                             .findAllContain("")
                             .map { it.size }
-                    }.collectAsState(0, NzikDispatchers.DATA)
+                    }.collectAsStateWithLifecycle(0, context = NzikDispatchers.DATA)
                     
                     OtherSwitchSettingEntry(
                         title = stringResource(R.string.player_pause_listen_history),
@@ -599,7 +600,7 @@ fun DataSettings() {
                     
                     val eventsCount by remember {
                         Database.eventTable.countAll()
-                    }.collectAsState(0L, NzikDispatchers.DATA)
+                    }.collectAsStateWithLifecycle(0L, context = NzikDispatchers.DATA)
 
                     if (search.inputValue.isBlank() || stringResource(R.string.clear_search_history).contains(search.inputValue, true)) {
                         OtherSettingsEntry(

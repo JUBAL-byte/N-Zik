@@ -34,7 +34,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -136,7 +136,7 @@ fun OnlineSearch(
                 .findAllContain( textFieldValue.text )
                 .distinctUntilChanged()
                 .map{ list -> list.reversed() }
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     //var suggestionsResult by persist<Result<List<String>?>?>("search/online/suggestionsResult")
     var suggestionsResult by remember {

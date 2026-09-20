@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,7 +57,7 @@ fun Playlist(
                         it.thumbnailUrl.thumbnail( thumbnailSizePx / 2 )
                     }
                 }
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     PlaylistItem(
         thumbnailContent = {

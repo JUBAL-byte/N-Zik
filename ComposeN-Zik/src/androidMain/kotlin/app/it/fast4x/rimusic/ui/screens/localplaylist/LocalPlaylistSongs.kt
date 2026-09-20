@@ -37,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -1119,7 +1118,7 @@ fun LocalPlaylistSongs(
     val songIds = remember(itemsOnDisplay) { itemsOnDisplay.map { it.id } }
     val likeStatesMap by remember(songIds) {
         LikeStateManager.getLikeStates(songIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     // Download state cache
     val downloadsMapState by MyDownloadHelper.downloads.collectAsStateWithLifecycle()

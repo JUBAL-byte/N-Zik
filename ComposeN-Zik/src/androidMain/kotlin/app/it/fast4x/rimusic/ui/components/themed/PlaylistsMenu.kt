@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -176,7 +176,7 @@ class PlaylistsMenu private constructor(
 
         val playlistPreviews by remember {
             Database.playlistTable.sortPreviewsByName()
-        }.collectAsState( emptyList(), NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
         val pinnedPlaylists = playlistPreviews.filter {
             it.playlist.name.startsWith(PINNED_PREFIX, 0, true)

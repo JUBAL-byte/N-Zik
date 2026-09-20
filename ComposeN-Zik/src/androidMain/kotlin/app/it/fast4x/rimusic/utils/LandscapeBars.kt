@@ -3,13 +3,14 @@ package app.it.fast4x.rimusic.utils
 import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import app.n_zik.android.R
 import app.n_zik.android.extensions.discord.DiscordUiState
+import app.n_zik.android.utils.coroutines.NzikDispatchers
 
 // Below this smallest width (dp) a device is a phone; tablets and unfolded foldables are above it
 private const val TABLET_MIN_SMALLEST_WIDTH_DP = 600
@@ -67,8 +68,8 @@ internal fun hidesBarsInLandscape(
 @Composable
 fun isLandscapeBarlessScreen(): Boolean {
     val configuration = LocalConfiguration.current
-    val route by DiscordUiState.currentRoute.collectAsState()
-    val homeTab by DiscordUiState.currentHomeTab.collectAsState()
+    val route by DiscordUiState.currentRoute.collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
+    val homeTab by DiscordUiState.currentHomeTab.collectAsStateWithLifecycle(initialValue = null, context = NzikDispatchers.DATA)
     return hidesBarsInLandscape(
         isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
         smallestScreenWidthDp = configuration.smallestScreenWidthDp,

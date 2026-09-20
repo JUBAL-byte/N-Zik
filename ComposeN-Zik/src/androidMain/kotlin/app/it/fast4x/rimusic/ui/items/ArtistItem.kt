@@ -22,7 +22,7 @@ import app.n_zik.android.uiRoundnessShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
@@ -83,7 +83,7 @@ fun ArtistItem(
             Database.artistTable
                 .likeState( artist.id )
                 .distinctUntilChanged()
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     ArtistItem(
@@ -123,7 +123,7 @@ fun ArtistItem(
             Database.artistTable
                 .likeState( artist.key )
                 .distinctUntilChanged()
-        }.collectAsState( null, NzikDispatchers.DATA )
+        }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
     }
 
     ArtistItem(

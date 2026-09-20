@@ -22,7 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -197,7 +197,7 @@ fun PlaylistsItemMenu(
                 val sortOrder by rememberPreference(playlistSortOrderKey, SortOrder.Descending)
                 val playlistPreviews by remember {
                     Database.playlistTable.sortPreviews( sortBy, sortOrder )
-                }.collectAsState( emptyList(), NzikDispatchers.DATA )
+                }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
                 val pinnedPlaylists = playlistPreviews.filter {
                     it.playlist.name.startsWith(PINNED_PREFIX, 0, true)

@@ -111,9 +111,10 @@ import app.it.fast4x.rimusic.utils.syncShowDetailsKey
 import app.it.fast4x.rimusic.utils.syncBackgroundGuardKey
 
 import app.it.fast4x.rimusic.utils.SyncOperation
+import app.it.fast4x.rimusic.utils.SyncStatus
 import app.it.fast4x.rimusic.utils.syncStatus
 import app.it.fast4x.rimusic.utils.getLastSyncTime
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.it.fast4x.rimusic.utils.isAtLeastAndroid7
 import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
 import app.it.fast4x.rimusic.utils.discordAvatarKey
@@ -587,7 +588,7 @@ fun AccountsSettings() {
             val isSyncEnabled = isYouTubeSyncEnabled && useLoginForBrowseSync
             var syncDirection by rememberPreference(syncDirectionKey, SyncDirection.TWO_WAY)
             val coroutineScope = rememberCoroutineScope()
-            val syncStatusState by syncStatus.collectAsState()
+            val syncStatusState by syncStatus.collectAsStateWithLifecycle(initialValue = SyncStatus(), context = NzikDispatchers.DATA)
             val lastSyncTime = remember { getLastSyncTime() }
 
             // Re-sync state when Login for Browse changes (prefs reset externally)

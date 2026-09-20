@@ -47,7 +47,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -298,7 +297,7 @@ fun PlaylistSongList(
     val localPlaylist by remember( saveCheck ) {
         Database.playlistTable
                 .findByBrowseId( browseId )
-    }.collectAsState( null, NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(null, context = NzikDispatchers.DATA)
 
     // Derived from playlistSongs (parental-control filtered + deduplicated), not the raw page songs
     val filteredPageSongs = remember(filter, playlistSongs) {
@@ -349,7 +348,7 @@ fun PlaylistSongList(
                     list.map( Song::id )
                 }
                 .distinctUntilChanged()
-    }.collectAsState( emptyList(), NzikDispatchers.DATA )
+    }.collectAsStateWithLifecycle(emptyList(), context = NzikDispatchers.DATA)
 
     val hasNonDislikedSongs = remember(filteredPageSongs, dislikedSongs) {
         filteredPageSongs?.any { it.asMediaItem.mediaId !in dislikedSongs } == true
@@ -385,7 +384,7 @@ fun PlaylistSongList(
     val playlistSongIds = remember(playlistSongs) { playlistSongs.mapNotNull { it.key } }
     val likeStatesMap by remember(playlistSongIds) {
         LikeStateManager.getLikeStates(playlistSongIds)
-    }.collectAsState(emptyMap(), NzikDispatchers.DATA)
+    }.collectAsStateWithLifecycle(emptyMap(), context = NzikDispatchers.DATA)
 
     LayoutWithAdaptiveThumbnail(thumbnailContent = thumbnailContent) {
         Box(
