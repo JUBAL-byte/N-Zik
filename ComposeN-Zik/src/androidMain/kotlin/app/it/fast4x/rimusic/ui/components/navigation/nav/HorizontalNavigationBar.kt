@@ -50,7 +50,6 @@ import app.n_zik.android.showStatsIconInNav
 import app.it.fast4x.rimusic.ui.components.themed.Button
 import app.it.fast4x.rimusic.ui.components.themed.TextIconButton
 import app.it.fast4x.rimusic.ui.styling.Dimensions
-import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.topUiRoundnessShape
 
 // Shown when "Navigation bar position" is set to "top" or "bottom"

@@ -38,7 +38,6 @@ import com.google.gson.annotations.SerializedName
 import app.n_zik.android.colorPalette
 import app.n_zik.android.typography
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
-import app.n_zik.android.uiRoundnessShape
 
 data class Developer(
     val id: Int,

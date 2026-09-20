@@ -170,14 +170,12 @@ import app.it.fast4x.rimusic.utils.rememberPreference
 import app.it.fast4x.rimusic.utils.volumeNormalizationKey
 import app.it.fast4x.rimusic.utils.volumeBoostLevelKey
 import app.it.fast4x.rimusic.utils.removeYTSongFromPlaylist
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.setDeviceVolume
 import app.it.fast4x.rimusic.utils.setGlobalVolume
 import app.it.fast4x.rimusic.utils.showCoverThumbnailAnimationKey
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.utils.thumbnailFadeExKey
 import app.it.fast4x.rimusic.utils.thumbnailFadeKey
@@ -186,7 +184,6 @@ import app.it.fast4x.rimusic.utils.thumbnailSpacingLKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.components.dialog.settings.SettingsInputDialog
 import androidx.compose.material3.CircularWavyProgressIndicator
 import app.it.fast4x.rimusic.MODIFIED_PREFIX

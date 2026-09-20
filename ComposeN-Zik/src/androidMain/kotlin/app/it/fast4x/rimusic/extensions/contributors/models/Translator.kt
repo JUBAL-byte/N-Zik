@@ -38,7 +38,6 @@ import app.n_zik.android.core.coil.ImageCacheFactory
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
 import app.n_zik.android.colorPalette
 import app.n_zik.android.typography
-import app.n_zik.android.uiRoundnessShape
 
 data class Translator(
     @SerializedName( "username" ) val username: String,

@@ -91,7 +91,6 @@ import app.n_zik.android.core.coil.size
 import app.kreate.android.me.knighthat.utils.Toaster
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
-import app.n_zik.android.uiRoundnessShape
 import timber.log.Timber
 import androidx.compose.ui.platform.LocalDensity
 

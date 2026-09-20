@@ -52,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawBehind
-import app.n_zik.android.uiRoundnessShape
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -162,7 +161,6 @@ import app.n_zik.android.components.PLAYER_SHEET_HANDOVER_PROGRESS
 import app.kreate.android.me.knighthat.sync.YouTubeSync
 import app.kreate.android.me.knighthat.utils.Toaster
 import kotlin.math.absoluteValue
-import app.n_zik.android.uiRoundnessShape
 import androidx.compose.runtime.LaunchedEffect
 import app.it.fast4x.rimusic.utils.getBitmapFromUrl
 import app.n_zik.android.core.coil.thumbnail

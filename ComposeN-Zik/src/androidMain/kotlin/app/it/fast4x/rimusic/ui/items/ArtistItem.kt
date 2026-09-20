@@ -10,14 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.aspectRatio
-import app.n_zik.android.uiRoundnessShape
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import app.n_zik.android.uiRoundnessShape
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -39,22 +37,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.n_zik.android.R
 import it.fast4x.innertube.Innertube
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.cleanPrefix
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.models.Artist
 import app.n_zik.android.artistThumbnailShape
 import app.n_zik.android.typography
-import app.n_zik.android.uiRoundnessShape
 
 import app.it.fast4x.rimusic.utils.conditional
 import app.it.fast4x.rimusic.utils.secondary
 import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.shimmerEffect
 import app.n_zik.android.core.coil.ImageCacheFactory
-import app.n_zik.android.uiRoundnessShape
 import androidx.compose.ui.res.stringResource
 import app.it.fast4x.rimusic.ui.components.themed.HeaderIconButton
 import app.it.fast4x.rimusic.ui.styling.favoritesIcon
