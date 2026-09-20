@@ -42,8 +42,12 @@ internal fun miniPlayerTopInset(
 }
 
 /**
- * Extra room the collapsed mini-player leaves at one side so it does not cover a navigation
- * rail there. The card already keeps [standardPadding] from the screen edge, which counts.
+ * Extra room the collapsed mini-player leaves at one side so it stays clear of whatever sits
+ * there: the system bar or cutout itself (status bar at the left in landscape, side navigation
+ * bar, display cutout) and, after it, a navigation rail. The card already keeps
+ * [standardPadding] from the screen edge, which counts, so the returned inset only tops it up
+ * up to the bar's edge — the card ends flush with the bar, the same way the queue overlay and
+ * the app header stay clear of them.
  *
  * @param safeInset Cutout or system inset on that side, which the rail is placed after.
  * @param railWidth Width of the rail; 0 when there is no rail on that side.
@@ -53,7 +57,10 @@ internal fun miniPlayerSideInset(
     safeInset: Dp,
     standardPadding: Dp = 16.dp,
     gap: Dp = MINI_PLAYER_TOP_GAP,
-): Dp = if (railWidth <= 0.dp) 0.dp else (safeInset + railWidth + gap - standardPadding).coerceAtLeast(0.dp)
+): Dp {
+    if (railWidth <= 0.dp) return (safeInset - standardPadding).coerceAtLeast(0.dp)
+    return (safeInset + railWidth + gap - standardPadding).coerceAtLeast(0.dp)
+}
 
 /**
  * Room a screen keeps under a top-anchored mini-player so its content stays reachable.

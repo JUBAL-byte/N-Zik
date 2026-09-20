@@ -1333,8 +1333,10 @@ class MainActivity :
                     ).toPx()
                 }
                 val collapsedPlayerHeight = Dimensions.collapsedPlayer
-                // A navigation rail on a side: the collapsed mini-player narrows to stay clear of it.
-                // The rail is put away with the other bars on the bar-less landscape screens.
+                // Side system bars (status bar at the left, nav bar at the right in landscape,
+                // cutout) and a navigation rail on a side: the collapsed mini-player narrows to
+                // stay clear of them. Both are put away with the other bars on the bar-less
+                // landscape screens.
                 val railWidth = if (areBarsHidden) 0.dp else Dimensions.navigationRailWidth
                 val playerStartInset = miniPlayerSideInset(
                     railWidth = if (NavigationBarPosition.Left.isCurrent()) railWidth else 0.dp,

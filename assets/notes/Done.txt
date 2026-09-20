@@ -1,3 +1,8 @@
+fix(player): keep the collapsed mini-player clear of side system bars without a rail
+  - `miniPlayerSideInset` (`MiniPlayerTopAnchor.kt`) returned 0 without a navigation rail, so the card went under the side status bar / nav bar / display cutout. It now returns `safeInset - standardPadding` clamped at 0, so the card ends flush with the bar's edge, the same way as with the rail; the rail formula is unchanged
+  - `MainActivity.kt`: comment updated to cover the side system bars in addition to the rail
+  - `CardGeometryInsetsTest`: the no-rail case is replaced by three cases (a 48dp bar leaves 32dp, a 24dp bar leaves 8dp, a bar thinner than the 16dp margin adds nothing) plus no bar and no rail untouched (class now 8 tests, green)
+
 fix(player): stop swipes and sideways slides acting during the opening (issue https://github.com/N-Zik-Group/N-Zik/issues/818) (issue https://github.com/N-Zik-Group/N-Zik/issues/816)
   - Holding the finger down after a swipe action left the mini-player displaced: once the action ran, the swipe gestures are cut (`SwipeActionLatch.isFired`, now an observable state, drives `SwipeToDismissBox.gesturesEnabled` in `MiniPlayer.kt`, legacy, minimal edit) and a `LaunchedEffect` calls `dismissState.reset()` so the interrupted drag settles the box back to its position
   - Slow diagonal open triggering the swipe action: the swipe's touch slop is doubled (`WithDoubledTouchSlop.kt`, new, same doubling as the song rows) so the vertical open gesture wins, and the swipe is off as soon as the sheet leaves its original position (`isMiniPlayerSwipeEnabled`: `progress == 0f` and no action just ran)

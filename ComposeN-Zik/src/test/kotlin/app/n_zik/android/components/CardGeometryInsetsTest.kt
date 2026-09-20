@@ -61,7 +61,20 @@ class CardGeometryInsetsTest {
     }
 
     @Test
-    fun `no rail leaves the mini-player untouched`() {
-        assertEquals(0.dp, miniPlayerSideInset(railWidth = 0.dp, safeInset = 24.dp))
+    fun `without a rail the card still clears the side system bar`() {
+        // 48dp landscape bar - 16dp usual margin: the card ends flush with the bar's edge
+        assertEquals(32.dp, miniPlayerSideInset(railWidth = 0.dp, safeInset = 48.dp))
+        // 24dp status bar - 16dp usual margin
+        assertEquals(8.dp, miniPlayerSideInset(railWidth = 0.dp, safeInset = 24.dp))
+    }
+
+    @Test
+    fun `no bar and no rail leaves the mini-player untouched`() {
+        assertEquals(0.dp, miniPlayerSideInset(railWidth = 0.dp, safeInset = 0.dp))
+    }
+
+    @Test
+    fun `a bar thinner than the usual margin adds nothing`() {
+        assertEquals(0.dp, miniPlayerSideInset(railWidth = 0.dp, safeInset = 8.dp))
     }
 }
