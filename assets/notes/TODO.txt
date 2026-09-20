@@ -13,3 +13,21 @@ Features & UI
 
 Lyrics
 - Translation and romanization is broken
+
+Download
+- Download quality selection
+
+Miniplayer
+- Fix for the mini player, if you open it and slide (swipe action)
+
+Optimization
+- Ensure that the app uses everywhere the new threading system so it remains smooth.
+
+Discord RPC
+- Discord browsing key not being respected randomly
+
+Visual
+- Color palette will be off, I'm on it trying to find the right spot.
+
+Futur
+- Finish Nzik Desktop for windows, then linux and macos
