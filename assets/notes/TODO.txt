@@ -14,9 +14,6 @@ Features & UI
 Lyrics
 - Translation and romanization is broken
 
-Download
-- Download quality selection
-
 Discord RPC
 - Discord browsing key not being respected randomly
 

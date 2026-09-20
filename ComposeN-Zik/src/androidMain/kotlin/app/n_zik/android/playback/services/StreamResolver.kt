@@ -509,6 +509,20 @@ private fun fetchFormatIfMissing(videoId: String) {
 }
 
 /**
+ * Maps an [AudioQualityFormat] to an InnerTubeX audio quality (streaming).
+ * InnerTubeX only supports AUTO/HIGH/LOW, so Auto resolves to LOW on metered
+ * connections and AUTO otherwise.
+ */
+fun audioQualityToInnerTubeX(
+    audioQualityFormat: AudioQualityFormat,
+    connectionMetered: Boolean
+): InnerTubeXAudioQuality = when (audioQualityFormat) {
+    AudioQualityFormat.High -> InnerTubeXAudioQuality.HIGH
+    AudioQualityFormat.Low -> InnerTubeXAudioQuality.LOW
+    else -> if (connectionMetered) InnerTubeXAudioQuality.LOW else InnerTubeXAudioQuality.AUTO
+}
+
+/**
  * Maps a [DownloadQualityFormat] to an InnerTubeX audio quality.
  * Identical to the streaming mapping: InnerTubeX only supports AUTO/HIGH/LOW,
  * so Auto resolves to LOW on metered connections and AUTO otherwise.
@@ -664,11 +678,7 @@ private suspend fun resolveStreamUriViaInnerTubeX(
     for (attempt in 0..1) {
         try {
             val connectivityManager = appContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            val audioQuality = when (audioQualityFormat) {
-                AudioQualityFormat.High -> InnerTubeXAudioQuality.HIGH
-                AudioQualityFormat.Low -> InnerTubeXAudioQuality.LOW
-                else -> if (connectionMetered) InnerTubeXAudioQuality.LOW else InnerTubeXAudioQuality.AUTO
-            }
+            val audioQuality = audioQualityToInnerTubeX(audioQualityFormat, connectionMetered)
 
             if (attempt > 0) {
                 Timber.tag(TAG).d("Retrying InnerTubeX for $videoId after session change (attempt ${attempt + 1})")
@@ -724,6 +734,7 @@ private suspend fun resolveStreamUriViaInnerTubeX(
                         requireBoundedRange = playbackData.requireBoundedRange,
                         rangeChunkSizeBytes = playbackData.rangeChunkSizeBytes,
                         useRangeChunks = playbackData.useRangeChunks,
+                        quality = audioQuality,
                         expectedGeneration = expectedGeneration,
                     )
 
@@ -825,7 +836,8 @@ private suspend fun resolveStreamUriInternal(
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /**
- * Cache of resolved stream URLs by videoId.
+ * Cache of resolved stream URLs by videoId, tagged with the quality each URL was resolved at.
+ * An entry is only reusable at the same resolved quality (see [StreamUrlCache.get]).
  * Exposed internally so [PlayerServiceModern.onPlayerError] can invalidate stale entries.
  */
 internal val streamUrlCache = StreamUrlCache()
@@ -912,7 +924,7 @@ fun DataSpec.process(
                 throw UnmatchedSongException()
             }
 
-            val cachedStream = streamUrlCache[videoId]
+            val cachedStream = streamUrlCache.get(videoId, audioQualityToInnerTubeX(audioQualityFormat, connectionMetered))
 
             if (cachedStream != null) {
                 Timber.tag(TAG).d("StreamUrlCache hit for $videoId (client=${cachedStream.clientName})")
@@ -998,8 +1010,9 @@ fun MyDownloadHelper.createDownloadDataSourceFactory(): DataSource.Factory {
             return@Factory dataSpec
         }
 
-        // Check StreamUrlCache first (populated by playback or previous resolve)
-        val cachedStream = streamUrlCache[videoId]
+        // Check the download URL cache first (populated by previous download resolves).
+        // The quality must match: a URL resolved at another download quality is not reusable.
+        val cachedStream = songUrlCache.get(videoId, downloadQualityToInnerTubeX(downloadQualityFormat, appContext().isConnectionMetered()))
         if (cachedStream != null) {
             return@Factory dataSpec.withResolvedStream(cachedStream).buildUpon().setKey(videoId).build()
         }
@@ -1013,7 +1026,7 @@ fun MyDownloadHelper.createDownloadDataSourceFactory(): DataSource.Factory {
         }.recoverCatching { firstError ->
             // Retry once after invalidating URL cache (handles expired 403/410/416)
             Timber.tag("StreamResolver").w(firstError, "Download resolve failed for $videoId, invalidating cache and retrying")
-            streamUrlCache.invalidate(videoId)
+            songUrlCache.invalidate(videoId)
             try { downloadCache.removeResource(videoId) } catch (_: Exception) {}
             dataSpec.processForDownload(videoId, downloadQualityFormat)
                 .buildUpon()
@@ -1052,15 +1065,16 @@ private fun DataSpec.processForDownload(
                 throw UnmatchedSongException()
             }
 
-            val cachedStream = streamUrlCache[videoId]
-            if (cachedStream != null) {
-                Timber.tag(TAG).d("Download StreamUrlCache hit for $videoId")
-                return@runBlocking withResolvedStream(cachedStream)
-            }
-
             // Direct call to InnerTubeXPlayer - NO session change retry
             val connectivityManager = appContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
             val audioQuality = downloadQualityToInnerTubeX(downloadQualityFormat, appContext().isConnectionMetered())
+
+            // The download URL cache is only reusable at the same resolved quality
+            val cachedStream = MyDownloadHelper.songUrlCache.get(videoId, audioQuality)
+            if (cachedStream != null) {
+                Timber.tag(TAG).d("Download URL cache hit for $videoId (quality=$audioQuality)")
+                return@runBlocking withResolvedStream(cachedStream)
+            }
 
             Timber.tag(TAG).d("Download resolving for $videoId (quality=$audioQuality)")
             val result = InnerTubeXPlayer.playerResponseForPlayback(
@@ -1078,10 +1092,11 @@ private fun DataSpec.processForDownload(
                     val streamUrl = "${playbackData.streamUrl}&range=0-$contentLength"
 
                     // Upsert song/artist/album info in background (fire-and-forget, like Cubic Music).
-                    // The tracked quality is captured at resolution time, not inside the coroutine:
+                    // The tracked quality comes from the [downloadQualityFormat] parameter (a
+                    // snapshot of the setting at resolution time), not from a later re-read:
                     // upsertSongInfo does network work with retries (up to ~18 s), so reading the
-                    // setting later could record a value the download did not actually use.
-                    val trackedDownloadQuality = MyDownloadHelper.downloadQualityFormat.name
+                    // setting inside the coroutine could record a value the download did not use.
+                    val trackedDownloadQuality = downloadQualityFormat.name
                     scope.launch(NzikDispatchers.PLAYBACK) {
                         upsertSongInfo(videoId)
                         upsertSongFormat(
@@ -1092,10 +1107,14 @@ private fun DataSpec.processForDownload(
                             playbackData.audioConfig?.loudnessDb,
                             downloadQuality = trackedDownloadQuality
                         )
+                        // upsertSongFormat is skipped by the justInserted guard when the streaming
+                        // path inserted the same Format row first; the dedicated update makes sure
+                        // the tracked quality is recorded in that case too.
+                        Database.formatTable.updateDownloadQuality(videoId, trackedDownloadQuality)
                     }
 
-                    // Cache for future use
-                    streamUrlCache.put(
+                    // Cache for future download use - in the download cache, never the player one
+                    MyDownloadHelper.songUrlCache.put(
                         mediaId = videoId,
                         url = streamUrl,
                         requestHeaders = playbackData.streamHeaders,
@@ -1104,6 +1123,7 @@ private fun DataSpec.processForDownload(
                         requireBoundedRange = playbackData.requireBoundedRange,
                         rangeChunkSizeBytes = playbackData.rangeChunkSizeBytes,
                         useRangeChunks = playbackData.useRangeChunks,
+                        quality = audioQuality,
                     )
 
                     withResolvedStream(

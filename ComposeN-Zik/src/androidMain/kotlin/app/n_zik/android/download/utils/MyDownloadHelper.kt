@@ -508,6 +508,8 @@ object MyDownloadHelper {
             if (key == downloadQualityFormatKey) {
                 downloadQualityFormat =
                     context.preferences.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+                // URLs cached at the previous download quality are not reusable at the new one
+                songUrlCache.clear()
                 Timber.tag("MyDownloadHelper").d("Download quality changed to $downloadQualityFormat")
             }
         }

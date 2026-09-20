@@ -142,6 +142,14 @@ interface FormatTable {
     @Query("SELECT songId FROM Format WHERE songId IN (:songIds)")
     fun findSongIdsWithFormat( songIds: List<String> ): List<String>
 
+    /**
+     * Set [Format.downloadQuality] of song with id [songId] to [downloadQuality]
+     *
+     * @return number of rows affected by this operation
+     */
+    @Query("UPDATE Format SET downloadQuality = :downloadQuality WHERE songId = :songId")
+    fun updateDownloadQuality( songId: String, downloadQuality: String ): Int
+
     //<editor-fold defaultstate="collapsed" desc="Sort all with songs">
     fun sortAllWithSongsByPlayTime( limit: Int = Int.MAX_VALUE, excludeHidden: Boolean = false ): Flow<List<FormatWithSong>> =
         allWithSongs( limit, excludeHidden ).map { list ->

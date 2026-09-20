@@ -3,6 +3,7 @@ package app.n_zik.android.playback.services
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.datasource.DataSpec
+import com.metrolist.innertubex.extraction.AudioQuality as InnerTubeXAudioQuality
 
 internal data class CachedStreamUrl(
     val url: String,
@@ -35,6 +36,7 @@ internal class StreamUrlCache(
 ) {
     private data class Entry(
         val stream: CachedStreamUrl,
+        val quality: InnerTubeXAudioQuality,
         val expiresAtMillis: Long,
     )
 
@@ -49,16 +51,18 @@ internal class StreamUrlCache(
         require(maxEntries > 0) { "maxEntries must be greater than zero" }
     }
 
-    operator fun get(mediaId: String): CachedStreamUrl? =
+    operator fun get(mediaId: String, quality: InnerTubeXAudioQuality): CachedStreamUrl? =
         synchronized(entries) {
             val entry = entries[mediaId] ?: return@synchronized null
             if (entry.expiresAtMillis <= currentTimeMillis()) {
                 entries.remove(mediaId)
                 advanceGeneration(mediaId)
-                null
-            } else {
-                entry.stream
+                return@synchronized null
             }
+            // A resolved URL is only reusable for the quality it was resolved with:
+            // reusing it for another quality would silently download the wrong bitrate.
+            if (entry.quality != quality) return@synchronized null
+            entry.stream
         }
 
     fun clientName(mediaId: String): String? =
@@ -76,6 +80,7 @@ internal class StreamUrlCache(
         requireBoundedRange: Boolean = false,
         rangeChunkSizeBytes: Long = 0L,
         useRangeChunks: Boolean = false,
+        quality: InnerTubeXAudioQuality,
         expectedGeneration: Long = generation(mediaId),
     ): Boolean {
         val now = currentTimeMillis()
@@ -97,6 +102,7 @@ internal class StreamUrlCache(
                             rangeChunkSizeBytes = rangeChunkSizeBytes,
                             useRangeChunks = useRangeChunks,
                         ),
+                    quality = quality,
                     expiresAtMillis = expiresAtMillis,
                 )
             return true

@@ -1,5 +1,6 @@
 package app.n_zik.android.playback.services
 
+import com.metrolist.innertubex.extraction.AudioQuality as InnerTubeXAudioQuality
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -13,10 +14,33 @@ class StreamUrlCacheTest {
         val cache = StreamUrlCache(currentTimeMillis = { now })
         val headers = mapOf("User-Agent" to "test-client")
 
-        cache.put("song", "https://example.com/stream", headers, "WEB_REMIX", expiresInSeconds = 10)
+        cache.put("song", "https://example.com/stream", headers, "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
         now += 9_999L
 
-        assertEquals(CachedStreamUrl("https://example.com/stream", headers, "WEB_REMIX"), cache["song"])
+        assertEquals(CachedStreamUrl("https://example.com/stream", headers, "WEB_REMIX"), cache.get("song", InnerTubeXAudioQuality.AUTO))
+    }
+
+    @Test
+    fun `entry is not returned for a different quality`() {
+        val cache = StreamUrlCache(currentTimeMillis = { 1_000L })
+        val generationBeforeMismatch = cache.generation("song")
+
+        cache.put("song", "https://example.com/high", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.HIGH)
+
+        assertNull(cache.get("song", InnerTubeXAudioQuality.LOW))
+        assertEquals(CachedStreamUrl("https://example.com/high", emptyMap(), "WEB_REMIX"), cache.get("song", InnerTubeXAudioQuality.HIGH))
+        assertEquals(generationBeforeMismatch, cache.generation("song"))
+    }
+
+    @Test
+    fun `put with a different quality replaces the entry`() {
+        val cache = StreamUrlCache(currentTimeMillis = { 1_000L })
+
+        cache.put("song", "https://example.com/high", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.HIGH)
+        cache.put("song", "https://example.com/low", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.LOW)
+
+        assertNull(cache.get("song", InnerTubeXAudioQuality.HIGH))
+        assertEquals("https://example.com/low", cache.get("song", InnerTubeXAudioQuality.LOW)?.url)
     }
 
     @Test
@@ -25,37 +49,37 @@ class StreamUrlCacheTest {
         val cache = StreamUrlCache(currentTimeMillis = { now })
         val generationBeforeExpiry = cache.generation("song")
 
-        cache.put("song", "https://example.com/stream", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
+        cache.put("song", "https://example.com/stream", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
         now += 10_000L
 
-        assertNull(cache["song"])
+        assertNull(cache.get("song", InnerTubeXAudioQuality.AUTO))
         assertEquals(generationBeforeExpiry + 1, cache.generation("song"))
         now = 1_000L
-        assertNull(cache["song"])
+        assertNull(cache.get("song", InnerTubeXAudioQuality.AUTO))
     }
 
     @Test
     fun `entry can be invalidated explicitly`() {
         val cache = StreamUrlCache(currentTimeMillis = { 1_000L })
-        cache.put("song", "https://example.com/stream", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
+        cache.put("song", "https://example.com/stream", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
 
         cache.invalidate("song")
 
-        assertNull(cache["song"])
+        assertNull(cache.get("song", InnerTubeXAudioQuality.AUTO))
     }
 
     @Test
     fun `least recently used entry is evicted at capacity`() {
         val cache = StreamUrlCache(maxEntries = 2, currentTimeMillis = { 1_000L })
-        cache.put("first", "https://example.com/first", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
-        cache.put("second", "https://example.com/second", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
-        assertEquals("https://example.com/first", cache["first"]?.url)
+        cache.put("first", "https://example.com/first", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
+        cache.put("second", "https://example.com/second", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
+        assertEquals("https://example.com/first", cache.get("first", InnerTubeXAudioQuality.AUTO)?.url)
 
-        cache.put("third", "https://example.com/third", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
+        cache.put("third", "https://example.com/third", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
 
-        assertNull(cache["second"])
-        assertEquals("https://example.com/first", cache["first"]?.url)
-        assertEquals("https://example.com/third", cache["third"]?.url)
+        assertNull(cache.get("second", InnerTubeXAudioQuality.AUTO))
+        assertEquals("https://example.com/first", cache.get("first", InnerTubeXAudioQuality.AUTO)?.url)
+        assertEquals("https://example.com/third", cache.get("third", InnerTubeXAudioQuality.AUTO)?.url)
     }
 
     @Test
@@ -69,16 +93,16 @@ class StreamUrlCacheTest {
                     Callable {
                         val mediaId = "song-${index % 32}"
                         val url = "https://example.com/$index"
-                        cache.put(mediaId, url, emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
-                        cache[mediaId]
+                        cache.put(mediaId, url, emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
+                        cache.get(mediaId, InnerTubeXAudioQuality.AUTO)
                         if (index % 5 == 0) cache.invalidate(mediaId)
                     }
                 }
 
             executor.invokeAll(tasks).forEach { it.get() }
-            cache.put("final", "https://example.com/final", emptyMap(), "WEB_REMIX", expiresInSeconds = 10)
+            cache.put("final", "https://example.com/final", emptyMap(), "WEB_REMIX", expiresInSeconds = 10, quality = InnerTubeXAudioQuality.AUTO)
 
-            assertEquals("https://example.com/final", cache["final"]?.url)
+            assertEquals("https://example.com/final", cache.get("final", InnerTubeXAudioQuality.AUTO)?.url)
         } finally {
             executor.shutdownNow()
         }
@@ -96,11 +120,12 @@ class StreamUrlCacheTest {
             requestHeaders = emptyMap(),
             clientName = "WEB_REMIX",
             expiresInSeconds = 10,
+            quality = InnerTubeXAudioQuality.AUTO,
             expectedGeneration = generationBeforeResolution,
         )
 
         assertEquals(false, inserted)
-        assertNull(cache["song"])
+        assertNull(cache.get("song", InnerTubeXAudioQuality.AUTO))
     }
 
     @Test
@@ -115,11 +140,12 @@ class StreamUrlCacheTest {
             requestHeaders = emptyMap(),
             clientName = "WEB_REMIX",
             expiresInSeconds = 10,
+            quality = InnerTubeXAudioQuality.AUTO,
             expectedGeneration = firstGeneration,
         )
 
         assertEquals(true, inserted)
-        assertEquals("https://example.com/first", cache["first"]?.url)
+        assertEquals("https://example.com/first", cache.get("first", InnerTubeXAudioQuality.AUTO)?.url)
     }
 
     @Test
@@ -133,9 +159,10 @@ class StreamUrlCacheTest {
             expiresInSeconds = 10,
             requireBoundedRange = true,
             rangeChunkSizeBytes = 1_024,
+            quality = InnerTubeXAudioQuality.HIGH,
         )
 
-        val stream = requireNotNull(cache["song"])
+        val stream = requireNotNull(cache.get("song", InnerTubeXAudioQuality.HIGH))
         assertEquals(true, stream.requireBoundedRange)
         assertEquals(1_024, stream.rangeChunkSizeBytes)
         assertEquals("test-client", stream.requestHeaders["User-Agent"])
