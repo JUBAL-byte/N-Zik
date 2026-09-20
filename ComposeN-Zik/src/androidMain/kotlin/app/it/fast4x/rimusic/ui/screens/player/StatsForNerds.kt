@@ -57,6 +57,7 @@ import app.n_zik.android.colorPalette
 import app.it.fast4x.rimusic.enums.PlayerBackgroundColors
 import app.it.fast4x.rimusic.enums.PlayerType
 import app.it.fast4x.rimusic.models.Format
+import app.n_zik.android.enums.DownloadQualityFormat
 import app.n_zik.android.playback.services.LOCAL_KEY_PREFIX
 import app.n_zik.android.playback.services.playbackDataCache
 import app.n_zik.android.typography
@@ -225,6 +226,15 @@ fun StatsForNerds(
                             overflow = TextOverflow.Visible,
                             style = typography().xs.medium.color(colorPalette().onOverlay).copy(textAlign = TextAlign.Start)
                         )
+                        if (downloadCachedBytes != 0L) {
+                            BasicText(
+                                text = stringResource(R.string.download_quality),
+                                maxLines = 1,
+                                modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
+                                overflow = TextOverflow.Visible,
+                                style = typography().xs.medium.color(colorPalette().onOverlay).copy(textAlign = TextAlign.Start)
+                            )
+                        }
                     }
                     BasicText(
                         text = stringResource(R.string.bitrate),
@@ -342,6 +352,15 @@ fun StatsForNerds(
                             overflow = TextOverflow.Visible,
                             style = typography().xs.medium.color(colorPalette().onOverlay).copy(textAlign = TextAlign.Start)
                         )
+                        if (downloadCachedBytes != 0L) {
+                            BasicText(
+                                text = format?.let { getDownloadQuality(it) } ?: stringResource(R.string.audio_quality_format_unknown),
+                                maxLines = 1,
+                                modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE),
+                                overflow = TextOverflow.Visible,
+                                style = typography().xs.medium.color(colorPalette().onOverlay).copy(textAlign = TextAlign.Start)
+                            )
+                        }
                     }
                     BasicText(
                         text = format?.bitrate?.let { "${it / 1000} kbps" } ?: stringResource(R.string.audio_quality_format_unknown),
@@ -598,21 +617,35 @@ fun StatsForNerds(
                                       style = typography().xs.medium.color(colorPalette().text)
                                   )
                               }
-                              Box(
-                                  contentAlignment = Alignment.Center,
-                                  modifier = modifier.weight(1f)
-                              ) {
-                                  BasicText(
-                                      text = stringResource(R.string.loudness) + " : " + (format?.loudnessDb?.let { "%.2f dB".format(it) } ?: stringResource(R.string.audio_quality_format_unknown)),
-                                      maxLines = 1,
-                                      modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
-                                      overflow = TextOverflow.Visible,
-                                      style = typography().xs.medium.color(colorPalette().text)
-                                  )
-                              }
-                          }
-                      }
-                      // Row 3: Container + Codec + Sample Rate + Channels + Perceptual Loudness
+                               Box(
+                                   contentAlignment = Alignment.Center,
+                                   modifier = modifier.weight(1f)
+                               ) {
+                                   BasicText(
+                                       text = stringResource(R.string.loudness) + " : " + (format?.loudnessDb?.let { "%.2f dB".format(it) } ?: stringResource(R.string.audio_quality_format_unknown)),
+                                       maxLines = 1,
+                                       modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
+                                       overflow = TextOverflow.Visible,
+                                       style = typography().xs.medium.color(colorPalette().text)
+                                   )
+                               }
+                                if (downloadCachedBytes != 0L) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = modifier.weight(1f)
+                                    ) {
+                                        BasicText(
+                                            text = stringResource(R.string.download_quality) + " : " + (format?.let { getDownloadQuality(it) } ?: stringResource(R.string.audio_quality_format_unknown)),
+                                            maxLines = 1,
+                                            modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
+                                            overflow = TextOverflow.Visible,
+                                            style = typography().xs.medium.color(colorPalette().text)
+                                        )
+                                    }
+                                }
+                           }
+                       }
+                       // Row 3: Container + Codec + Sample Rate + Channels + Perceptual Loudness
                       Row(
                           verticalAlignment = Alignment.CenterVertically,
                           horizontalArrangement = Arrangement.Center,
@@ -756,6 +789,22 @@ fun getQuality(format: Format): String {
         // Low (<50kbps)
         249, 139, 600, 599 -> stringResource(R.string.audio_quality_format_low)
         else -> format.itag?.toString() ?: stringResource(R.string.audio_quality_format_unknown)
+    }
+}
+
+/**
+ * Formats the download quality setting recorded on [Format.downloadQuality]
+ * (the enum name stored at download time). NULL means the download was made
+ * before quality tracking existed.
+ */
+@Composable
+fun getDownloadQuality(format: Format): String {
+    val quality = format.downloadQuality ?: return stringResource(R.string.audio_quality_format_unknown)
+    val parsed = runCatching { DownloadQualityFormat.valueOf(quality) }.getOrNull() ?: return quality
+    return when (parsed) {
+        DownloadQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
+        DownloadQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+        DownloadQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
     }
 }
 

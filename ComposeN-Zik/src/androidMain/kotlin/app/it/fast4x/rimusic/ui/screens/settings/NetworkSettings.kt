@@ -49,6 +49,10 @@ import app.n_zik.android.appContext
 import app.it.fast4x.rimusic.utils.preferences
 import app.n_zik.android.components.dialog.settings.StreamClientsSettingsDialog
 import app.n_zik.android.components.dialog.settings.PreferredStreamClientDialog
+import app.n_zik.android.components.settings.DownloadQualityEntry
+import app.n_zik.android.components.settings.UpdateDownloadsButton
+import app.n_zik.android.enums.DownloadQualityFormat
+import app.n_zik.android.enums.downloadQualityFormatKey
 import app.it.fast4x.rimusic.ui.components.themed.ValueSelectorDialog
 import app.it.fast4x.rimusic.utils.audioQualityFormatKey
 import app.it.fast4x.rimusic.utils.RestartPlayerService
@@ -77,6 +81,9 @@ fun DefaultNetworkSettings() {
 
     var audioQualityFormat by rememberPreference(audioQualityFormatKey, AudioQualityFormat.Auto)
     audioQualityFormat = AudioQualityFormat.Auto
+
+    var downloadQualityFormat by rememberPreference(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+    downloadQualityFormat = DownloadQualityFormat.Auto
 
     var imageQualityFormat by rememberPreference(imageQualityFormatKey, ImageQualityFormat.Auto)
     imageQualityFormat = ImageQualityFormat.Auto
@@ -110,6 +117,7 @@ fun NetworkSettings(
     var autoDownloadSongWhenAlbumBookmarked by rememberPreference(autoDownloadSongWhenAlbumBookmarkedKey, false)
     var audioQualityFormat by rememberPreference(audioQualityFormatKey, AudioQualityFormat.Auto)
     var imageQualityFormat by rememberPreference(imageQualityFormatKey, ImageQualityFormat.Auto)
+    var downloadQualityFormat by rememberPreference(downloadQualityFormatKey, DownloadQualityFormat.Auto)
     var restartService by rememberSaveable { mutableStateOf(false) }
     var showAudioQualityDialog by rememberSaveable { mutableStateOf(false) }
     var showImageQualityDialog by rememberSaveable { mutableStateOf(false) }
@@ -188,7 +196,6 @@ fun NetworkSettings(
                 } else {
                     when(audioQualityFormat) {
                         AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
-                        AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
                         AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
                         else -> detectedText
                     }
@@ -198,6 +205,23 @@ fun NetworkSettings(
                     title = stringResource(R.string.audio_quality_format),
                     text = audioStatusText,
                     icon = R.drawable.audio_quality
+                )
+
+                // Download Status
+                val downloadStatusText = if (downloadQualityFormat == DownloadQualityFormat.Auto) {
+                    stringResource(R.string.audio_quality_auto_fmt, detectedText)
+                } else {
+                    when(downloadQualityFormat) {
+                        DownloadQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
+                        DownloadQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
+                        else -> detectedText
+                    }
+                }
+
+                OtherInfoSettingsEntry(
+                    title = stringResource(R.string.download_quality_format),
+                    text = downloadStatusText,
+                    icon = R.drawable.download
                 )
             }
         )
@@ -216,7 +240,6 @@ fun NetworkSettings(
                         text = when (audioQualityFormat) {
                             AudioQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
                             AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
-                            AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
                             AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
                         },
                         icon = R.drawable.speaker,
@@ -238,8 +261,14 @@ fun NetworkSettings(
                         onClick = { showImageQualityDialog = true }
                     )
                 }
-                
-                if (search.inputValue.isBlank() || stringResource(R.string.audio_quality_format).contains(search.inputValue, true)) {
+
+                // Download Quality Entry + Update downloads button
+                if (search.inputValue.isBlank() || stringResource(R.string.download_quality_format).contains(search.inputValue, true) || stringResource(R.string.update_downloads).contains(search.inputValue, true)) {
+                    DownloadQualityEntry(onQualityChanged = { restartService = true })
+                    UpdateDownloadsButton()
+                }
+
+                if (search.inputValue.isBlank() || stringResource(R.string.audio_quality_format).contains(search.inputValue, true) || stringResource(R.string.download_quality_format).contains(search.inputValue, true)) {
                     RestartPlayerService(restartService, onRestart = { restartService = false })
                 }
             }
@@ -260,7 +289,6 @@ fun NetworkSettings(
                     when (it) {
                         AudioQualityFormat.Auto -> stringResource(R.string.audio_quality_automatic)
                         AudioQualityFormat.High -> stringResource(R.string.audio_quality_format_high)
-                        AudioQualityFormat.Medium -> stringResource(R.string.audio_quality_format_medium)
                         AudioQualityFormat.Low -> stringResource(R.string.audio_quality_format_low)
                     }
                 }

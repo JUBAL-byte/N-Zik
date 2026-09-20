@@ -94,6 +94,8 @@ import app.n_zik.android.MainActivity
 import app.n_zik.android.appContext
 import app.it.fast4x.rimusic.cleanPrefix
 import app.it.fast4x.rimusic.enums.AudioQualityFormat
+import app.n_zik.android.enums.DownloadQualityFormat
+import app.n_zik.android.enums.downloadQualityFormatKey
 import app.it.fast4x.rimusic.enums.ImageQualityFormat
 import app.it.fast4x.rimusic.enums.DurationInMilliseconds
 import app.it.fast4x.rimusic.enums.ExoPlayerCacheLocation
@@ -388,7 +390,7 @@ class PlayerServiceModern : MediaLibraryService(),
 
         audioQualityFormat = preferences.getEnum(audioQualityFormatKey, AudioQualityFormat.Auto)
         imageQualityFormat = preferences.getEnum(imageQualityFormatKey, ImageQualityFormat.Auto)
-        Timber.tag("NZik_Network").i("PlayerServiceModern: Initialized with Audio Quality: $audioQualityFormat, Image Quality: $imageQualityFormat")
+        Timber.tag("NZik_Network").i("PlayerServiceModern: Initialized with Audio Quality: $audioQualityFormat, Image Quality: $imageQualityFormat, Download Quality: ${preferences.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)}")
 
         showLikeButton = preferences.getBoolean(showLikeButtonBackgroundPlayerKey, true)
         showDownloadButton = preferences.getBoolean(showDownloadButtonBackgroundPlayerKey, true)
@@ -879,6 +881,11 @@ class PlayerServiceModern : MediaLibraryService(),
                     ?: ImageQualityFormat.Auto
                 Timber.tag("NZik_Network").i("PlayerServiceModern: Image Quality CHANGED to: $imageQualityFormat")
             }
+            downloadQualityFormatKey -> {
+                val downloadQuality = sharedPreferences?.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+                    ?: DownloadQualityFormat.Auto
+                Timber.tag("NZik_Network").i("PlayerServiceModern: Download Quality CHANGED to: $downloadQuality")
+            }
         }
     }
 
@@ -915,7 +922,9 @@ class PlayerServiceModern : MediaLibraryService(),
         val networkQuality = NetworkQualityHelper.getCurrentNetworkQuality(this)
         val effectiveAudio = if (audioQualityFormat == AudioQualityFormat.Auto) "Auto→$networkQuality" else audioQualityFormat.name
         val effectiveImage = if (imageQualityFormat == ImageQualityFormat.Auto) "Auto→$networkQuality" else imageQualityFormat.name
-        Timber.tag("NZik_Network").i("onMediaItemTransition - Network: $networkQuality | Audio: $effectiveAudio | Image: $effectiveImage")
+        val downloadQuality = preferences.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+        val effectiveDownload = if (downloadQuality == DownloadQualityFormat.Auto) "Auto→$networkQuality" else downloadQuality.name
+        Timber.tag("NZik_Network").i("onMediaItemTransition - Network: $networkQuality | Audio: $effectiveAudio | Image: $effectiveImage | Download: $effectiveDownload")
 
         // Clear recovery counter for the new media item (fresh start)
         mediaItem?.mediaId?.let { recoveryAttempts.remove(it) }

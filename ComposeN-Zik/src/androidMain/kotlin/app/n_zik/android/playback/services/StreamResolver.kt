@@ -26,6 +26,7 @@ import it.fast4x.innertube.models.PlayerResponse
 import it.fast4x.innertube.requests.nextPage
 import it.fast4x.innertube.requests.artistPage
 import app.n_zik.android.appContext
+import app.n_zik.android.enums.DownloadQualityFormat
 import app.it.fast4x.rimusic.enums.AudioQualityFormat
 import app.it.fast4x.rimusic.models.Format
 import app.it.fast4x.rimusic.models.Song
@@ -486,7 +487,8 @@ private fun fetchFormatIfMissing(videoId: String) {
                 sampleRate = finalSampleRate,
                 perceptualLoudnessDb = finalPerceptual,
                 audioChannels = finalChannels,
-                playbackUrl = existing?.playbackUrl
+                playbackUrl = existing?.playbackUrl,
+                downloadQuality = existing?.downloadQuality
             )
             saveFormatSafe(formatToSave)
             fetchedFormatIds.add(videoId)
@@ -506,13 +508,28 @@ private fun fetchFormatIfMissing(videoId: String) {
     }
 }
 
+/**
+ * Maps a [DownloadQualityFormat] to an InnerTubeX audio quality.
+ * Identical to the streaming mapping: InnerTubeX only supports AUTO/HIGH/LOW,
+ * so Auto resolves to LOW on metered connections and AUTO otherwise.
+ */
+fun downloadQualityToInnerTubeX(
+    downloadQualityFormat: DownloadQualityFormat,
+    connectionMetered: Boolean
+): InnerTubeXAudioQuality = when (downloadQualityFormat) {
+    DownloadQualityFormat.High -> InnerTubeXAudioQuality.HIGH
+    DownloadQualityFormat.Low -> InnerTubeXAudioQuality.LOW
+    else -> if (connectionMetered) InnerTubeXAudioQuality.LOW else InnerTubeXAudioQuality.AUTO
+}
+
 @NonBlocking
 private fun upsertSongFormat(
     videoId: String,
     format: PlayerResponse.StreamingData.Format,
     perceptualLoudnessDb: Float? = null,
     playbackUrl: String? = null,
-    audioConfigLoudnessDb: Float? = null
+    audioConfigLoudnessDb: Float? = null,
+    downloadQuality: String? = null
 ) {
     if (videoId == justInserted) return
     runCatching {
@@ -524,6 +541,10 @@ private fun upsertSongFormat(
 
         // Prefer audioConfig.loudnessDb (player-level, more reliable) over format-level loudnessDb
         val loudnessDb = audioConfigLoudnessDb ?: format.loudnessDb?.toFloat()
+
+        // The download quality tracking value is set by the download path; the streaming path
+        // must preserve whatever value a previous download already stored.
+        val existingFormat = Database.formatTable.findBySongIdDirect(videoId)
 
         val formatToSave = Format(
             songId = videoId,
@@ -537,7 +558,8 @@ private fun upsertSongFormat(
             sampleRate = format.audioSampleRate,
             perceptualLoudnessDb = perceptualLoudnessDb,
             audioChannels = format.audioChannels,
-            playbackUrl = playbackUrl
+            playbackUrl = playbackUrl,
+            downloadQuality = downloadQuality ?: existingFormat?.downloadQuality
         )
         // Ensure the Song row exists for the Format FK constraint.
         // Only insert a placeholder if the song is NOT already in the DB
@@ -959,52 +981,6 @@ fun PlayerServiceModern.createDataSourceFactory(): DataSource.Factory {
     }
 }
 
-@UnstableApi
-fun MyDownloadHelper.createDataSourceFactory(): DataSource.Factory {
-    val upstreamFactory = appContext().okHttpDataSourceFactory
-
-    val resolvingDataSourceFactory = ResolvingDataSource.Factory(upstreamFactory) { dataSpec ->
-        val videoId = dataSpec.uri.toString().substringAfter("watch?v=")
-        val length = if (dataSpec.length >= 0) dataSpec.length else 1
-
-        // Cache-first: if download cache already has this range, skip resolution entirely
-        if (downloadCache.isCached(videoId, dataSpec.position, length)) {
-            return@Factory dataSpec
-        }
-
-        fun resolveFresh(): DataSpec {
-            fetchFormatIfMissing(videoId)
-            scope.launch(NzikDispatchers.PLAYBACK) { upsertSongInfo(videoId) }
-            val resolvedSpec = dataSpec.process(videoId, audioQualityFormat, appContext().isConnectionMetered(), allowBoundedRange = false)
-            val cachedStream = streamUrlCache[videoId]
-            if (cachedStream != null) {
-                return resolvedSpec.withResolvedStream(cachedStream).buildUpon().setKey(videoId).build()
-            }
-            return resolvedSpec.buildUpon().setKey(videoId).build()
-        }
-
-        // Check StreamUrlCache first (populated by playback or previous resolve)
-        val cachedStream = streamUrlCache[videoId]
-        if (cachedStream != null) {
-            return@Factory dataSpec.withResolvedStream(cachedStream).buildUpon().setKey(videoId).build()
-        }
-
-        try {
-            resolveFresh()
-        } catch (e: Exception) {
-            Timber.tag("StreamResolver").w(e, "Download resolve failed for $videoId, invalidating URL cache and retrying")
-            streamUrlCache.invalidate(videoId)
-            try { downloadCache.removeResource(videoId) } catch (_: Exception) {}
-            resolveFresh()
-        }
-    }
-
-    return CacheDataSource.Factory()
-        .setCache(getDownloadCache(appContext()))
-        .setUpstreamDataSourceFactory(resolvingDataSourceFactory)
-        .setCacheWriteDataSinkFactory(null)
-}
-
 /**
  * Dedicated download data source factory - separated from streaming resolver.
  * This prevents session changes from affecting downloads (like Metrolist/Cubic).
@@ -1030,7 +1006,7 @@ fun MyDownloadHelper.createDownloadDataSourceFactory(): DataSource.Factory {
 
         // Direct resolution - no session changes, no fetchFormatIfMissing, no upsertSongInfo
         runCatching {
-            dataSpec.processForDownload(videoId, audioQualityFormat)
+            dataSpec.processForDownload(videoId, downloadQualityFormat)
                 .buildUpon()
                 .setKey(videoId)
                 .build()
@@ -1039,7 +1015,7 @@ fun MyDownloadHelper.createDownloadDataSourceFactory(): DataSource.Factory {
             Timber.tag("StreamResolver").w(firstError, "Download resolve failed for $videoId, invalidating cache and retrying")
             streamUrlCache.invalidate(videoId)
             try { downloadCache.removeResource(videoId) } catch (_: Exception) {}
-            dataSpec.processForDownload(videoId, audioQualityFormat)
+            dataSpec.processForDownload(videoId, downloadQualityFormat)
                 .buildUpon()
                 .setKey(videoId)
                 .build()
@@ -1060,7 +1036,7 @@ fun MyDownloadHelper.createDownloadDataSourceFactory(): DataSource.Factory {
 @UnstableApi
 private fun DataSpec.processForDownload(
     videoId: String,
-    audioQualityFormat: AudioQualityFormat
+    downloadQualityFormat: DownloadQualityFormat
 ): DataSpec {
     return try {
         runBlocking(NzikDispatchers.DATA) {
@@ -1084,11 +1060,7 @@ private fun DataSpec.processForDownload(
 
             // Direct call to InnerTubeXPlayer - NO session change retry
             val connectivityManager = appContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-            val audioQuality = when (audioQualityFormat) {
-                AudioQualityFormat.High -> InnerTubeXAudioQuality.HIGH
-                AudioQualityFormat.Low -> InnerTubeXAudioQuality.LOW
-                else -> if (appContext().isConnectionMetered()) InnerTubeXAudioQuality.LOW else InnerTubeXAudioQuality.AUTO
-            }
+            val audioQuality = downloadQualityToInnerTubeX(downloadQualityFormat, appContext().isConnectionMetered())
 
             Timber.tag(TAG).d("Download resolving for $videoId (quality=$audioQuality)")
             val result = InnerTubeXPlayer.playerResponseForPlayback(
@@ -1105,7 +1077,11 @@ private fun DataSpec.processForDownload(
                     val contentLength = playbackData.format.contentLength ?: 1_000_000L
                     val streamUrl = "${playbackData.streamUrl}&range=0-$contentLength"
 
-                    // Upsert song/artist/album info in background (fire-and-forget, like Cubic Music)
+                    // Upsert song/artist/album info in background (fire-and-forget, like Cubic Music).
+                    // The tracked quality is captured at resolution time, not inside the coroutine:
+                    // upsertSongInfo does network work with retries (up to ~18 s), so reading the
+                    // setting later could record a value the download did not actually use.
+                    val trackedDownloadQuality = MyDownloadHelper.downloadQualityFormat.name
                     scope.launch(NzikDispatchers.PLAYBACK) {
                         upsertSongInfo(videoId)
                         upsertSongFormat(
@@ -1113,7 +1089,8 @@ private fun DataSpec.processForDownload(
                             playbackData.format,
                             playbackData.audioConfig?.perceptualLoudnessDb,
                             playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl,
-                            playbackData.audioConfig?.loudnessDb
+                            playbackData.audioConfig?.loudnessDb,
+                            downloadQuality = trackedDownloadQuality
                         )
                     }
 

@@ -12,8 +12,6 @@ enum class AudioQualityFormat(
 
     High( R.string.audio_quality_format_high ),
 
-    Medium( R.string.audio_quality_format_medium ),
-
     Low( R.string.audio_quality_format_low );
 }
 

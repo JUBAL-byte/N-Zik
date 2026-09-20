@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.n_zik.android.core.database.Database
 import app.n_zik.android.core.database.DatabaseInitializer
 import app.n_zik.android.core.database.migration.From40To41Migration
+import app.n_zik.android.core.database.migration.From41To42Migration
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -20,9 +21,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * Upgrade 40 -> 41 through the real Room builder, not a direct `migrate()` call: Room must find
- * the registered 40 -> 41 migration, apply it, and pass post-migration schema verification
- * (tables, column defaults, indexes, foreign keys and views).
+ * Upgrade 40 -> 42 through the real Room builder, not a direct `migrate()` call: Room must find
+ * the registered 40 -> 41 and 41 -> 42 migrations, apply them, and pass post-migration schema
+ * verification (tables, column defaults, indexes, foreign keys and views).
  *
  * Two starting states are covered:
  * - a deployed v40 database (frozen `schemas/.../40.json`, no column defaults) — production users
@@ -50,12 +51,12 @@ class DatabaseUpgrade40To41Test {
     }
 
     @Test
-    fun `a deployed v40 database without column defaults upgrades to v41 keeping its rows`() {
+    fun `a deployed v40 database without column defaults upgrades to v42 keeping its rows`() {
         assertUpgrade(seedFrom = 40)
     }
 
     @Test
-    fun `a dev v40 database with column defaults upgrades to v41 keeping its rows`() {
+    fun `a dev v40 database with column defaults upgrades to v42 keeping its rows`() {
         assertUpgrade(seedFrom = 41)
     }
 
@@ -90,13 +91,13 @@ class DatabaseUpgrade40To41Test {
         helper.close()
 
         val db = Room.databaseBuilder(context, DatabaseInitializer::class.java, dbName)
-            .addMigrations(From40To41Migration)
+            .addMigrations(From40To41Migration, From41To42Migration)
             .openHelperFactory(helperFactory)
             .allowMainThreadQueries()
             .build()
 
         try {
-            assertEquals(41, db.query("PRAGMA user_version", null).use { it.moveToFirst(); it.getInt(0) })
+            assertEquals(42, db.query("PRAGMA user_version", null).use { it.moveToFirst(); it.getInt(0) })
 
             db.query("SELECT songId, type, data, isEdited, lastFetchedAt FROM Lyrics", null).use { c ->
                 assertEquals(1, c.count)

@@ -388,7 +388,6 @@ fun AudioDeviceMenu(onDismiss: () -> Unit) {
                     val qualityOptions = listOf(
                         AudioQualityFormat.Auto to stringResource(R.string.audio_quality_automatic),
                         AudioQualityFormat.High to stringResource(R.string.audio_quality_format_high),
-                        AudioQualityFormat.Medium to stringResource(R.string.audio_quality_format_medium),
                         AudioQualityFormat.Low to stringResource(R.string.audio_quality_format_low)
                     )
                     

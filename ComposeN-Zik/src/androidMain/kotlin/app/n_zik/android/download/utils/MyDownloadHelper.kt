@@ -6,6 +6,7 @@ import app.n_zik.android.download.services.MyDownloadService
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -25,14 +26,15 @@ import app.n_zik.android.utils.artistTextOrDb
 import app.n_zik.android.playback.services.createDataSourceFactory
 import app.n_zik.android.playback.services.createDownloadDataSourceFactory
 
-import app.it.fast4x.rimusic.enums.AudioQualityFormat
+import app.n_zik.android.enums.DownloadQualityFormat
+import app.n_zik.android.enums.downloadQualityFormatKey
 import app.it.fast4x.rimusic.enums.ExoPlayerCacheLocation
 import app.it.fast4x.rimusic.enums.ExoPlayerDiskCacheMaxSize
 import app.it.fast4x.rimusic.models.Song
 import app.n_zik.android.playback.services.isLocal
 import app.it.fast4x.rimusic.utils.asMediaItem
 import app.it.fast4x.rimusic.utils.asSong
-import app.it.fast4x.rimusic.utils.audioQualityFormatKey
+import app.n_zik.android.appContext
 import app.it.fast4x.rimusic.utils.autoDownloadSongKey
 import app.it.fast4x.rimusic.utils.autoDownloadSongWhenAlbumBookmarkedKey
 import app.it.fast4x.rimusic.utils.autoDownloadSongWhenLikedKey
@@ -59,6 +61,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import app.it.fast4x.rimusic.utils.ExternalUris
 import app.n_zik.android.core.coil.ImageCacheFactory
 
@@ -96,7 +99,14 @@ object MyDownloadHelper {
 
     private lateinit var downloadNotificationHelper: DownloadNotificationHelper
     private lateinit var downloadManager: DownloadManager
-    lateinit var audioQualityFormat: AudioQualityFormat
+    lateinit var downloadQualityFormat: DownloadQualityFormat
+
+    /**
+     * Kept as a weak reference so the helper does not prevent the preferences
+     * [SharedPreferences.OnSharedPreferenceChangeListener] from being garbage collected
+     * after [release].
+     */
+    private var downloadQualityPreferenceListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
     // URL cache with LRU eviction (max 500 entries): uses StreamUrlCache for headers/client tracking
     internal val songUrlCache = app.n_zik.android.playback.services.StreamUrlCache()
@@ -245,8 +255,10 @@ object MyDownloadHelper {
 
     @Synchronized
     private fun ensureDownloadManagerInitialized(context: Context) {
-        audioQualityFormat =
-            context.preferences.getEnum(audioQualityFormatKey, AudioQualityFormat.Auto)
+        downloadQualityFormat =
+            context.preferences.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+
+        registerDownloadQualityPreferenceListener(context)
 
         if (!MyDownloadHelper::downloadManager.isInitialized) {
             downloadManager = DownloadManager(
@@ -424,49 +436,158 @@ object MyDownloadHelper {
         }
 
         coroutineScope.launch {
-            downloadPreparationSemaphore.withPermit {
-                val artistTextRaw = mediaItem.artistTextOrDb()
-                val artistText = if (artistTextRaw == "null" || artistTextRaw.isBlank()) context.getString(R.string.unknown_artist) else artistTextRaw
-                val titleTextRaw = mediaItem.mediaMetadata.title?.toString() ?: ""
-                val titleText = if (titleTextRaw == "null" || titleTextRaw.isBlank()) context.getString(R.string.unknown_title) else titleTextRaw
-                val notificationTitle = "$artistText - $titleText"
-
-                val downloadRequest = DownloadRequest
-                    .Builder(
-                        /* id      = */ mediaItem.mediaId,
-                        /* uri     = */ mediaItem.requestMetadata.mediaUri
-                            ?: Uri.parse(ExternalUris.youtubeMusic(mediaItem.mediaId))
-                    )
-                    .setCustomCacheKey(mediaItem.mediaId)
-                    .setData(notificationTitle.encodeToByteArray()) // Title in notification
-                    .build()
-
-                val imageUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(1000)
-
-                context.download<MyDownloadService>(downloadRequest).exceptionOrNull()?.let {
-                    if (it is CancellationException) throw it
-
-                    Timber.tag("MyDownloadHelper").e("scheduleDownload exception ${it.stackTraceToString()}")
-                    Toaster.e(R.string.error_playback_failed)
-                }
-            }
-            // Lyrics and image preload OUTSIDE semaphore - don't block download preparation
-            downloadSyncedLyrics( mediaItem.asSong )
-            ImageCacheFactory.preloadImage(mediaItem.mediaMetadata.artworkUri.toString())
+            addDownloadInternal( context, mediaItem )
         }
 
 
     }
 
+    /**
+     * Suspended core of [addDownload]: prepares the download request under the
+     * preparation semaphore, schedules it on [MyDownloadService], then preloads
+     * lyrics and artwork outside the semaphore so they don't block other downloads.
+     */
+    private suspend fun addDownloadInternal( context: Context, mediaItem: MediaItem ) {
+        downloadPreparationSemaphore.withPermit {
+            val artistTextRaw = mediaItem.artistTextOrDb()
+            val artistText = if (artistTextRaw == "null" || artistTextRaw.isBlank()) context.getString(R.string.unknown_artist) else artistTextRaw
+            val titleTextRaw = mediaItem.mediaMetadata.title?.toString() ?: ""
+            val titleText = if (titleTextRaw == "null" || titleTextRaw.isBlank()) context.getString(R.string.unknown_title) else titleTextRaw
+            val notificationTitle = "$artistText - $titleText"
+
+            val downloadRequest = DownloadRequest
+                .Builder(
+                    /* id      = */ mediaItem.mediaId,
+                    /* uri     = */ mediaItem.requestMetadata.mediaUri
+                        ?: Uri.parse(ExternalUris.youtubeMusic(mediaItem.mediaId))
+                )
+                .setCustomCacheKey(mediaItem.mediaId)
+                .setData(notificationTitle.encodeToByteArray()) // Title in notification
+                .build()
+
+            val imageUrl = mediaItem.mediaMetadata.artworkUri.thumbnail(1000)
+
+            context.download<MyDownloadService>(downloadRequest).exceptionOrNull()?.let {
+                if (it is CancellationException) throw it
+
+                Timber.tag("MyDownloadHelper").e("scheduleDownload exception ${it.stackTraceToString()}")
+                Toaster.e(R.string.error_playback_failed)
+            }
+        }
+        // Lyrics and image preload OUTSIDE semaphore - don't block download preparation
+        downloadSyncedLyrics( mediaItem.asSong )
+        ImageCacheFactory.preloadImage(mediaItem.mediaMetadata.artworkUri.toString())
+    }
+
     fun removeDownload(context: Context, mediaItem: MediaItem) {
         if (mediaItem.isLocal) return
         coroutineScope.launch {
-            context.removeDownload<MyDownloadService>(mediaItem.mediaId).exceptionOrNull()?.let {
-                if (it is CancellationException) throw it
+            removeDownloadInternal( context, mediaItem )
+        }
+    }
 
-                Timber.tag("MyDownloadHelper").e(it.stackTraceToString())
-                Timber.tag("MyDownloadHelper").e("removeDownload exception ${it.stackTraceToString()}")
+    /**
+     * Suspended core of [removeDownload]: sends the removal intent to [MyDownloadService].
+     */
+    private suspend fun removeDownloadInternal( context: Context, mediaItem: MediaItem ) {
+        context.removeDownload<MyDownloadService>(mediaItem.mediaId).exceptionOrNull()?.let {
+            if (it is CancellationException) throw it
+
+            Timber.tag("MyDownloadHelper").e(it.stackTraceToString())
+            Timber.tag("MyDownloadHelper").e("removeDownload exception ${it.stackTraceToString()}")
+        }
+    }
+
+    /**
+     * Refreshes [downloadQualityFormat] whenever the download quality setting changes so
+     * downloads scheduled after the change use the new quality immediately.
+     */
+    private fun registerDownloadQualityPreferenceListener(context: Context) {
+        if (downloadQualityPreferenceListener != null) return
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == downloadQualityFormatKey) {
+                downloadQualityFormat =
+                    context.preferences.getEnum(downloadQualityFormatKey, DownloadQualityFormat.Auto)
+                Timber.tag("MyDownloadHelper").d("Download quality changed to $downloadQualityFormat")
             }
+        }
+        context.preferences.registerOnSharedPreferenceChangeListener(listener)
+        downloadQualityPreferenceListener = listener
+    }
+
+    /**
+     * @return the ids of completed downloads that already have a [Format] row, i.e. the ones
+     * whose download quality is tracked.
+     */
+    private suspend fun trackedCompletedSongIds(): List<String> =
+        withContext( NzikDispatchers.DATA ) {
+            val completedIds = downloads.value.values
+                .filter { it.state == Download.STATE_COMPLETED }
+                .map { it.request.id }
+            if ( completedIds.isEmpty() ) return@withContext emptyList()
+
+            Database.formatTable.findSongIdsWithFormat( completedIds )
+        }
+
+    /**
+     * @return the ids of completed downloads whose recorded download quality (see
+     * [app.it.fast4x.rimusic.models.Format.downloadQuality]) does not match the current
+     * [downloadQualityFormat]. A NULL tracking value (download made before quality tracking
+     * existed) counts as non-compliant.
+     */
+    private suspend fun nonCompliantDownloadedSongIds(): List<String> =
+        withContext( NzikDispatchers.DATA ) {
+            val trackedIds = trackedCompletedSongIds()
+            if ( trackedIds.isEmpty() ) return@withContext emptyList()
+
+            Database.formatTable.findNonCompliantSongIds( trackedIds, downloadQualityFormat.name )
+        }
+
+    /**
+     * @return the number of completed downloads that [updateDownloads] would re-download.
+     */
+    suspend fun countNonCompliantDownloads(): Int =
+        withContext( NzikDispatchers.DATA ) {
+            val trackedIds = trackedCompletedSongIds()
+            if ( trackedIds.isEmpty() ) return@withContext 0
+
+            Database.formatTable.countNonCompliantDownloaded( trackedIds, downloadQualityFormat.name )
+        }
+
+    /**
+     * Re-downloads every completed download that does not match [downloadQualityFormat].
+     *
+     * Each target is removed then re-added sequentially in the same coroutine: the remove
+     * intent must reach [MyDownloadService] before the add intent for the same id, because
+     * media3 rejects an add targeting a download that is not in
+     * [Download.STATE_REMOVING] or [Download.STATE_FAILED]. Batch counters drive the
+     * existing progress notification, and the download path records the new quality on
+     * each re-downloaded song.
+     */
+    suspend fun updateDownloads(context: Context) {
+        val targets = nonCompliantDownloadedSongIds()
+        if ( targets.isEmpty() ) return
+
+        Timber.tag("MyDownloadHelper").i("updateDownloads: re-downloading ${targets.size} downloads with $downloadQualityFormat")
+        startBatchDownload( targets.size )
+
+        targets.forEach { songId ->
+            // A stream URL cached under the previous quality must not be reused by the re-download
+            songUrlCache.invalidate( songId )
+
+            val mediaItem = withContext( NzikDispatchers.DATA ) { Database.songTable.findByIdDirect( songId ) }
+                ?.asMediaItem
+                ?: MediaItem.Builder()
+                    .setMediaId(songId)
+                    .setUri(Uri.parse(ExternalUris.youtubeMusic(songId)))
+                    .build()
+
+            runCatching {
+                removeDownloadInternal( context, mediaItem )
+            }.onFailure { e ->
+                Timber.tag("MyDownloadHelper").e(e, "updateDownloads: remove failed for $songId, attempting the add anyway")
+            }
+            addDownloadInternal( context, mediaItem )
         }
     }
 
@@ -550,6 +671,10 @@ object MyDownloadHelper {
      */
     fun release() {
         coroutineScope.cancel()
+        downloadQualityPreferenceListener?.let {
+            appContext().preferences.unregisterOnSharedPreferenceChangeListener(it)
+        }
+        downloadQualityPreferenceListener = null
         // NzikDispatchers.DATA is a shared, process-lifetime dispatcher - nothing to shut down here.
     }
 }

@@ -110,6 +110,38 @@ interface FormatTable {
     @Query("UPDATE Format SET contentLength = :contentLength WHERE songId = :songId")
     fun updateContentLengthOf( songId: String, contentLength: Long = 0L ): Int
 
+    /**
+     * Songs in [songIds] whose [Format.downloadQuality] is not [downloadQuality].
+     * A NULL tracking value (download made before the column existed) counts as non-compliant.
+     *
+     * @return songIds that are non-compliant with [downloadQuality]
+     */
+    @Query("""
+        SELECT songId
+        FROM Format
+        WHERE songId IN (:songIds)
+          AND (downloadQuality IS NULL OR downloadQuality != :downloadQuality)
+    """)
+    fun findNonCompliantSongIds( songIds: List<String>, downloadQuality: String ): List<String>
+
+    /**
+     * @return number of songs in [songIds] that are non-compliant with [downloadQuality]
+     * (NULL tracking value included)
+     */
+    @Query("""
+        SELECT COUNT(*)
+        FROM Format
+        WHERE songId IN (:songIds)
+          AND (downloadQuality IS NULL OR downloadQuality != :downloadQuality)
+    """)
+    fun countNonCompliantDownloaded( songIds: List<String>, downloadQuality: String ): Int
+
+    /**
+     * @return the subset of [songIds] that already has a [Format] row
+     */
+    @Query("SELECT songId FROM Format WHERE songId IN (:songIds)")
+    fun findSongIdsWithFormat( songIds: List<String> ): List<String>
+
     //<editor-fold defaultstate="collapsed" desc="Sort all with songs">
     fun sortAllWithSongsByPlayTime( limit: Int = Int.MAX_VALUE, excludeHidden: Boolean = false ): Flow<List<FormatWithSong>> =
         allWithSongs( limit, excludeHidden ).map { list ->

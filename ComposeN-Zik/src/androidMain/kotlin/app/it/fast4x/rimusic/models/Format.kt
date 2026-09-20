@@ -29,7 +29,8 @@ data class Format(
     @ColumnInfo(defaultValue = "NULL") val sampleRate: Int? = null,
     @ColumnInfo(defaultValue = "NULL") val perceptualLoudnessDb: Float? = null,
     @ColumnInfo(defaultValue = "NULL") val audioChannels: Int? = null,
-    @ColumnInfo(defaultValue = "NULL") val playbackUrl: String? = null
+    @ColumnInfo(defaultValue = "NULL") val playbackUrl: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val downloadQuality: String? = null
 )
 
 
