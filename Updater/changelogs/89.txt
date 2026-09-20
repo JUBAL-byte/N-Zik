@@ -1,0 +1,87 @@
+Added:
+- Complete dislike system for songs, artists, and albums. Each can now cycle neutral -> liked/bookmarked -> disliked. Dislike is a local-only blacklist (never pushed to YouTube), and excluded items stay out of playback, shuffle, radio, and statistics. New toggles in General Settings let you exclude disliked songs/artists/albums (on by default).
+- In-app queue overlay from the mini player: long-press the mini player to open a resizable queue panel (drag to resize, animated scrim) that mirrors the player queue without leaving the screen.
+- Unified player and mini player: a single bottom-sheet gesture now expands the mini player into the full player and back, with improved swipe-to-dismiss that stops playback properly.
+- New YouTube sync engine (experimental): three-state like rotation, sync direction (two-way / app-to-YouTube / YouTube-to-app), per-target auto-sync (channels, albums, playlists, likes), cooldown, background guard, "Sync Now" and "Clear synced data", plus per-operation status and result dialogs. Known to be buggy for now - treat as experimental.
+- Last.fm integration (issue https://github.com/N-Zik-Group/N-Zik/issues/574): connect from Settings > Account with your Last.fm username and password, with your profile picture shown on the card. Supports Now Playing, scrobbling and love/unlove, and the session is included in credential backups. Configurable options: Now Playing toggle, scrobble toggle, minimum track duration, scrobble delay (%) and maximum delay.
+- MusicBrainz "Info and Community" and Insights on artist and album screens: release year, country, keywords, external links and Wikipedia biography, with a resync button and sync status. Artist Insights gain a bio fallback, top albums and richer stats; album Insights gain a "Top songs" section (ranked by play time), a Singles & EPs section and a description fallback. Requests respect MusicBrainz's 1 request/second limit, with a circuit breaker.
+- Rescue Center (issue https://github.com/N-Zik-Group/N-Zik/issues/811): a launcher shortcut that opens a recovery screen even when the main app cannot start. Export and import the database and settings, restore or reset them, delete cache, downloads and logs, and export logs. The launcher shortcuts can be chosen in the app (up to 4 active, Rescue is always kept).
+- Collapsible header on the Songs, Album, Artist and Library tabs: the title, count, toolbar and chips collapse on scroll and snap to the nearest position when you release; the title and count fade out under the status bar.
+- On landscape phones, the Songs, Album, Artist and Library tabs hide the app header and the navigation bar by default. A button in the floating actions (next to the scroll-to-top arrow) slides them in and out. Tablets, portrait and all other screens are unchanged.
+- Bookmark / like / dislike badge icons on artist, album, playlist, and video items.
+- Disliked tabs in Home Albums and Home Artists, with their own sort and toolbar settings.
+- Artist thumbnail roundness setting is now applied app-wide (items, menus, search, statistics, dialogs, landscape layout).
+- Direct "Play" button on audio recognition results to start the recognized song immediately.
+- InnerTubeX options: proxy username/password, region override, and a "Login for Browse" toggle.
+- "Disabled" option for shake sensitivity on the M3E morphing theme.
+- "Pick from LrcLib.net" is now also available in Unsynced lyrics mode.
+- "Max number of items" options are unified and now offer Custom and Unlimited.
+
+Changed:
+- Lyrics are refreshed at most every 30 days (per-row timestamp), fresh word-timed lyrics are no longer needlessly re-fetched from BetterLyrics, and lyrics you edited or picked yourself are never replaced by an automatic fetch (issue https://github.com/N-Zik-Group/N-Zik/issues/765). "Fetch lyrics again" still hands the song back to the automatic fetch.
+- The "Theme" lyrics color now uses the theme accent, like the visualizer.
+- Player, mini player, lyrics and visualizer colors that follow the cover now all use the same extraction as the morphing cover. Near-gray covers render a neutral gray instead of a brown, blue or pink tint.
+- The YouTube sync toggle is now disabled in non-dev builds (debug/dev only); it stays visible but greyed out elsewhere.
+- History now defaults to newest-first (descending) order.
+- Related / home page data is fetched in isolated sessions with a forced English locale, so section titles stay consistent across languages.
+
+Improved:
+- Quick Picks: smoother section animations, empty sections are hidden, lists are stable, and loading now survives page switches (an in-flight load keeps running when you return).
+- Quick Picks loading uses supervised coroutines (one failed API no longer cancels the others) and clears stale data on refresh.
+- Color palette cross-fades smoothly on track change instead of switching instantly; the cover palette fade, slide/skip animation and morphing-cover skip mask were refined.
+- Toolbar background fades in sync with scroll on all home screens; the header and nav bar now hide/show smoothly and follow the finger on scroll.
+- Home lists (All / Favorites / Top / Downloaded / Cached) are much faster: precomputed state removes hundreds of per-item database queries and live subscriptions.
+- Swipe rows no longer run a database query or a preferences listener per item.
+- Like / bookmark / dislike state is loaded with a single SQL query per screen instead of one query per item.
+- Downloads use a dedicated resolver (separate from streaming) for faster, more reliable downloads.
+- Encrypted preferences are cached to avoid repeated expensive creation.
+- YouTube login state is read on a background thread to prevent app freezes on slow storage.
+- Many blocking calls were moved off the main thread (issue https://github.com/N-Zik-Group/N-Zik/issues/606): play next / enqueue from albums, artists, playlists and podcasts, clearing caches and history, saving playlist thumbnails, cover art decoding in the metadata editor, download manager start-up, update APK cleanup, cover palettes, and lyrics fetching. Starting playback and other background work now run on dedicated named thread pools, and background scopes are supervised so one failure no longer cancels the others.
+- Debug logs can be exported to a file instead of copied to the clipboard, are written asynchronously without dropping lines and without ever blocking the thread that logs, and network calls are logged centrally through Timber.
+- The audio visualizer runs a single capture loop per session; the waved seek bar and shimmer effects do less work per frame.
+- Sliders were migrated to the Material 3 state API.
+
+Fixed:
+- Edited lyrics were overwritten by the automatic re-fetch; a picked LrcLib track was replaced by the default match; the app crashed when LrcLib returned a track without duration (issue https://github.com/N-Zik-Group/N-Zik/issues/765).
+- Startup crash caused by a database migration that did not match the expected column defaults.
+- A failed backup import now offers a restart instead of leaving the database closed; importing a backup or changing the theme no longer sends you back to Home or crashes on a closed database.
+- Auto-launching the player no longer leaves the app stuck without navigation bars after they were hidden by scrolling.
+- Statistics header totals now reflect the whole listening period instead of the capped list (issue https://github.com/N-Zik-Group/N-Zik/issues/786).
+- Launcher shortcut icons no longer stay white on Pixel devices, and shortcuts now respond while the app is already running.
+- The "error updating waveform" toast no longer appears when the manual waveform update succeeds.
+- Local playlists no longer show the YouTube Music bookmark, and creating a playlist no longer shows an "added to favorites" toast.
+- Artist Insights "Top tracks" no longer lists songs you never listened to; the year now shows in album Insights; opening an album no longer crashes on a main-thread database read.
+- Quick Picks load is no longer cancelled when switching pages; returning keeps the in-flight load running instead of forcing a full reload.
+- Back navigation (in-app arrow, system back, home-jump) no longer resets Quick Picks.
+- The mini player no longer steals taps on the bottom navigation bar.
+- Long-press context menu works again on queue items.
+- Downloads: album/artist metadata is saved again; re-clicking a download stops/deletes it; the notification shows real progress; pause state and progress survive app restarts.
+- Statistics screen: fixed a crash and lag when scrolling with large numbers; bookmark/follow icons now show on artists, albums, and playlists.
+- Artist name parsing now handles locale conjunctions ("et", "and", "und", ...) and skips duration strings, so "Artist1 et Artist2" no longer creates a fake artist.
+- YouTube browse/search HTTP 400 on devices with unsupported region locales (issue https://github.com/N-Zik-Group/N-Zik/issues/6) is handled with a language-based region fallback.
+- YouTube streaming: removed brotli request compression and bot-fingerprinting headers that made all player clients fail; session handling and expired-stream detection now match Metrolist.
+- Dislike / bookmark state is preserved across YouTube fetches, settings dialogs write to the correct keys, and toaster messages no longer invert.
+- Like icon no longer flashes incorrectly before the database loads.
+- Home tabs use a consistent, snappy 200ms animation; unstructured coroutines were replaced with structured scopes.
+- Grid items no longer animate over headers on load; home tab headers and the cache indicator stay stable.
+- Queue panel stretching/lag and the mini player "like" icon position are fixed.
+
+Refactor:
+- Large code-quality pass across ~71 files to comply with CODE.md (structured coroutines, lifecycle-aware state collection, null-safety, no wildcard imports, keyed lazy lists).
+- Coroutine dispatchers centralized behind a single NzikDispatchers object, with hardened fire-and-forget scopes.
+- InnerTube request body objects removed in favor of named parameters.
+- Dislike handling centralized behind a DislikeMode enum.
+
+Removed:
+- System-audio (MediaProjection) mode from audio search - it always uses the microphone now (avoids an Android 14+ crash).
+- The "Advanced" notification type and the wallpaper setting: only the classic notification remains, and a startup migration clears the old stored values.
+- Download/delete buttons hidden on the "On Device" tab.
+- Loading placeholders removed from On Device and Home Songs to enable smooth reorder animations.
+- Unused legacy fields removed from the StatsForNerds debug screen.
+- Leftover strings and code from the old in-app update dialog.
+
+Other:
+- InnerTubeX migration fully verified against Metrolist; streaming confirmed working on device.
+- Database schema upgraded to version 41.
+- New Last.fm and MusicBrainz modules; Android Gradle Plugin updated to 9.4.1; translations and in-app contributors list refreshed.
+- Much larger unit test suite (over 500 tests), including quick-picks load guard, mini-player queue interceptor, stream cache, session-change behavior, and the new threading, lyrics, rescue and collapsible header tests.

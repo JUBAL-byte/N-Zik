@@ -13,4 +13,3 @@ Features & UI
 
 Lyrics
 - Translation and romanization is broken
-- also this issue with persistence https://github.com/N-Zik-Group/N-Zik/issues/765

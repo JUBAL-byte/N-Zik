@@ -1,0 +1,3 @@
+Added: Last.fm scrobbling, MusicBrainz info and Insights, Rescue Center shortcut, dislike system, queue overlay from the mini player, collapsible home headers, landscape app-bar toggle, experimental YouTube sync.
+Improved: smoother UI and much faster lists, blocking work moved off the main thread, cover-based colors.
+Fixed: edited lyrics overwritten, backup import/theme change crashes, startup migration crash, downloads, Quick Picks reloads, YouTube streaming.
