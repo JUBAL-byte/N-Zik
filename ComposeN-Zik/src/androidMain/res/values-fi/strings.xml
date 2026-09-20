@@ -1323,7 +1323,7 @@
     <string name="login_to_discord">Kirjaudu Discordiin</string>
     <string name="discord_token_text_invalid">Discord-tunnuksesi on virheellinen, kirjaudu uudelleen</string>
     <string name="discord_login_successful">Discord kirjautuminen onnistui</string>
-    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
     <string name="youtube_disconnect">Katkaise yhteys</string>
     <string name="youtube_connect">Yhdistä</string>
     <string name="youtube_login_successful">YouTube kirjautuminen onnistui</string>
