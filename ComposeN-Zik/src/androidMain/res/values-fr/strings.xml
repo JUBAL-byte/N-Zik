@@ -1324,7 +1324,7 @@ Volume BAS : titre précédent</string>
     <string name="login_to_discord">Se connecter à Discord</string>
     <string name="discord_token_text_invalid">Votre jeton Discord n\'est pas valide, veuillez vous reconnecter</string>
     <string name="discord_login_successful">La connexion à Discord a réussi</string>
-    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
     <string name="youtube_disconnect">Se déconnecter</string>
     <string name="youtube_connect">Se connecter</string>
     <string name="youtube_login_successful">Connexion à YouTube réussie</string>
