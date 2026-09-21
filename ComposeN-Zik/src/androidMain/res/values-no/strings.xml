@@ -1323,7 +1323,7 @@
     <string name="login_to_discord">Logg inn på Discord</string>
     <string name="discord_token_text_invalid">Discord token er ugyldig, vennligst logg inn igjen</string>
     <string name="discord_login_successful">Discord-innlogging vellykket</string>
-    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
     <string name="youtube_disconnect">Koble fra</string>
     <string name="youtube_connect">Koble til</string>
     <string name="youtube_login_successful">YouTube Pålogging vellykket</string>
