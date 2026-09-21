@@ -355,6 +355,12 @@
     <string name="disable_scrolling_text">Disable scrolling text</string>
     <string name="scrolling_text_is_used_for_long_texts">Scrolling text is used for long texts</string>
     <string name="audio_quality_format">جودة الصوت</string>
+    <string name="download_quality_format">Download Quality</string>
+    <string name="update_downloads">Update downloads</string>
+    <string name="update_downloads_description">Re-download the songs that were downloaded with a different quality</string>
+    <string name="update_downloads_count">Re-download %d downloads?</string>
+    <string name="update_downloads_nothing">All downloads already match the selected quality</string>
+    <string name="download_quality">Download quality</string>
     <string name="persian">Persian</string>
     <string name="hungarian">Hungarian</string>
     <string name="korean">Korean</string>
@@ -1317,6 +1323,7 @@
     <string name="login_to_discord">تسجيل الدخول إلى ديسكورد</string>
     <string name="discord_token_text_invalid">رمز ديسكورد غير صالح، يرجى تسجيل الدخول مرة أخرى</string>
     <string name="discord_login_successful">تم تسجيل الدخول بنجاح</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
     <string name="youtube_disconnect">Disconnect</string>
     <string name="youtube_connect">Connect</string>
     <string name="youtube_login_successful">تم تسجيل الدخول لليوتيوب بنجاح</string>

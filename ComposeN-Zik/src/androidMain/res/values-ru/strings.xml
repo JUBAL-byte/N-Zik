@@ -355,6 +355,12 @@
     <string name="disable_scrolling_text">Отключить прокрутку текста</string>
     <string name="scrolling_text_is_used_for_long_texts">Прокрутка текста используется для длинных текстов</string>
     <string name="audio_quality_format">Качество звука</string>
+    <string name="download_quality_format">Download Quality</string>
+    <string name="update_downloads">Update downloads</string>
+    <string name="update_downloads_description">Re-download the songs that were downloaded with a different quality</string>
+    <string name="update_downloads_count">Re-download %d downloads?</string>
+    <string name="update_downloads_nothing">All downloads already match the selected quality</string>
+    <string name="download_quality">Download quality</string>
     <string name="persian">Персидский (فارس&lt;unk&gt; )</string>
     <string name="hungarian">Венгерский (Magyar)</string>
     <string name="korean">Корейский (&lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; )</string>
@@ -1317,6 +1323,7 @@
     <string name="login_to_discord">Войти в Discord</string>
     <string name="discord_token_text_invalid">Ваш Discord токен недействителен, пожалуйста, войдите снова</string>
     <string name="discord_login_successful">Успешный вход в Discord</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
     <string name="youtube_disconnect">Отключиться</string>
     <string name="youtube_connect">Подключиться</string>
     <string name="youtube_login_successful">Логин YouTube успешно завершен</string>

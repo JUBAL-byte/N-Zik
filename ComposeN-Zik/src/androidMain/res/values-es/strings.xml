@@ -355,6 +355,12 @@
     <string name="disable_scrolling_text">Deshabilitar desplazamiento de texto</string>
     <string name="scrolling_text_is_used_for_long_texts">El desplazamiento del texto se usa para títulos largos</string>
     <string name="audio_quality_format">Calidad de audio</string>
+    <string name="download_quality_format">Download Quality</string>
+    <string name="update_downloads">Update downloads</string>
+    <string name="update_downloads_description">Re-download the songs that were downloaded with a different quality</string>
+    <string name="update_downloads_count">Re-download %d downloads?</string>
+    <string name="update_downloads_nothing">All downloads already match the selected quality</string>
+    <string name="download_quality">Download quality</string>
     <string name="persian">Persa</string>
     <string name="hungarian">Húngaro</string>
     <string name="korean">Coreano</string>
@@ -1317,6 +1323,7 @@
     <string name="login_to_discord">Iniciar sesión en Discord</string>
     <string name="discord_token_text_invalid">Tu token de Discord no es válido, por favor inicia sesión de nuevo</string>
     <string name="discord_login_successful">Acceso a Discord exitoso</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
     <string name="youtube_disconnect">Desconectar</string>
     <string name="youtube_connect">Conectar</string>
     <string name="youtube_login_successful">Inicio de sesión de YouTube exitoso</string>
