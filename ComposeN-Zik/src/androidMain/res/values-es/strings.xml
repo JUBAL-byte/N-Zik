@@ -1323,7 +1323,7 @@
     <string name="login_to_discord">Iniciar sesión en Discord</string>
     <string name="discord_token_text_invalid">Tu token de Discord no es válido, por favor inicia sesión de nuevo</string>
     <string name="discord_login_successful">Acceso a Discord exitoso</string>
-    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates stopped until the next media change or manual reconnect</string>
+    <string name="discord_rpc_reconnect_failed">Discord Rich Presence could not reconnect, status updates are paused</string>
     <string name="youtube_disconnect">Desconectar</string>
     <string name="youtube_connect">Conectar</string>
     <string name="youtube_login_successful">Inicio de sesión de YouTube exitoso</string>
