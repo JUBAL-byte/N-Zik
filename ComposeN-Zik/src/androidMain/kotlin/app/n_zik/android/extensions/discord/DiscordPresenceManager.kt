@@ -6,10 +6,10 @@ import app.n_zik.android.core.network.utils.isNetworkAvailable
 import app.n_zik.android.R
 import app.n_zik.android.utils.artistTextOrDb
 import app.kreate.android.me.knighthat.utils.Toaster
+import com.metrolist.music.discordrpc.DiscordRpc
 import com.metrolist.music.discordrpc.DiscordRpcConnection
 import com.metrolist.music.discordrpc.entities.Timestamps
 import com.metrolist.music.discordrpc.ActivityType
-import com.metrolist.music.discordrpc.entities.Button
 import kotlinx.coroutines.CoroutineScope
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.Job
@@ -24,18 +24,18 @@ import app.n_zik.android.core.network.client.NetworkClientFactory
 import java.io.IOException
 import com.metrolist.music.discordrpc.SuperProperties
 import android.os.Build
+import java.util.Locale
 
 
 class DiscordPresenceManager(
     private val context: Context,
     private val getToken: () -> String?,
-    private val getBrowsingEnabled: () -> Boolean = { true },
+    private val getAdvancedSettings: () -> DiscordAdvancedSettings = { DiscordAdvancedSettings.read(context) },
     private val externalScope: CoroutineScope = NzikDispatchers.fireAndForget(NzikDispatchers.DATA),
     private val connectionFactory: (String) -> DiscordRpcConnection = { defaultConnection(it) },
     private val tokenValidator: (suspend (String) -> Boolean?)? = null
 ) {
     companion object {
-        private const val APPLICATION_ID = "1379051016007454760"
         /**
          * Debounce delay for presence updates.
          * When the user skips songs rapidly, each skip resets this timer.
@@ -43,6 +43,18 @@ class DiscordPresenceManager(
          * This prevents RPC spam, wrong-song flashes, and false "paused" states.
          */
         private const val DEBOUNCE_DELAY_MS = 5000L
+
+        /** Item 8: refresh tick while playing (animated Discord progress bar + network re-arm). */
+        private const val REFRESH_INTERVAL_MS = 5000L
+
+        /** Item 7: 60 s of pause with no event → clear the activity (connection kept). */
+        private const val PAUSE_CLEAR_DELAY_MS = 60_000L
+
+        /** Item 7: 10 min with no event → close the RPC connection entirely. */
+        private const val IDLE_CLOSE_DELAY_MS = 600_000L
+
+        /** Drift tolerance for the cached start/end timestamps. */
+        private const val DRIFT_TOLERANCE_MS = 2500L
 
         /** Default RPC connection (production); tests inject their own factory. */
         internal fun defaultConnection(token: String): DiscordRpcConnection = DiscordRpcConnection(
@@ -55,41 +67,36 @@ class DiscordPresenceManager(
         )
     }
 
+    private val tag = "DiscordPresence"
     private var rpc: DiscordRpcConnection? = null
     private var lastToken: String? = null
     private var lastMediaItem: MediaItem? = null
     private var lastPosition: Long = 0L
+    private var lastDuration: Long = 0L
+    private var lastPlaybackSpeed: Float = 1f
+    private var lastIsPlaying = false
+    private var lastGetCurrentPosition: (() -> Long)? = null
+    private var lastIsPlayingProvider: (() -> Boolean)? = null
     private var isStopped = false
     private val discordScope = externalScope
     private var refreshJob: Job? = null
     private var debounceJob: Job? = null
     private var reconnectWatchJob: Job? = null
-    private val client = NetworkClientFactory.getClientWithTimeout(10L, 10L)
-    private val appStartTime = System.currentTimeMillis()
+    private var terminalWatchJob: Job? = null
+    private var pauseClearJob: Job? = null
+    private var idleCloseJob: Job? = null
 
     /**
-     * Tracks whether the player currently has an active media item loaded.
-     * This is true when music is playing OR paused.
-     * This is false only when no media item exists (no miniplayer).
-     *
-     * This flag is the single source of truth for deciding whether to show
-     * browsing status or music status on route changes.
+     * Item 7: the idle 10-min timer closed the connection, which is terminal inside the
+     * module (closed = true). The next event must create a fresh DiscordRpcConnection —
+     * same pattern as the token change.
      */
-    private var hasActiveMediaItem = false
+    private var connectionNeedsRecreation = false
 
-    init {
-        discordScope.launch {
-            DiscordUiState.currentRoute.collect { route ->
-                if (!isStopped && !hasActiveMediaItem && route != null) {
-                    if (getBrowsingEnabled()) {
-                        sendBrowsingPresence(route)
-                    } else {
-                        rpc?.clearActivity()
-                    }
-                }
-            }
-        }
-    }
+    // Lazy: the OkHttp client is only needed by validateToken. Building it eagerly in
+    // the constructor makes JVM unit tests (no Robolectric) hit android.util.Log
+    // "not mocked" during OkHttp platform detection.
+    private val client by lazy { NetworkClientFactory.getClientWithTimeout(10L, 10L) }
 
     /**
      * Watches the gateway's reconnection budget: once it gives up after the maximum
@@ -101,13 +108,46 @@ class DiscordPresenceManager(
         reconnectWatchJob = discordScope.launch {
             connection.reconnectAbandoned.collect { abandoned ->
                 if (abandoned) {
-                    Timber.tag("DiscordPresence").w("Discord RPC gave up reconnecting (max attempts reached)")
+                    Timber.tag(tag).w("Discord RPC gave up reconnecting (max attempts reached)")
+                    // Item 9: durable error, not only a toast (settings banner).
+                    DiscordRpcErrorState.set(DiscordRpcError.RECONNECT_FAILED)
                     withContext(NzikDispatchers.UI) {
                         Toaster.e(R.string.discord_rpc_reconnect_failed)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Item 9: watches the gateway's terminal close code (4004 = invalid token). The
+     * gateway does not reconnect after a 4004, so the error is surfaced durably for
+     * the settings banner (the toast is not enough: it disappears in seconds).
+     */
+    private fun watchTerminalClose(connection: DiscordRpcConnection) {
+        terminalWatchJob?.cancel()
+        terminalWatchJob = discordScope.launch {
+            connection.terminalCloseCode.collect { code ->
+                if (code == 4004) {
+                    Timber.tag(tag).e("Gateway closed with 4004 (invalid token) — surfacing durable error")
+                    DiscordRpcErrorState.set(DiscordRpcError.INVALID_TOKEN)
+                } else {
+                    // connect() resets the flow to null (a fresh attempt) — the moment the
+                    // terminal error no longer applies (item 9: clear on the new attempt /
+                    // session established). A failed retry re-sets it on the next 4004.
+                    DiscordRpcErrorState.clear()
+                }
+            }
+        }
+    }
+
+    /**
+     * Item 9: clears the durable error when a fresh connection is created for a new
+     * token (or after the idle close) — a (re)established session is the moment the
+     * banner can safely disappear.
+     */
+    private fun onConnectionRecreated() {
+        DiscordRpcErrorState.clear()
     }
 
     private fun getSmallImageUrl(): String {
@@ -135,10 +175,10 @@ class DiscordPresenceManager(
             }
         }.getOrElse { exception ->
             if (exception.message?.contains("429") == true || exception.message?.contains("Too Many Requests") == true) {
-                Timber.tag("DiscordPresence").d("Rate limited by Discord API during token validation")
+                Timber.tag(tag).d("Rate limited by Discord API during token validation")
                 null // Treat as network error to retry later
             } else {
-                Timber.tag("DiscordPresence").e(exception, "Error validating token: ${exception.message}")
+                Timber.tag(tag).e(exception, "Error validating token: ${exception.message}")
                 if (exception is IOException) {
                     null
                 } else {
@@ -148,19 +188,46 @@ class DiscordPresenceManager(
         }
     }
 
-    fun onPlayingStateChanged(mediaItem: MediaItem?, isPlaying: Boolean, position: Long = 0L, duration: Long = 0L, now: Long = System.currentTimeMillis(), getCurrentPosition: (() -> Long)? = null, isPlayingProvider: (() -> Boolean)? = null) {
+    /**
+     * Entry point for every player event (media change, play/pause, seek/skip).
+     *
+     * [playbackSpeed] is the effective playback speed (item 5): the timestamps are
+     * adjusted by it and the details carry a " [1.50x]"-style suffix when it is not 1.0.
+     * [getCurrentPosition] / [isPlayingProvider] are live providers (item 8): the
+     * refresh tick reads them every ~5 s so the Discord progress bar animates.
+     */
+    fun onPlayingStateChanged(
+        mediaItem: MediaItem?,
+        isPlaying: Boolean,
+        position: Long = 0L,
+        duration: Long = 0L,
+        now: Long = System.currentTimeMillis(),
+        playbackSpeed: Float = 1f,
+        getCurrentPosition: (() -> Long)? = null,
+        isPlayingProvider: (() -> Boolean)? = null
+    ) {
         if (isStopped) return
 
         // Update the player state BEFORE any conditional return below: a transient
-        // token/network condition must never leave hasActiveMediaItem stale,
-        // otherwise the route collector and onBrowsingSettingChanged() would make
-        // Browsing decisions on an outdated player state (browsing setting ignored).
+        // token/network condition must never leave lastMediaItem stale, otherwise later
+        // events (pause clear, re-sync) would act on an outdated player state.
         lastMediaItem = mediaItem
         lastPosition = position
+        lastDuration = duration
+        lastPlaybackSpeed = speedOrOne(playbackSpeed)
+        lastIsPlaying = isPlaying
+        lastGetCurrentPosition = getCurrentPosition
+        lastIsPlayingProvider = isPlayingProvider
 
-        // Update the active media item flag:
-        // true when a media item exists (playing or paused), false when null (no player)
-        hasActiveMediaItem = mediaItem != null
+        // Item 8: the refresh tick keeps running even while the network is down — each
+        // tick re-checks isNetworkAvailable and re-arms the send on return (state is
+        // kept in lastMediaItem/lastPosition). It only runs while actively playing;
+        // a pause or onStop stops it.
+        if (mediaItem != null && isPlaying) {
+            startRefreshLoop()
+        } else {
+            stopRefreshLoop()
+        }
 
         val token = getToken() ?: return
         if (token.isEmpty()) return
@@ -169,29 +236,32 @@ class DiscordPresenceManager(
             return
         }
 
-        refreshJob?.cancel()
-        refreshJob = null
-
-        if (token != lastToken) {
+        if (token != lastToken || connectionNeedsRecreation) {
+            connectionNeedsRecreation = false
             rpc?.closeDirect()
             val connection = connectionFactory(token)
             rpc = connection
             lastToken = token
+            // Item 10: a new account must never inherit the previous account's uploaded
+            // asset mappings (fork addition — the cache is process-wide).
+            connection.clearArtworkCache()
             watchReconnectAbandonment(connection)
+            watchTerminalClose(connection)
+            onConnectionRecreated()
         }
 
         if (mediaItem == null) {
-            // No media item = no music at all → show browsing if enabled and we have a route
+            // No media item = no music at all → clear the activity.
             debounceJob?.cancel()
-            if (getBrowsingEnabled()) {
-                DiscordUiState.currentRoute.value?.let { route ->
-                    sendBrowsingPresence(route)
-                }
-            } else {
-                discordScope.launch { rpc?.clearActivity() }
-            }
+            discordScope.launch { rpc?.clearActivity() }
+            // Item 7: any event re-arms both inactivity timers.
+            armInactivityTimers()
             return
         }
+
+        // Item 7: any media event re-arms both inactivity timers (60 s pause clear,
+        // 10 min idle close).
+        armInactivityTimers()
 
         // Cancel any pending debounced update — a new event supersedes it.
         debounceJob?.cancel()
@@ -202,9 +272,9 @@ class DiscordPresenceManager(
         debounceJob = discordScope.launch {
             delay(DEBOUNCE_DELAY_MS)
             if (isStopped) return@launch
-            // Media item exists → always show music status (playing or paused), never browsing
+            // Media item exists → always show music status (playing or paused)
             if (isPlaying) {
-                sendPlayingPresence(mediaItem, position, duration)
+                sendPlayingPresence(mediaItem, position, duration, lastPlaybackSpeed)
             } else {
                 sendPausedPresence(duration, now, position)
             }
@@ -215,12 +285,14 @@ class DiscordPresenceManager(
 
     /**
      * Send the "Paused" presence with the frozen time.
+     * Item 6: in advanced mode the details line is rendered from the dedicated pause
+     * template (default: "⏸︎ Paused: {song.name}" = current behavior).
      */
     private fun sendPausedPresence(duration: Long, now: Long, pausedPosition: Long) {
         if (isStopped) return
         val mediaItem = lastMediaItem ?: return
         var frozenTimestamp = now - pausedPosition
-        
+
         val mediaId = mediaItem.mediaId
         if (cachedMediaId == mediaId && wasPaused) {
             // Keep the previous frozen timestamp to avoid UI resets
@@ -231,110 +303,93 @@ class DiscordPresenceManager(
             wasPaused = true
         }
 
-        val title = mediaItem.mediaMetadata.title?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_title)
-        val artist = mediaItem.artistTextOrDb().takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist)
+        val settings = getAdvancedSettings()
+        // PW-3: the pause presence is optional — when disabled, no paused update is
+        // sent (the last presence stays as-is; the 60 s pause-clear timer still applies).
+        if (!settings.pausePresenceEnabled) {
+            Timber.tag(tag).d("Pause presence disabled — skipping the paused update")
+            return
+        }
+        val info = mediaInfo(mediaItem)
+        // Name/state/buttons follow the current mode; only the details line is
+        // templatized for the paused state (the frozen progress bar is kept).
+        val str = discordStrings()
+        val content = DiscordActivityBuilder.buildForPlaying(info, settings, str)
+            .copy(details = DiscordActivityBuilder.buildPausedLine(info, settings, str))
+
         discordScope.launch {
             if (isStopped) return@launch
             sendActivity(
-                mediaItem = mediaItem,
-                details = "⏸︎ Paused: $title",
-                state = artist,
+                content = content,
                 start = frozenTimestamp,
                 end = frozenTimestamp,
-                status = "online",
-                paused = true
-            )
-        }
-    }
-
-    private fun formatRouteName(route: String): String {
-        return route.split("?").first().split("/").first().replaceFirstChar { it.uppercase() }
-    }
-
-    private fun sendBrowsingPresence(route: String) {
-        if (isStopped) return
-        val formattedRoute = formatRouteName(route)
-        Timber.tag("DiscordPresence").d("Browsing presence requested: route=$formattedRoute, enabled=${getBrowsingEnabled()}, hasMediaItem=$hasActiveMediaItem")
-        discordScope.launch {
-            if (isStopped) return@launch
-            sendActivity(
-                mediaItem = null,
-                details = "Browsing",
-                state = formattedRoute,
-                start = appStartTime,
-                end = 0L,
-                status = "online",
-                paused = false,
-                browsingPrecondition = { getBrowsingEnabled() && !hasActiveMediaItem }
+                mediaItem = mediaItem,
+                settings = settings
             )
         }
     }
 
     /**
-     * Send a custom discord activity
+     * Send a custom discord activity.
+     *
+     * Item 6: [content] is pre-rendered (normal identity or advanced templates); the
+     * selected activity type is resolved here, the status is fixed to "online"
+     * (the user-status selector was removed) and `since = 0` is carried by every
+     * presence update (Discord manages the "online since" itself — we never reset it).
      */
     private suspend fun sendActivity(
-        mediaItem: MediaItem?,
-        details: String,
-        state: String,
+        content: DiscordPresenceContent,
         start: Long,
         end: Long,
-        status: String,
-        paused: Boolean,
-        browsingPrecondition: (() -> Boolean)? = null
+        mediaItem: MediaItem?,
+        settings: DiscordAdvancedSettings
     ) {
         if (isStopped) return
         val token = getToken() ?: return
         if (token.isEmpty()) return
 
-        if (token != lastToken) {
+        if (token != lastToken || connectionNeedsRecreation) {
             val validate = tokenValidator ?: { validateToken(it) }
             when (validate(token)) {
                 false -> {
-                    Timber.tag("DiscordPresence").e("Invalid token, stopping presence updates")
+                    Timber.tag(tag).e("Invalid token, stopping presence updates")
+                    // Item 9: durable error (settings banner), not only a toast.
+                    DiscordRpcErrorState.set(DiscordRpcError.INVALID_TOKEN)
                     withContext(NzikDispatchers.UI) {
                         Toaster.e(R.string.discord_token_text_invalid)
                     }
                     return
                 }
                 null -> {
-                    Timber.tag("DiscordPresence").w("Network error while updating presence, skipping.")
+                    Timber.tag(tag).w("Network error while updating presence, skipping.")
                     return
                 }
                 true -> { /* Token is valid, continue */ }
             }
 
+            connectionNeedsRecreation = false
             rpc?.closeDirect()
             val connection = connectionFactory(token)
             rpc = connection
             lastToken = token
+            connection.clearArtworkCache()
             watchReconnectAbandonment(connection)
-        }
-
-        // Browsing writes are re-validated right before the RPC write, not only at
-        // launch time: token validation above can take seconds, and the user may
-        // have disabled browsing (or started music) in that window.
-        if (browsingPrecondition != null && !browsingPrecondition()) {
-            Timber.tag("DiscordPresence").d("Browsing presence write cancelled: setting disabled or media item active before the write")
-            return
+            watchTerminalClose(connection)
+            onConnectionRecreated()
         }
 
         val rawUri = mediaItem?.mediaMetadata?.artworkUri?.toString()
         val largeImageUrl = if (rawUri != null && rawUri.startsWith("http")) rawUri else getLargeImageFallback()
         val smallImageUrl = getSmallImageUrl()
-        val largeTextValue = if (state.isNotBlank()) "$details - $state" else details
-        val buttonsList = mutableListOf(Button(label = context.getString(R.string.txt_get_n_zik), url = "https://github.com/N-Zik-Group/N-Zik/"))
-        if (mediaItem != null) {
-            buttonsList.add(Button(label = context.getString(R.string.txt_listen_to_ytmusic), url = "https://music.youtube.com/watch?v=${mediaItem.mediaId}"))
-        }
-        
+        val largeTextValue = if (content.state.isNotBlank()) "${content.details} - ${content.state}" else content.details
+
         runCatching {
             rpc?.setActivity(
-                applicationId = APPLICATION_ID,
-                name = "N-Zik",
-                details = details,
-                state = state,
-                type = ActivityType.LISTENING,
+                applicationId = DiscordRpc.APPLICATION_ID,
+                name = content.name,
+                details = content.details,
+                state = content.state,
+                type = resolveActivityType(settings),
                 timestamps = Timestamps(
                     start = start,
                     end = if (end > 0L) end else null
@@ -343,12 +398,59 @@ class DiscordPresenceManager(
                 smallImage = smallImageUrl,
                 largeText = largeTextValue,
                 smallText = "v${getVersionName(context)}",
-                buttons = buttonsList,
-                status = status,
-                since = System.currentTimeMillis()
+                buttons = content.buttons,
+                status = DISCORD_STATUS_ONLINE,
+                since = 0L
             )
         }.onFailure {
-            Timber.tag("DiscordPresence").w("Error setting Discord activity: ${it.message}")
+            Timber.tag(tag).w("Error setting Discord activity: ${it.message}")
+        }
+    }
+
+    /**
+     * Item 6: selected activity type (default = listening = current behavior).
+     */
+    private fun resolveActivityType(settings: DiscordAdvancedSettings): ActivityType = when (settings.activityType) {
+        0 -> ActivityType.PLAYING
+        3 -> ActivityType.WATCHING
+        5 -> ActivityType.COMPETING
+        else -> ActivityType.LISTENING
+    }
+
+    private fun speedOrOne(speed: Float): Float = if (speed > 0f) speed else 1f
+
+    /**
+     * Item 6: re-syncs the live presence when an advanced setting changes (upstream
+     * parity notifySettingsChanged) — the module's 500 ms limit prevents spam.
+     */
+    fun onAdvancedSettingsChanged() {
+        if (isStopped) return
+        Timber.tag(tag).d("Advanced settings changed — re-syncing presence")
+        armInactivityTimers()
+        lastMediaItem?.let { media ->
+            if (lastIsPlaying) {
+                discordScope.launch {
+                    sendPlayingPresence(media, lastPosition, lastDuration, lastPlaybackSpeed)
+                }
+            } else {
+                sendPausedPresence(lastDuration, System.currentTimeMillis(), lastPosition)
+            }
+        }
+    }
+
+    /**
+     * Item 5: re-sends the playing presence after a playback speed change so the
+     * timestamps and the " [1.50x]" suffix reflect the new speed. The service caller
+     * guarantees ~1 s delay + playWhenReady && STATE_READY (upstream parity MS L2884-2897).
+     */
+    fun onPlaybackSpeedChanged(speed: Float) {
+        if (isStopped) return
+        lastPlaybackSpeed = speedOrOne(speed)
+        lastMediaItem?.let { media ->
+            if (lastIsPlaying && context.isNetworkAvailable) {
+                Timber.tag(tag).d("Re-sending presence after speed change (${lastPlaybackSpeed}x)")
+                sendPlayingPresence(media, lastGetCurrentPosition?.invoke() ?: lastPosition, lastDuration, lastPlaybackSpeed)
+            }
         }
     }
 
@@ -360,25 +462,91 @@ class DiscordPresenceManager(
         debounceJob?.cancel()
         refreshJob?.cancel()
         reconnectWatchJob?.cancel()
+        terminalWatchJob?.cancel()
+        pauseClearJob?.cancel()
+        idleCloseJob?.cancel()
         rpc?.closeDirect()
         discordScope.cancel()
     }
 
     /**
-     * Called when the discord browsing setting is toggled
+     * Item 8: while the media is playing, re-sends the playing presence every ~5 s
+     * through the live providers, so Discord's progress bar animates. Each tick
+     * re-checks isNetworkAvailable (a down network just skips the tick; the next tick,
+     * within 5 s, re-arms the send). Stopped by a pause or onStop.
      */
-    fun onBrowsingSettingChanged() {
-        if (isStopped || hasActiveMediaItem) {
-            Timber.tag("DiscordPresence").d("Browsing setting changed, ignored: stopped=$isStopped, hasMediaItem=$hasActiveMediaItem (music status takes priority)")
-            return
-        }
-        if (getBrowsingEnabled()) {
-            DiscordUiState.currentRoute.value?.let { route ->
-                sendBrowsingPresence(route)
+    private fun startRefreshLoop() {
+        refreshJob?.cancel()
+        refreshJob = discordScope.launch {
+            while (isActive && !isStopped) {
+                delay(REFRESH_INTERVAL_MS)
+                if (isStopped) break
+                // A pause (or media removed) stops the loop — the presence is frozen.
+                // Callers must pass the live providers: without isPlayingProvider the
+                // tick cannot tell the playback state, so the loop stops here (warned).
+                val isPlayingProvider = lastIsPlayingProvider
+                if (isPlayingProvider == null) {
+                    Timber.tag(tag).w("Refresh tick: no live isPlaying provider — stopping the refresh loop")
+                    break
+                }
+                if (!isPlayingProvider.invoke()) break
+                val media = lastMediaItem ?: break
+                lastPosition = lastGetCurrentPosition?.invoke() ?: lastPosition
+                // Activity keeps the connection alive: re-arm the 10-min idle close.
+                armIdleCloseTimer()
+                if (!context.isNetworkAvailable) {
+                    Timber.tag(tag).w("Network unavailable — refresh tick skipped, re-armed on the next tick")
+                    continue
+                }
+                Timber.tag(tag).d("Refresh tick: re-sending playing presence (position=${lastPosition}ms, speed=${lastPlaybackSpeed})")
+                sendPlayingPresence(media, lastPosition, lastDuration, lastPlaybackSpeed)
             }
-        } else {
-            Timber.tag("DiscordPresence").d("Browsing setting disabled, clearing activity")
-            discordScope.launch { rpc?.clearActivity() }
+        }
+    }
+
+    private fun stopRefreshLoop() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
+
+    /**
+     * Item 7: re-arms both inactivity timers from any event.
+     */
+    private fun armInactivityTimers() {
+        if (isStopped) return
+        armPauseClearTimer()
+        armIdleCloseTimer()
+    }
+
+    /**
+     * Item 7: 60 s of pause with no event → clear the activity (the connection is
+     * kept — a resume is cheap).
+     */
+    private fun armPauseClearTimer() {
+        pauseClearJob?.cancel()
+        pauseClearJob = discordScope.launch {
+            delay(PAUSE_CLEAR_DELAY_MS)
+            if (isStopped) return@launch
+            if (lastMediaItem != null && !lastIsPlaying) {
+                Timber.tag(tag).i("60 s paused with no event — clearing activity (connection kept)")
+                rpc?.clearActivity()
+            }
+        }
+    }
+
+    /**
+     * Item 7: 10 min with no event → close the RPC connection entirely. The module
+     * close is terminal (closed = true): the next event re-creates the connection via
+     * [connectionNeedsRecreation].
+     */
+    private fun armIdleCloseTimer() {
+        idleCloseJob?.cancel()
+        idleCloseJob = discordScope.launch {
+            delay(IDLE_CLOSE_DELAY_MS)
+            if (isStopped) return@launch
+            Timber.tag(tag).i("10 min with no event — closing the RPC connection (idle)")
+            rpc?.closeDirect()
+            connectionNeedsRecreation = true
         }
     }
 
@@ -397,17 +565,31 @@ class DiscordPresenceManager(
     private var cachedMediaId: String? = null
     private var cachedStartTime: Long = 0L
     private var cachedEndTime: Long = 0L
+    private var cachedSpeed: Float = -1f
     private var wasPaused: Boolean = false
 
-    private fun sendPlayingPresence(mediaItem: MediaItem, position: Long, duration: Long) {
+    /**
+     * Item 5 (upstream parity MS L3604-3610): both timestamp bounds adjusted by the
+     * playback speed — start = now - position/speed, end = now + (duration-position)/speed.
+     * The details carry a " [%.2fx]" suffix when the speed is not 1.0. The drift cache
+     * is invalidated by a speed change (or a song change / resume).
+     */
+    private fun sendPlayingPresence(mediaItem: MediaItem, position: Long, duration: Long, speed: Float) {
+        val safeSpeed = speedOrOne(speed)
         val currentTime = System.currentTimeMillis()
-        var calculatedStartTime = currentTime - position
-        var end = if (duration > 0) currentTime + (duration - position) else 0L
+        val adjustedPosition = (position / safeSpeed).toLong()
+        var calculatedStartTime = currentTime - adjustedPosition
+        val adjustedRemaining = if (duration > 0L) {
+            ((duration - position) / safeSpeed).toLong().coerceAtLeast(0L)
+        } else {
+            null
+        }
+        var end = adjustedRemaining?.let { currentTime + it } ?: 0L
 
         val mediaId = mediaItem.mediaId
-        if (cachedMediaId == mediaId && !wasPaused) {
+        if (cachedMediaId == mediaId && !wasPaused && cachedSpeed == safeSpeed) {
             // Allow up to 2.5 seconds of drift to account for execution delays
-            if (kotlin.math.abs(calculatedStartTime - cachedStartTime) < 2500L) {
+            if (kotlin.math.abs(calculatedStartTime - cachedStartTime) < DRIFT_TOLERANCE_MS) {
                 calculatedStartTime = cachedStartTime
                 end = cachedEndTime
             } else {
@@ -418,23 +600,56 @@ class DiscordPresenceManager(
             cachedMediaId = mediaId
             cachedStartTime = calculatedStartTime
             cachedEndTime = end
+            cachedSpeed = safeSpeed
             wasPaused = false
         }
 
-        val title = mediaItem.mediaMetadata.title?.toString().takeIf { !it.isNullOrBlank() } ?: context.getString(R.string.unknown_title)
-        val artist = mediaItem.artistTextOrDb().takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist)
+        val rawTitle = mediaItem.mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_title)
+        // Item 5: suffix only when the speed differs from 1.0 (locale-fixed format).
+        val title = if (safeSpeed != 1.0f) {
+            "$rawTitle [${String.format(Locale.US, "%.2fx", safeSpeed)}]"
+        } else {
+            rawTitle
+        }
+        val settings = getAdvancedSettings()
+        val info = DiscordMediaInfo(
+            title = title,
+            artist = mediaItem.artistTextOrDb().takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist),
+            albumName = mediaItem.mediaMetadata.albumTitle?.toString()?.takeIf { it.isNotBlank() },
+            songId = mediaId,
+        )
+        val content = DiscordActivityBuilder.buildForPlaying(info, settings, discordStrings())
         discordScope.launch {
+            if (isStopped) return@launch
             sendActivity(
-                mediaItem = mediaItem,
-                details = title,
-                state = artist,
+                content = content,
                 start = calculatedStartTime,
                 end = end,
-                status = "online",
-                paused = false
+                mediaItem = mediaItem,
+                settings = settings
             )
         }
     }
 
+    /**
+     * Media info for template rendering (title may carry the speed suffix).
+     */
+    private fun mediaInfo(mediaItem: MediaItem): DiscordMediaInfo = DiscordMediaInfo(
+        title = mediaItem.mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_title),
+        artist = mediaItem.artistTextOrDb().takeIf { it.isNotBlank() } ?: context.getString(R.string.unknown_artist),
+        albumName = mediaItem.mediaMetadata.albumTitle?.toString()?.takeIf { it.isNotBlank() },
+        songId = mediaItem.mediaId,
+    )
 
+    /**
+     * Localized strings for the presence content (item 6): resolved from strings.xml so
+     * no user-facing text is hardcoded in the builder (translatable per locale).
+     */
+    private fun discordStrings() = DiscordStrings(
+        nameFallback = context.getString(R.string.discord_presence_name),
+        buttonGetNZik = context.getString(R.string.discord_presence_button_get_nzik),
+        buttonListenYtmusic = context.getString(R.string.discord_presence_button_listen_ytmusic),
+        pausedLineDefault = context.getString(R.string.discord_presence_pause_default),
+        unknownAlbum = context.getString(R.string.discord_template_unknown_album),
+    )
 }

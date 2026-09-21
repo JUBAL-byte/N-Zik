@@ -107,7 +107,9 @@ import app.it.fast4x.rimusic.enums.QueueLoopType
 import app.it.fast4x.rimusic.extensions.audiovolume.AudioVolumeObserver
 import app.it.fast4x.rimusic.extensions.audiovolume.OnAudioVolumeChangedListener
 import app.n_zik.android.core.network.utils.NetworkQualityHelper
+import app.n_zik.android.extensions.discord.DiscordAdvancedSettings
 import app.n_zik.android.extensions.discord.DiscordPresenceManager
+import app.n_zik.android.extensions.discord.discordAdvancedSettingKeys
 import app.n_zik.android.extensions.lastfm.LastFmScrobbleManager
 import it.fast4x.lastfm.LastFm
 import app.n_zik.android.isHandleAudioFocusEnabled
@@ -212,7 +214,6 @@ import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 import android.os.Binder as AndroidBinder
 import androidx.compose.ui.util.fastMap
-import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastFmConfigKey
 import app.n_zik.android.extensions.lastfm.isLastFmSetupKey
@@ -270,8 +271,10 @@ class PlayerServiceModern : MediaLibraryService(),
     private var volumeNormalizationJob: Job? = null
 
     private val encryptedPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == isDiscordBrowsingEnabledKey) {
-            discordPresenceManager?.onBrowsingSettingChanged()
+        // Item 6: advanced Discord settings re-sync the live presence (no manager
+        // recreation — the module's 500 ms limit prevents spam).
+        if (key in discordAdvancedSettingKeys) {
+            discordPresenceManager?.onAdvancedSettingsChanged()
         }
         if (isLastFmSetupKey(key)) {
             maybeSetupLastFmScrobbleManager()
@@ -292,6 +295,12 @@ class PlayerServiceModern : MediaLibraryService(),
      * Discord presence
      */
     private var discordPresenceManager: DiscordPresenceManager? = null
+
+    /**
+     * Item 5: last playback speed seen (upstream parity MS L464/L2886) — detects speed
+     * changes in onPlaybackParametersChanged to re-send the presence.
+     */
+    private var lastPlaybackSpeed = 1.0f
 
     /**
      * Last.fm scrobbling
@@ -619,7 +628,7 @@ class PlayerServiceModern : MediaLibraryService(),
                 discordPresenceManager = DiscordPresenceManager(
                     context = this,
                     getToken = { token },
-                    getBrowsingEnabled = { encryptedPreferences.getBoolean(isDiscordBrowsingEnabledKey, true) },
+                    getAdvancedSettings = { DiscordAdvancedSettings.read(encryptedPreferences) },
                 )
             }
         }
@@ -1038,17 +1047,17 @@ class PlayerServiceModern : MediaLibraryService(),
         if (encryptedPreferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
             val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
             if (token?.isNotEmpty() == true) {
-                // Capture current values to avoid thread safety issues
-                val currentPosition = player.currentPosition
-                val isPlaying = player.isPlaying
+                // Item 8: live providers (not captured values) so the 5 s refresh tick
+                // reads the real position/play state.
                 discordPresenceManager?.onPlayingStateChanged(
                     mediaItem,
-                    isPlaying,
-                    currentPosition,
+                    player.isPlaying,
+                    player.currentPosition,
                     duration,
                     now,
-                    getCurrentPosition = { currentPosition },
-                    isPlayingProvider = { isPlaying }
+                    playbackSpeed = effectivePlaybackSpeed(),
+                    getCurrentPosition = { player.currentPosition },
+                    isPlayingProvider = { player.isPlaying }
                 )
             }
         }
@@ -1099,16 +1108,17 @@ class PlayerServiceModern : MediaLibraryService(),
         if (encryptedPreferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
             val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
             if (token?.isNotEmpty() == true) {
-                // Capture current values to avoid thread safety issues
-                val currentPosition = player.currentPosition
+                // Item 8: live providers (not captured values) so the 5 s refresh tick
+                // reads the real position/play state.
                 discordPresenceManager?.onPlayingStateChanged(
                     item,
                     isPlaying,
-                    currentPosition,
+                    player.currentPosition,
                     duration,
                     now,
-                    getCurrentPosition = { currentPosition },
-                    isPlayingProvider = { isPlaying }
+                    playbackSpeed = effectivePlaybackSpeed(),
+                    getCurrentPosition = { player.currentPosition },
+                    isPlayingProvider = { player.isPlaying }
                 )
             }
         }
@@ -1137,6 +1147,35 @@ class PlayerServiceModern : MediaLibraryService(),
             widgetProgressJob?.cancel()
             widgetProgressJob = null
         }
+    }
+
+    /**
+     * Item 5 (upstream parity MS L2884-2897): a playback speed change re-sends the
+     * Discord presence ~1 s later, only while actively playing (playWhenReady &&
+     * STATE_READY) — the timestamps and the "[1.50x]" suffix must reflect the new speed.
+     */
+    override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+        super.onPlaybackParametersChanged(playbackParameters)
+        if (playbackParameters.speed != lastPlaybackSpeed) {
+            lastPlaybackSpeed = playbackParameters.speed
+            if (encryptedPreferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
+                coroutineScope.launch {
+                    delay(1000L)
+                    if (player.playWhenReady && player.playbackState == Player.STATE_READY) {
+                        discordPresenceManager?.onPlaybackSpeedChanged(playbackParameters.speed)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Item 5: the effective playback speed — the player's live value, with the
+     * preference as fallback (the player value is set from the same pref at startup).
+     */
+    private fun effectivePlaybackSpeed(): Float {
+        val speed = player.playbackParameters.speed
+        return if (speed > 0f) speed else preferences.getFloat(playbackSpeedKey, 1f)
     }
 
     /**
@@ -1929,20 +1968,20 @@ class PlayerServiceModern : MediaLibraryService(),
             if (encryptedPreferences.getBoolean(isDiscordPresenceEnabledKey, false)) {
                 val token = encryptedPreferences.getString(discordPersonalAccessTokenKey, "")
                 if (token?.isNotEmpty() == true) {
-                    // Capture current values to avoid thread safety issues
+                    // Item 8: live providers (not captured values) so the 5 s refresh tick
+                    // reads the real position/play state.
                     val currentMediaItem = player.currentMediaItem
-                    val isPlaying = player.isPlaying
-                    val currentPosition = player.currentPosition
                     val duration = player.duration
                     val now = System.currentTimeMillis()
                     discordPresenceManager?.onPlayingStateChanged(
                         currentMediaItem,
-                        isPlaying,
-                        currentPosition,
+                        player.isPlaying,
+                        player.currentPosition,
                         duration,
                         now,
-                        getCurrentPosition = { currentPosition },
-                        isPlayingProvider = { isPlaying }
+                        playbackSpeed = effectivePlaybackSpeed(),
+                        getCurrentPosition = { player.currentPosition },
+                        isPlayingProvider = { player.isPlaying }
                     )
                 }
             }

@@ -68,13 +68,16 @@ suspend fun fetchDiscordUser(token: String): Pair<String, String>? = withContext
             val body = response.body?.string() ?: return@withContext null
             val json = JSONObject(body)
             val username = json.getString("username")
+            // Item 17 (upstream parity fetchCurrentUser): the display name is global_name
+            // (the user's nickname), falling back to the username when absent.
+            val name = json.optString("global_name", username)
             val id = json.getString("id")
             val avatar = json.optString("avatar", "")
             val avatarUrl = if (avatar.isNotEmpty())
                 "https://cdn.discordapp.com/avatars/$id/$avatar.png"
             else
                 "https://cdn.discordapp.com/embed/avatars/${id.toLong() % 5}.png"
-            Pair(username, avatarUrl)
+            Pair(name, avatarUrl)
         }
     }.getOrElse { exception ->
         // Handle rate limiting silently to avoid disturbing the user
