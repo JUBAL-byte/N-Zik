@@ -379,25 +379,65 @@ class DiscordPresenceManager(
         }
 
         val rawUri = mediaItem?.mediaMetadata?.artworkUri?.toString()
-        val largeImageUrl = if (rawUri != null && rawUri.startsWith("http")) rawUri else getLargeImageFallback()
-        val smallImageUrl = getSmallImageUrl()
-        val largeTextValue = if (content.state.isNotBlank()) "${content.details} - ${content.state}" else content.details
+        // Per-section visibility (advanced mode only — normal mode keeps its frozen
+        // identity). A disabled section is sent as null: the module omits the field
+        // from the JSON entirely (no empty line, no asset, no progress bar).
+        val advanced = settings.advancedMode
+        val largeImageUrl = if (advanced && !settings.showArtwork) {
+            null
+        } else if (rawUri != null && rawUri.startsWith("http")) {
+            rawUri
+        } else {
+            getLargeImageFallback()
+        }
+        val smallImageUrl = if (advanced && !settings.showSmallImage) null else getSmallImageUrl()
+        // Image tooltips: advanced mode can override each one with a template (empty =
+        // the built-in default); `{app.version}` resolves to the app version name.
+        val info = mediaItem?.let { mediaInfo(it) } ?: DiscordMediaInfo("", "", null, "")
+        val str = discordStrings()
+        val renderImageText: (String) -> String = { template ->
+            DiscordTemplateRenderer.render(
+                template, info.title, info.artist, info.albumName, info.songId, str.unknownAlbum, str.appVersion,
+            )
+        }
+        val largeTextValue = largeImageUrl?.let {
+            val defaultText = if (content.state.isNotBlank()) "${content.details} - ${content.state}" else content.details
+            val text = if (advanced && settings.largeImageTextTemplate.isNotBlank()) {
+                renderImageText(settings.largeImageTextTemplate)
+            } else {
+                defaultText
+            }
+            text.takeIf { it.isNotBlank() }
+        }
+        val smallTextValue = smallImageUrl?.let {
+            val text = if (advanced && settings.smallImageTextTemplate.isNotBlank()) {
+                renderImageText(settings.smallImageTextTemplate)
+            } else {
+                "v${str.appVersion}"
+            }
+            text.takeIf { it.isNotBlank() }
+        }
+        val timestampsValue = if (advanced && !settings.showTimestamps) {
+            null
+        } else {
+            Timestamps(
+                start = start,
+                end = if (end > 0L) end else null
+            )
+        }
 
         runCatching {
             rpc?.setActivity(
                 applicationId = DiscordRpc.APPLICATION_ID,
                 name = content.name,
-                details = content.details,
-                state = content.state,
+                details = content.details.takeIf { it.isNotBlank() },
+                state = content.state.takeIf { it.isNotBlank() },
                 type = resolveActivityType(settings),
-                timestamps = Timestamps(
-                    start = start,
-                    end = if (end > 0L) end else null
-                ),
+                timestamps = timestampsValue,
                 largeImage = largeImageUrl,
                 smallImage = smallImageUrl,
                 largeText = largeTextValue,
-                smallText = "v${getVersionName(context)}",
+                smallText = smallTextValue,
                 buttons = content.buttons,
                 status = DISCORD_STATUS_ONLINE,
                 since = 0L
@@ -520,7 +560,10 @@ class DiscordPresenceManager(
 
     /**
      * Item 7: 60 s of pause with no event → clear the activity (the connection is
-     * kept — a resume is cheap).
+     * kept — a resume is cheap). Only the stale playing presence left after a pause
+     * with the pause presence DISABLED is clearable: with the pause presence enabled
+     * the paused presence IS the active state (stays as long as the player is
+     * paused), and the auto-clear itself is an advanced option (default on).
      */
     private fun armPauseClearTimer() {
         pauseClearJob?.cancel()
@@ -528,8 +571,13 @@ class DiscordPresenceManager(
             delay(PAUSE_CLEAR_DELAY_MS)
             if (isStopped) return@launch
             if (lastMediaItem != null && !lastIsPlaying) {
-                Timber.tag(tag).i("60 s paused with no event — clearing activity (connection kept)")
-                rpc?.clearActivity()
+                val settings = getAdvancedSettings()
+                if (settings.pausePresenceEnabled || !settings.pauseClearEnabled) {
+                    Timber.tag(tag).i("60 s paused — the presence stays (pause presence on / auto-clear off)")
+                } else {
+                    Timber.tag(tag).i("60 s paused with pause presence disabled — clearing activity (connection kept)")
+                    rpc?.clearActivity()
+                }
             }
         }
     }
@@ -537,13 +585,29 @@ class DiscordPresenceManager(
     /**
      * Item 7: 10 min with no event → close the RPC connection entirely. The module
      * close is terminal (closed = true): the next event re-creates the connection via
-     * [connectionNeedsRecreation].
+     * [connectionNeedsRecreation]. Exception: an active paused presence (pause
+     * presence enabled) keeps the activity on Discord, so the timer re-arms instead
+     * of closing — the connection stays open with the paused state.
      */
     private fun armIdleCloseTimer() {
         idleCloseJob?.cancel()
         idleCloseJob = discordScope.launch {
             delay(IDLE_CLOSE_DELAY_MS)
             if (isStopped) return@launch
+            val settings = getAdvancedSettings()
+            // The idle close is an advanced option (default on): disabled → the
+            // connection stays open (re-arm keeps watching the state / toggles).
+            if (!settings.idleCloseEnabled) {
+                armIdleCloseTimer()
+                return@launch
+            }
+            // An active paused presence (enabled) keeps the activity on Discord — the
+            // connection must stay open with it: re-arm instead of closing.
+            if (lastMediaItem != null && !lastIsPlaying && settings.pausePresenceEnabled) {
+                Timber.tag(tag).i("10 min idle with an active pause presence — re-arming the idle close")
+                armIdleCloseTimer()
+                return@launch
+            }
             Timber.tag(tag).i("10 min with no event — closing the RPC connection (idle)")
             rpc?.closeDirect()
             connectionNeedsRecreation = true
@@ -651,5 +715,6 @@ class DiscordPresenceManager(
         buttonListenYtmusic = context.getString(R.string.discord_presence_button_listen_ytmusic),
         pausedLineDefault = context.getString(R.string.discord_presence_pause_default),
         unknownAlbum = context.getString(R.string.discord_template_unknown_album),
+        appVersion = getVersionName(context),
     )
 }

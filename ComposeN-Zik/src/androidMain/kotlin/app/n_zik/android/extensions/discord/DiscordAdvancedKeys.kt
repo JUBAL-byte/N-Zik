@@ -24,6 +24,18 @@ const val discordAdvancedButton1UrlKey = "discordAdvancedButton1Url"
 const val discordAdvancedButton2EnabledKey = "discordAdvancedButton2Enabled"
 const val discordAdvancedButton2LabelKey = "discordAdvancedButton2Label"
 const val discordAdvancedButton2UrlKey = "discordAdvancedButton2Url"
+// Per-section visibility toggles (advanced mode only; default on = current behavior).
+const val discordAdvancedShowStateKey = "discordAdvancedShowState"
+const val discordAdvancedShowDetailsKey = "discordAdvancedShowDetails"
+const val discordAdvancedShowArtworkKey = "discordAdvancedShowArtwork"
+const val discordAdvancedShowSmallImageKey = "discordAdvancedShowSmallImage"
+const val discordAdvancedShowTimestampsKey = "discordAdvancedShowTimestamps"
+// Image tooltip templates (advanced mode; empty = the built-in default).
+const val discordAdvancedLargeImageTextKey = "discordAdvancedLargeImageText"
+const val discordAdvancedSmallImageTextKey = "discordAdvancedSmallImageText"
+// Inactivity timer toggles (advanced mode; default on = current behavior).
+const val discordAdvancedPauseClearEnabledKey = "discordAdvancedPauseClearEnabled"
+const val discordAdvancedIdleCloseEnabledKey = "discordAdvancedIdleCloseEnabled"
 
 /** All advanced keys, for the service's encrypted-prefs listener re-sync (item 6). */
 val discordAdvancedSettingKeys: Set<String> = setOf(
@@ -40,6 +52,15 @@ val discordAdvancedSettingKeys: Set<String> = setOf(
     discordAdvancedButton2EnabledKey,
     discordAdvancedButton2LabelKey,
     discordAdvancedButton2UrlKey,
+    discordAdvancedShowStateKey,
+    discordAdvancedShowDetailsKey,
+    discordAdvancedShowArtworkKey,
+    discordAdvancedShowSmallImageKey,
+    discordAdvancedShowTimestampsKey,
+    discordAdvancedLargeImageTextKey,
+    discordAdvancedSmallImageTextKey,
+    discordAdvancedPauseClearEnabledKey,
+    discordAdvancedIdleCloseEnabledKey,
 )
 
 /**
@@ -56,6 +77,11 @@ const val DISCORD_STATUS_ONLINE = "online"
  *
  * [activityType] is the module `ActivityType` code: 0=playing, 2=listening (default),
  * 3=watching, 5=competing.
+ *
+ * The `show*` flags control individual presence sections (advanced mode only — normal
+ * mode keeps its frozen identity): the state line, the details line, the album artwork
+ * (large image), the app logo (small image + version text) and the progress bar
+ * (timestamps). All default to `true` (the sections are shown = current behavior).
  */
 data class DiscordAdvancedSettings(
     val advancedMode: Boolean,
@@ -71,9 +97,29 @@ data class DiscordAdvancedSettings(
     val button2Enabled: Boolean,
     val button2Label: String,
     val button2Url: String,
+    val showState: Boolean,
+    val showDetails: Boolean,
+    val showArtwork: Boolean,
+    val showSmallImage: Boolean,
+    val showTimestamps: Boolean,
+    /** Advanced-mode template for the large image tooltip (empty = "details - state"). */
+    val largeImageTextTemplate: String,
+    /** Advanced-mode template for the small image tooltip (empty = "v{app.version}"). */
+    val smallImageTextTemplate: String,
+    /**
+     * Auto-clear of the stale presence 60 s after a pause (only reachable with the pause
+     * presence disabled — with it enabled the paused presence is the active state and
+     * stays). Default on = current behavior.
+     */
+    val pauseClearEnabled: Boolean,
+    /** Close the RPC connection after 10 min with no media event. Default on = current behavior. */
+    val idleCloseEnabled: Boolean,
 ) {
     companion object {
-        /** Defaults: mode off, listening, pause presence on, empty templates, both buttons on. */
+        /**
+         * Defaults: mode off, listening, pause presence on, empty templates, both buttons
+         * on, every presence section shown.
+         */
         val DEFAULTS = DiscordAdvancedSettings(
             advancedMode = false,
             activityType = 2,
@@ -88,6 +134,15 @@ data class DiscordAdvancedSettings(
             button2Enabled = true,
             button2Label = "",
             button2Url = "",
+            showState = true,
+            showDetails = true,
+            showArtwork = true,
+            showSmallImage = true,
+            showTimestamps = true,
+            largeImageTextTemplate = "",
+            smallImageTextTemplate = "",
+            pauseClearEnabled = true,
+            idleCloseEnabled = true,
         )
 
         /** Reads all advanced keys at once (single prefs access per presence update). */
@@ -105,6 +160,15 @@ data class DiscordAdvancedSettings(
             button2Enabled = prefs.getBoolean(discordAdvancedButton2EnabledKey, true),
             button2Label = prefs.getString(discordAdvancedButton2LabelKey, "").orEmpty(),
             button2Url = prefs.getString(discordAdvancedButton2UrlKey, "").orEmpty(),
+            showState = prefs.getBoolean(discordAdvancedShowStateKey, true),
+            showDetails = prefs.getBoolean(discordAdvancedShowDetailsKey, true),
+            showArtwork = prefs.getBoolean(discordAdvancedShowArtworkKey, true),
+            showSmallImage = prefs.getBoolean(discordAdvancedShowSmallImageKey, true),
+            showTimestamps = prefs.getBoolean(discordAdvancedShowTimestampsKey, true),
+            largeImageTextTemplate = prefs.getString(discordAdvancedLargeImageTextKey, "").orEmpty(),
+            smallImageTextTemplate = prefs.getString(discordAdvancedSmallImageTextKey, "").orEmpty(),
+            pauseClearEnabled = prefs.getBoolean(discordAdvancedPauseClearEnabledKey, true),
+            idleCloseEnabled = prefs.getBoolean(discordAdvancedIdleCloseEnabledKey, true),
         )
 
         fun read(context: Context): DiscordAdvancedSettings = read(context.encryptedPreferences)

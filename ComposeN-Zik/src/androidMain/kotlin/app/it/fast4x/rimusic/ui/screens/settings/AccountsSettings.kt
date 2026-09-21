@@ -3,11 +3,15 @@ package app.it.fast4x.rimusic.ui.screens.settings
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.components.tab.Search
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,11 +22,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -31,14 +37,17 @@ import androidx.compose.foundation.layout.width
 
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 
+import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,8 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 
@@ -74,6 +85,7 @@ import it.fast4x.innertube.utils.parseCookieString
 import app.n_zik.android.appContext
 import app.n_zik.android.core.coil.ImageCacheFactory
 import app.n_zik.android.colorPalette
+import app.n_zik.android.components.ui.toggles.Switch
 import app.n_zik.android.uiRoundnessShape
 import app.n_zik.android.extensions.discord.DiscordActivityBuilder
 import app.n_zik.android.extensions.discord.DiscordAdvancedSettings
@@ -102,6 +114,7 @@ import app.it.fast4x.rimusic.ui.components.themed.HeaderWithIcon
 import androidx.compose.ui.res.painterResource
 import app.it.fast4x.rimusic.ui.styling.Dimensions
 import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
+import app.it.fast4x.rimusic.utils.getVersionName
 import app.n_zik.android.extensions.discord.discordAdvancedActivityTypeKey
 import app.n_zik.android.extensions.discord.discordAdvancedButton1EnabledKey
 import app.n_zik.android.extensions.discord.discordAdvancedButton1LabelKey
@@ -110,7 +123,9 @@ import app.n_zik.android.extensions.discord.discordAdvancedButton2EnabledKey
 import app.n_zik.android.extensions.discord.discordAdvancedButton2LabelKey
 import app.n_zik.android.extensions.discord.discordAdvancedButton2UrlKey
 import app.n_zik.android.extensions.discord.discordAdvancedDetailsTemplateKey
+import app.n_zik.android.extensions.discord.discordAdvancedIdleCloseEnabledKey
 import app.n_zik.android.extensions.discord.discordAdvancedNameKey
+import app.n_zik.android.extensions.discord.discordAdvancedPauseClearEnabledKey
 import app.n_zik.android.extensions.discord.discordAdvancedPausePresenceEnabledKey
 import app.n_zik.android.extensions.discord.discordAdvancedPauseTemplateKey
 import app.n_zik.android.extensions.discord.discordAdvancedStateTemplateKey
@@ -181,8 +196,16 @@ import app.kreate.android.me.knighthat.utils.Toaster
 import app.it.fast4x.rimusic.utils.clearAllSyncedData
 import app.it.fast4x.rimusic.utils.encryptedPreferences
 import app.it.fast4x.rimusic.utils.queueSync
+import app.it.fast4x.rimusic.utils.semiBold
 import app.it.fast4x.rimusic.utils.syncPushHistoryKey
 import app.n_zik.android.extensions.discord.DiscordStrings
+import app.n_zik.android.extensions.discord.discordAdvancedLargeImageTextKey
+import app.n_zik.android.extensions.discord.discordAdvancedShowArtworkKey
+import app.n_zik.android.extensions.discord.discordAdvancedShowDetailsKey
+import app.n_zik.android.extensions.discord.discordAdvancedShowSmallImageKey
+import app.n_zik.android.extensions.discord.discordAdvancedShowStateKey
+import app.n_zik.android.extensions.discord.discordAdvancedShowTimestampsKey
+import app.n_zik.android.extensions.discord.discordAdvancedSmallImageTextKey
 import app.n_zik.android.typography
 import it.fast4x.innertube.Innertube.cookie
 
@@ -1446,6 +1469,30 @@ private fun DiscordRpcErrorBanner(error: DiscordRpcError) {
 }
 
 /**
+ * Discord section only: the calm group header of the advanced-settings groups. The
+ * shared [SettingsEntryGroupText] renders uppercase accent text — too loud for this
+ * section: the label stays sentence-case (one uppercase letter) in the secondary text
+ * color, with a small gap before the group's entries.
+ */
+@Composable
+private fun DiscordSettingsGroup(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            style = typography().xs.semiBold.copy(colorPalette().textSecondary),
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .padding(start = 12.dp),
+        )
+        content()
+    }
+}
+
+/**
  * Discord section only (item 6): advanced presence settings — activity type,
  * templates (name/state/details/pause + 2 buttons) and the pause-presence toggle.
  * The live RPC preview lives in the main Discord section (PW-6: visible in both
@@ -1465,6 +1512,18 @@ private fun DiscordAdvancedSection(search: Search) {
     var btn2Enabled by rememberEncryptedPreference(discordAdvancedButton2EnabledKey, true)
     var btn2Label by rememberEncryptedPreference(discordAdvancedButton2LabelKey, "")
     var btn2Url by rememberEncryptedPreference(discordAdvancedButton2UrlKey, "")
+    // Per-section visibility (advanced mode only): default on = current behavior.
+    var showState by rememberEncryptedPreference(discordAdvancedShowStateKey, true)
+    var showDetails by rememberEncryptedPreference(discordAdvancedShowDetailsKey, true)
+    var showArtwork by rememberEncryptedPreference(discordAdvancedShowArtworkKey, true)
+    var showSmallImage by rememberEncryptedPreference(discordAdvancedShowSmallImageKey, true)
+    var showTimestamps by rememberEncryptedPreference(discordAdvancedShowTimestampsKey, true)
+    // Image tooltip templates (advanced mode; empty = the built-in default).
+    var largeImageText by rememberEncryptedPreference(discordAdvancedLargeImageTextKey, "")
+    var smallImageText by rememberEncryptedPreference(discordAdvancedSmallImageTextKey, "")
+    // Inactivity timer toggles (advanced mode; default on = current behavior).
+    var pauseClearEnabled by rememberEncryptedPreference(discordAdvancedPauseClearEnabledKey, true)
+    var idleCloseEnabled by rememberEncryptedPreference(discordAdvancedIdleCloseEnabledKey, true)
 
     var showActivityTypeDialog by remember { mutableStateOf(false) }
     var showNameDialog by remember { mutableStateOf(false) }
@@ -1475,6 +1534,8 @@ private fun DiscordAdvancedSection(search: Search) {
     var showBtn1UrlDialog by remember { mutableStateOf(false) }
     var showBtn2LabelDialog by remember { mutableStateOf(false) }
     var showBtn2UrlDialog by remember { mutableStateOf(false) }
+    var showLargeImageTextDialog by remember { mutableStateOf(false) }
+    var showSmallImageTextDialog by remember { mutableStateOf(false) }
 
     val activityTypeLabel = when (activityType) {
         0 -> stringResource(R.string.discord_activity_playing)
@@ -1482,121 +1543,275 @@ private fun DiscordAdvancedSection(search: Search) {
         5 -> stringResource(R.string.discord_activity_competing)
         else -> stringResource(R.string.discord_activity_listening)
     }
+    // The built-in image text default is NOT a static template: the real presence computes
+    // it live as "details - state" (manager sendActivity). The entry recovers it from the
+    // current line templates — a hidden section falls out of it, exactly like the card.
+    val defaultImageText = run {
+        val details =
+            if (showDetails) detailsTemplate.ifEmpty { DiscordActivityBuilder.DEFAULT_DETAILS_TEMPLATE }
+            else ""
+        val state =
+            if (showState) stateTemplate.ifEmpty { DiscordActivityBuilder.DEFAULT_STATE_TEMPLATE }
+            else ""
+        if (state.isNotEmpty()) "$details - $state" else details
+    }
     Column {
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_activity_type).contains(search.inputValue, true)) {
-            OtherSettingsEntry(
-                title = stringResource(R.string.discord_activity_type),
-                text = activityTypeLabel,
-                icon = R.drawable.play,
-                onClick = { showActivityTypeDialog = true }
-            )
+        // Grouped layout (2026-09-22): related entries live under a shared group header —
+        // the presence card parts (lines, images, progress bar), then the actions
+        // (buttons) and the connection behavior.
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_identity)) {
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_activity_type).contains(search.inputValue, true)) {
+                OtherSettingsEntry(
+                    title = stringResource(R.string.discord_activity_type),
+                    text = activityTypeLabel,
+                    icon = R.drawable.play,
+                    onClick = { showActivityTypeDialog = true }
+                )
+            }
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_name).contains(search.inputValue, true)) {
+                OtherSettingsEntry(
+                    title = stringResource(R.string.discord_advanced_name),
+                    // Empty template = the built-in default below (the fixed name), shown
+                    // as the current value instead of a "(default)" marker.
+                    text = activityName.ifEmpty { stringResource(R.string.discord_presence_name) },
+                    icon = R.drawable.text,
+                    onClick = { showNameDialog = true }
+                )
+            }
         }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_name).contains(search.inputValue, true)) {
-            OtherSettingsEntry(
-                title = stringResource(R.string.discord_advanced_name),
-                text = activityName.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                icon = R.drawable.text,
-                onClick = { showNameDialog = true }
-            )
-        }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_state).contains(search.inputValue, true)) {
-            OtherSettingsEntry(
-                title = stringResource(R.string.discord_advanced_state),
-                text = stateTemplate.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                icon = R.drawable.text,
-                onClick = { showStateDialog = true }
-            )
-        }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_details).contains(search.inputValue, true)) {
-            OtherSettingsEntry(
-                title = stringResource(R.string.discord_advanced_details),
-                text = detailsTemplate.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                icon = R.drawable.text,
-                onClick = { showDetailsDialog = true }
-            )
-        }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_pause).contains(search.inputValue, true)) {
-            OtherSettingsEntry(
-                title = stringResource(R.string.discord_advanced_pause),
-                text = pauseTemplate.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                icon = R.drawable.text,
-                onClick = { showPauseDialog = true }
-            )
-        }
-        // PW-3: pause presence on/off (default on = current ⏸︎ behavior).
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_pause_presence).contains(search.inputValue, true)) {
-            OtherSwitchSettingEntry(
-                title = stringResource(R.string.discord_pause_presence),
-                text = stringResource(R.string.discord_pause_presence_text),
-                isChecked = pausePresenceEnabled,
-                onCheckedChange = { pausePresenceEnabled = it },
-                icon = R.drawable.pause
-            )
-        }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button1).contains(search.inputValue, true)) {
-            OtherSwitchSettingEntry(
-                title = stringResource(R.string.discord_advanced_button1),
-                text = "",
-                isChecked = btn1Enabled,
-                onCheckedChange = { btn1Enabled = it },
-                // Button 1 is the "Get N-Zik" GitHub action by default — give its toggle a
-                // distinct icon so it is not confused with Button 2 (ytmusic) — reviewer
-                // finding: the two toggles shared one copy-pasted icon.
-                icon = R.drawable.github_icon
-            )
-        }
-        // Content transition (Last.fm card pattern): the button sub-entries animate
-        // in/out with the default expand/collapse + fade when the toggle flips.
-        // Column: AnimatedVisibility lays its content out in a Box, so the two
-        // sibling entries must be stacked explicitly or they overlap (rendered
-        // on top of each other at the same position).
-        AnimatedVisibility(visible = btn1Enabled) {
-            Column {
-                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_label).contains(search.inputValue, true)) {
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_lines)) {
+            // Linked visibility: the section toggle comes first, and the linked template
+            // entry animates in/out with it (Last.fm card pattern — the app's default
+            // expand/collapse + fade); the toggle stays reachable so the part can be
+            // restored. The lines follow the CARD display order — the details line (bold)
+            // sits above the state line, so it is configured first.
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_show_details).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_show_details),
+                    text = stringResource(R.string.discord_advanced_show_details_text),
+                    isChecked = showDetails,
+                    onCheckedChange = { showDetails = it },
+                    icon = R.drawable.musical_notes
+                )
+            }
+            // The details line is hidden (animated) with its toggle.
+            AnimatedVisibility(visible = showDetails) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_details).contains(search.inputValue, true)) {
                     OtherSettingsEntry(
-                        title = "${stringResource(R.string.discord_advanced_button1)} — ${stringResource(R.string.discord_advanced_button_label)}",
-                        text = btn1Label.ifEmpty { stringResource(R.string.discord_template_default_value) },
+                        title = stringResource(R.string.discord_advanced_details),
+                        text = detailsTemplate.ifEmpty { DiscordActivityBuilder.DEFAULT_DETAILS_TEMPLATE },
                         icon = R.drawable.text,
-                        onClick = { showBtn1LabelDialog = true }
+                        onClick = { showDetailsDialog = true }
                     )
                 }
-                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_url).contains(search.inputValue, true)) {
+            }
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_show_state).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_show_state),
+                    text = stringResource(R.string.discord_advanced_show_state_text),
+                    isChecked = showState,
+                    onCheckedChange = { showState = it },
+                    // The state line is the artist line — its own icon, distinct from the
+                    // Aa template entry below it.
+                    icon = R.drawable.artist
+                )
+            }
+            AnimatedVisibility(visible = showState) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_state).contains(search.inputValue, true)) {
                     OtherSettingsEntry(
-                        title = "${stringResource(R.string.discord_advanced_button1)} — ${stringResource(R.string.discord_advanced_button_url)}",
-                        text = btn1Url.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                        icon = R.drawable.open,
-                        onClick = { showBtn1UrlDialog = true }
+                        title = stringResource(R.string.discord_advanced_state),
+                        text = stateTemplate.ifEmpty { DiscordActivityBuilder.DEFAULT_STATE_TEMPLATE },
+                        icon = R.drawable.text,
+                        onClick = { showStateDialog = true }
+                    )
+                }
+            }
+            // PW-3: pause presence on/off (default on = current ⏸︎ behavior) — the toggle
+            // comes first: with it off, the paused presence is never sent, so the paused
+            // line template is hidden (animated) behind it.
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_pause_presence).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_pause_presence),
+                    text = stringResource(R.string.discord_pause_presence_text),
+                    isChecked = pausePresenceEnabled,
+                    onCheckedChange = { pausePresenceEnabled = it },
+                    icon = R.drawable.pause
+                )
+            }
+            // The paused line renders into the details line — hidden (animated) with it,
+            // and with the pause presence off (nothing to configure behind it).
+            AnimatedVisibility(visible = showDetails && pausePresenceEnabled) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_pause).contains(search.inputValue, true)) {
+                    OtherSettingsEntry(
+                        title = stringResource(R.string.discord_advanced_pause),
+                        text = pauseTemplate.ifEmpty { stringResource(R.string.discord_presence_pause_default) },
+                        icon = R.drawable.text,
+                        onClick = { showPauseDialog = true }
+                    )
+                }
+            }
+            // The 60 s auto-clear of the stale presence after a pause (advanced option,
+            // default on): only reachable with the pause presence off — with it on, the
+            // paused presence is the active state and stays as long as the player is
+            // paused, so there is nothing to auto-clear and the option is hidden (animated).
+            AnimatedVisibility(visible = !pausePresenceEnabled) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_pause_auto_clear).contains(search.inputValue, true)) {
+                    OtherSwitchSettingEntry(
+                        title = stringResource(R.string.discord_advanced_pause_auto_clear),
+                        text = stringResource(R.string.discord_advanced_pause_auto_clear_text),
+                        isChecked = pauseClearEnabled,
+                        onCheckedChange = { pauseClearEnabled = it },
+                        icon = R.drawable.trash
                     )
                 }
             }
         }
-        if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button2).contains(search.inputValue, true)) {
-            OtherSwitchSettingEntry(
-                title = stringResource(R.string.discord_advanced_button2),
-                text = "",
-                isChecked = btn2Enabled,
-                onCheckedChange = { btn2Enabled = it },
-                icon = R.drawable.ytmusic
-            )
-        }
-        AnimatedVisibility(visible = btn2Enabled) {
-            Column {
-                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_label).contains(search.inputValue, true)) {
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_images)) {
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_show_artwork).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_show_artwork),
+                    text = stringResource(R.string.discord_advanced_show_artwork_text),
+                    isChecked = showArtwork,
+                    onCheckedChange = { showArtwork = it },
+                    icon = R.drawable.image
+                )
+            }
+            // Image tooltips (advanced mode): the hover text over the artwork / the app
+            // logo — each customizable with the template placeholders (empty = default).
+            // No artwork = no hover tooltip — the template is hidden with it (animated).
+            AnimatedVisibility(visible = showArtwork) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_image_text).contains(search.inputValue, true)) {
                     OtherSettingsEntry(
-                        title = "${stringResource(R.string.discord_advanced_button2)} — ${stringResource(R.string.discord_advanced_button_label)}",
-                        text = btn2Label.ifEmpty { stringResource(R.string.discord_template_default_value) },
+                        title = stringResource(R.string.discord_advanced_image_text),
+                        text = largeImageText.ifEmpty { defaultImageText },
                         icon = R.drawable.text,
-                        onClick = { showBtn2LabelDialog = true }
+                        onClick = { showLargeImageTextDialog = true }
                     )
                 }
-                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_url).contains(search.inputValue, true)) {
+            }
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_show_small_image).contains(search.inputValue, true)) {
+                // The app logo keeps its own colors (import-menu rendering) — the shared
+                // switch entry would tint it into a flat accent disc.
+                DiscordLogoSettingsEntry(
+                    title = stringResource(R.string.discord_advanced_show_small_image),
+                    text = stringResource(R.string.discord_advanced_show_small_image_text),
+                    onClick = { showSmallImage = !showSmallImage },
+                    trailingContent = {
+                        Switch(
+                            checked = showSmallImage,
+                            onCheckedChange = { showSmallImage = it },
+                            checkedThumbColor = colorPalette().textSecondary,
+                            checkedTrackColor = colorPalette().accent.copy(alpha = 0.3f),
+                            uncheckedThumbColor = colorPalette().textSecondary,
+                            uncheckedTrackColor = colorPalette().textSecondary.copy(alpha = 0.3f)
+                        )
+                    }
+                )
+            }
+            // No app logo = no hover tooltip — the template is hidden with it (animated).
+            AnimatedVisibility(visible = showSmallImage) {
+                if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_logo_text).contains(search.inputValue, true)) {
+                    // The default stays the placeholder template — the manager resolves it
+                    // live to "v<app version>" when building the presence.
                     OtherSettingsEntry(
-                        title = "${stringResource(R.string.discord_advanced_button2)} — ${stringResource(R.string.discord_advanced_button_url)}",
-                        text = btn2Url.ifEmpty { stringResource(R.string.discord_template_default_value) },
-                        icon = R.drawable.open,
-                        onClick = { showBtn2UrlDialog = true }
+                        title = stringResource(R.string.discord_advanced_logo_text),
+                        text = smallImageText.ifEmpty { DiscordActivityBuilder.DEFAULT_LOGO_TEXT_TEMPLATE },
+                        icon = R.drawable.text,
+                        onClick = { showSmallImageTextDialog = true }
                     )
                 }
+            }
+        }
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_progress)) {
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_show_timestamps).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_show_timestamps),
+                    text = stringResource(R.string.discord_advanced_show_timestamps_text),
+                    isChecked = showTimestamps,
+                    onCheckedChange = { showTimestamps = it },
+                    icon = R.drawable.playbackduration
+                )
+            }
+        }
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_buttons)) {
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button1).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_button1),
+                    text = "",
+                    isChecked = btn1Enabled,
+                    onCheckedChange = { btn1Enabled = it },
+                    // Button 1 is the "Get N-Zik" GitHub action by default — give its toggle a
+                    // distinct icon so it is not confused with Button 2 (ytmusic) — reviewer
+                    // finding: the two toggles shared one copy-pasted icon.
+                    icon = R.drawable.github_icon
+                )
+            }
+            // Content transition (Last.fm card pattern): the button sub-entries animate
+            // in/out with the default expand/collapse + fade when the toggle flips.
+            // Column: AnimatedVisibility lays its content out in a Box, so the two
+            // sibling entries must be stacked explicitly or they overlap (rendered
+            // on top of each other at the same position).
+            AnimatedVisibility(visible = btn1Enabled) {
+                Column {
+                    if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_label).contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = "${stringResource(R.string.discord_advanced_button1)} — ${stringResource(R.string.discord_advanced_button_label)}",
+                            text = btn1Label.ifEmpty { stringResource(R.string.discord_presence_button_get_nzik) },
+                            icon = R.drawable.text,
+                            onClick = { showBtn1LabelDialog = true }
+                        )
+                    }
+                    if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_url).contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = "${stringResource(R.string.discord_advanced_button1)} — ${stringResource(R.string.discord_advanced_button_url)}",
+                            text = btn1Url.ifEmpty { DiscordActivityBuilder.DEFAULT_BUTTON1_URL },
+                            icon = R.drawable.open,
+                            onClick = { showBtn1UrlDialog = true }
+                        )
+                    }
+                }
+            }
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button2).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_button2),
+                    text = "",
+                    isChecked = btn2Enabled,
+                    onCheckedChange = { btn2Enabled = it },
+                    icon = R.drawable.ytmusic
+                )
+            }
+            AnimatedVisibility(visible = btn2Enabled) {
+                Column {
+                    if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_label).contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = "${stringResource(R.string.discord_advanced_button2)} — ${stringResource(R.string.discord_advanced_button_label)}",
+                            text = btn2Label.ifEmpty { stringResource(R.string.discord_presence_button_listen_ytmusic) },
+                            icon = R.drawable.text,
+                            onClick = { showBtn2LabelDialog = true }
+                        )
+                    }
+                    if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_button_url).contains(search.inputValue, true)) {
+                        OtherSettingsEntry(
+                            title = "${stringResource(R.string.discord_advanced_button2)} — ${stringResource(R.string.discord_advanced_button_url)}",
+                            text = btn2Url.ifEmpty { DiscordActivityBuilder.DEFAULT_BUTTON2_URL },
+                            icon = R.drawable.open,
+                            onClick = { showBtn2UrlDialog = true }
+                        )
+                    }
+                }
+            }
+        }
+        DiscordSettingsGroup(title = stringResource(R.string.discord_advanced_group_connection)) {
+            // Close the RPC connection after 10 min with no media event (advanced option,
+            // default on = current behavior) — off keeps the connection open.
+            if (search.inputValue.isBlank() || stringResource(R.string.discord_advanced_idle_close).contains(search.inputValue, true)) {
+                OtherSwitchSettingEntry(
+                    title = stringResource(R.string.discord_advanced_idle_close),
+                    text = stringResource(R.string.discord_advanced_idle_close_text),
+                    isChecked = idleCloseEnabled,
+                    onCheckedChange = { idleCloseEnabled = it },
+                    icon = R.drawable.link
+                )
             }
         }
     }
@@ -1688,6 +1903,24 @@ private fun DiscordAdvancedSection(search: Search) {
             placeholderValue = DiscordActivityBuilder.DEFAULT_BUTTON2_URL,
             onDone = { btn2Url = it },
             onDismiss = { showBtn2UrlDialog = false }
+        )
+    }
+    if (showLargeImageTextDialog) {
+        DiscordTemplateFieldDialog(
+            title = stringResource(R.string.discord_advanced_image_text),
+            value = largeImageText,
+            placeholderValue = defaultImageText,
+            onDone = { largeImageText = it },
+            onDismiss = { showLargeImageTextDialog = false }
+        )
+    }
+    if (showSmallImageTextDialog) {
+        DiscordTemplateFieldDialog(
+            title = stringResource(R.string.discord_advanced_logo_text),
+            value = smallImageText,
+            placeholderValue = DiscordActivityBuilder.DEFAULT_LOGO_TEXT_TEMPLATE,
+            onDone = { smallImageText = it },
+            onDismiss = { showSmallImageTextDialog = false }
         )
     }
 }
@@ -1782,6 +2015,132 @@ private fun DiscordTemplateFieldDialog(
 }
 
 /**
+ * Discord section only: the image text tooltip popup — shown when the preview card's
+ * artwork or app logo is tapped, mirroring Discord's hover tooltip (the text shown
+ * over the large artwork / the small app logo).
+ */
+@Composable
+private fun DiscordImageTooltipDialog(
+    title: String,
+    text: String,
+    onDismiss: () -> Unit
+) {
+    val palette = colorPalette()
+    DefaultDialog(onDismiss = onDismiss) {
+        Text(
+            text = title,
+            style = typography().m.copy(color = palette.text),
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = text,
+            style = typography().s.copy(color = palette.text)
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                text = stringResource(android.R.string.ok),
+                style = typography().m.copy(color = palette.accent),
+                modifier = Modifier
+                    .clip(uiRoundnessShape())
+                    .clickable(onClick = onDismiss)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Discord section only: a settings row carrying the real app logo (the "Show app
+ * logo" toggle and the logo-text entry). The shared entry components tint every
+ * icon with the accent color, which would flatten the logo into a solid disc —
+ * the logo is drawn in its own colors (like the import menu), on the standard
+ * 32.dp accent background box, 18.dp untinted icon.
+ */
+@Composable
+private fun DiscordLogoSettingsEntry(
+    title: String,
+    text: String,
+    onClick: () -> Unit,
+    trailingContent: @Composable () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = tween(150),
+        label = "scale"
+    )
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(uiRoundnessShape())
+            .clickable(onClick = onClick),
+        color = Color.Transparent
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(scale)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // The app logo in its own colors (untinted — the accent tint would
+                // flatten it into a solid disc), on the standard entry background box.
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = colorPalette().accent.copy(alpha = 0.1f),
+                            shape = uiRoundnessShape()
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_launcher),
+                        tint = Color.Unspecified,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Content
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    BasicText(
+                        text = title,
+                        style = typography().s.semiBold.copy(
+                            color = colorPalette().text
+                        )
+                    )
+                    if (text.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        BasicText(
+                            text = text,
+                            style = typography().xs.copy(
+                                color = colorPalette().textSecondary
+                            )
+                        )
+                    }
+                }
+
+                trailingContent()
+            }
+        }
+    }
+}
+
+/**
  * Discord section only (item 6): live preview of the Discord RPC card, rendered with
  * the same [DiscordActivityBuilder] the presence manager uses, so what you see here is
  * what gets sent. When nothing is playing, the fallback card shows the template
@@ -1841,7 +2200,11 @@ private fun DiscordRpcPreviewCard(
             buttonListenYtmusic = stringResource(R.string.discord_presence_button_listen_ytmusic),
             pausedLineDefault = stringResource(R.string.discord_presence_pause_default),
             unknownAlbum = stringResource(R.string.discord_template_unknown_album),
+            appVersion = getVersionName(),
         )
+        // PW-3: the pause presence is optional — when disabled, no paused update is
+        // ever sent and the real Discord keeps the last playing presence, so the
+        // preview shows the playing card too (the paused variant does not exist).
         val content = when {
             isIdle ->
                 // Fallback card: the template variables as-is (current customization).
@@ -1851,9 +2214,17 @@ private fun DiscordRpcPreviewCard(
             isPlaying ->
                 // Pinned playing preview without media: the template variables as-is.
                 DiscordActivityBuilder.buildIdlePreview(settings, strings)
+            item != null && !settings.pausePresenceEnabled ->
+                // Paused with the pause presence disabled: keep the playing card
+                // (what the real presence shows).
+                DiscordActivityBuilder.buildForPlaying(info, settings, strings)
             item != null ->
                 DiscordActivityBuilder.buildForPlaying(info, settings, strings)
                     .copy(details = DiscordActivityBuilder.buildPausedLine(info, settings, strings))
+            !settings.pausePresenceEnabled ->
+                // Pinned paused preview without media, pause presence disabled: no
+                // paused variant exists — the playing-style fallback.
+                DiscordActivityBuilder.buildIdlePreview(settings, strings)
             else ->
                 // Pinned paused preview without media: the pause template as-is.
                 DiscordActivityBuilder.buildIdlePreview(settings, strings)
@@ -1869,31 +2240,67 @@ private fun DiscordRpcPreviewCard(
         // PW-4: media artwork on the left (Discord card layout); the standard
         // missing-image icon when the media carries no artwork URI (or nothing is playing).
         val artworkUrl = item?.mediaMetadata?.artworkUri?.toString()?.takeIf { it.isNotBlank() }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            if (artworkUrl != null) {
-                ImageCacheFactory.AsyncImage(
-                    thumbnailUrl = artworkUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
+        // The section toggles hide the matching card parts (advanced mode only — normal
+        // mode keeps the frozen identity, exactly like the real presence).
+        val showArtworkSection = !settings.advancedMode || settings.showArtwork
+        val showSmallImageSection = !settings.advancedMode || settings.showSmallImage
+        val showTimestampsSection = !settings.advancedMode || settings.showTimestamps
+        // The large image text (the artwork's Discord hover tooltip): rendered as its own
+        // card line so the customization is visible in the preview (on Discord itself it
+        // only shows as a tooltip over the artwork). A custom template renders with the
+        // media (as-is on the fallback card); the built-in default is the SAME
+        // "details - state" expression the real presence uses (manager sendActivity) —
+        // the paused line renders into details, so the paused state shows in the image
+        // text too.
+        val imageText =
+            if (settings.advancedMode && settings.largeImageTextTemplate.isNotBlank()) {
+                if (item != null) {
+                    DiscordTemplateRenderer.render(
+                        settings.largeImageTextTemplate,
+                        info.title,
+                        info.artist,
+                        info.albumName,
+                        info.songId,
+                        strings.unknownAlbum,
+                        strings.appVersion,
+                    )
+                } else {
+                    settings.largeImageTextTemplate
+                }
             } else {
-                // Fallback artwork: the app's standard missing-image icon (the same
-                // drawable ImageCacheFactory uses for errors/absent thumbnails).
-                Image(
-                    painter = painterResource(R.drawable.ic_launcher_box),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
+                // Built-in default, exactly like the real presence: "details - state".
+                if (content.state.isNotBlank()) "${content.details} - ${content.state}"
+                else content.details
             }
-            Column(modifier = Modifier.weight(1f)) {
+        // The raw image text templates (with the {placeholders} as-is): the tooltip
+        // dialogs show the configured templates, not the rendered values (the card
+        // line above renders them). Empty = the built-in default template.
+        val largeImageTemplate =
+            if (settings.largeImageTextTemplate.isNotBlank()) {
+                settings.largeImageTextTemplate
+            } else {
+                // The built-in default is the live "details - state" expression the real
+                // presence computes — recovered from the configured line templates (a
+                // hidden advanced section falls out of it; normal mode keeps its frozen
+                // title/artist identity, so no toggle applies there).
+                val details =
+                    if (settings.advancedMode && !settings.showDetails) ""
+                    else settings.detailsTemplate.ifBlank { DiscordActivityBuilder.DEFAULT_DETAILS_TEMPLATE }
+                val state =
+                    if (settings.advancedMode && !settings.showState) ""
+                    else settings.stateTemplate.ifBlank { DiscordActivityBuilder.DEFAULT_STATE_TEMPLATE }
+                if (state.isNotEmpty()) "$details - $state" else details
+            }
+        val smallImageTemplate =
+            settings.smallImageTextTemplate.ifBlank { DiscordActivityBuilder.DEFAULT_LOGO_TEXT_TEMPLATE }
+        // Tooltip popups: tapping the artwork / the app logo shows the matching image
+        // text, mirroring Discord's hover tooltips.
+        val cardContext = LocalContext.current
+        var showLargeImageTooltip by remember { mutableStateOf(false) }
+        var showSmallImageTooltip by remember { mutableStateOf(false) }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // Header line, full width ABOVE the artwork row (Discord card layout):
+            // type + activity name.
             Text(
                 text = "$typeLabel ${content.name}",
                 // The card mimics the (dark) Discord rich presence: all text white.
@@ -1901,67 +2308,200 @@ private fun DiscordRpcPreviewCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.height(6.dp))
-            // The main (bold) line: the rendered details; for the idle fallback card
-            // (empty details) it shows the N-Zik identity name instead.
-            Text(
-                text = content.details.ifEmpty { content.name },
-                style = typography().m.copy(color = Color.White),
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (content.state.isNotEmpty()) {
-                Text(
-                    text = content.state,
-                    style = typography().s.copy(color = Color.White),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            val duration = player?.duration ?: 0L
-            if (duration > 0) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .padding(top = 8.dp)
-                        .background(palette.textSecondary.copy(alpha = 0.2f), RoundedCornerShape(2.dp))
-                ) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                if (showArtworkSection) {
+                    // Tap = the large image text tooltip popup (the Discord hover equivalent).
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth((positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f))
-                            .height(4.dp)
-                            .background(palette.accent, RoundedCornerShape(2.dp))
-                    )
+                            .size(72.dp)
+                            .clickable { showLargeImageTooltip = true },
+                    ) {
+                        if (artworkUrl != null) {
+                            ImageCacheFactory.AsyncImage(
+                                thumbnailUrl = artworkUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                        } else {
+                            // Fallback artwork: the app's standard missing-image icon (the
+                            // same drawable ImageCacheFactory uses for errors/absent
+                            // thumbnails).
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher_box),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                        }
+                        // Small image overlay at the artwork's bottom-right corner
+                        // (Discord's small-image position — the tooltip is the app version).
+                        // ic_launcher = the circular app icon (the one the import-CSV menu
+                        // uses); ic_launcher_box is a square and reads badly at this size.
+                        if (showSmallImageSection) {
+                            // Tap = the small image text tooltip popup (the app version).
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(4.dp)
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .clickable { showSmallImageTooltip = true }
+                            )
+                        }
+                    }
                 }
-            }
-            if (content.buttons.isNotEmpty()) {
-                // FlowRow: custom button labels can be long — wrapping keeps the
-                // buttons from overflowing/overlapping each other in the card.
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    content.buttons.forEach { button ->
+                Column(modifier = Modifier.weight(1f)) {
+                    // The main (bold) line: the rendered details. The idle fallback card
+                    // (no media) keeps the N-Zik identity name when the details template
+                    // is empty; a DISABLED details section (playing/paused) hides the line
+                    // entirely — the preview mirrors the real presence, where a disabled
+                    // section is omitted, not replaced.
+                    val boldLine = when {
+                        content.details.isNotEmpty() -> content.details
+                        isIdle -> content.name
+                        else -> null
+                    }
+                    if (boldLine != null) {
                         Text(
-                            text = button.label,
-                            style = typography().s.copy(color = Color.White),
-                            modifier = Modifier
-                                .clip(uiRoundnessShape())
-                                .background(palette.accent.copy(alpha = 0.15f), uiRoundnessShape())
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            text = boldLine,
+                            style = typography().m.copy(color = Color.White),
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // Second body line: the state (the artist by default).
+                    if (content.state.isNotEmpty()) {
+                        Text(
+                            text = content.state,
+                            style = typography().s.copy(color = Color.White),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    // Third body line: the large image text (hidden with the artwork
+                    // section — no artwork = no tooltip).
+                    if (showArtworkSection && imageText.isNotEmpty()) {
+                        Text(
+                            text = imageText,
+                            style = typography().xs.copy(color = palette.textSecondary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    val duration = player?.duration ?: 0L
+                    // The progress bar shows in EVERY preview state (playing / paused /
+                    // fallback): real media -> live progress; no media -> an empty bar
+                    // with "0:00 / 0:00" (the card stays complete). Material's
+                    // LinearProgressIndicator, the app's standard bar.
+                    if (showTimestampsSection) {
+                        val progress =
+                            if (duration > 0) (positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                            else 0f
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            color = palette.accent,
+                            trackColor = Color.White.copy(alpha = 0.25f),
+                            strokeCap = StrokeCap.Round,
+                            progress = { progress },
+                        )
+                        // Time labels under the bar (Discord shows "elapsed / total").
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = formatPreviewTime(if (duration > 0) positionMs else 0L),
+                                style = typography().xs.copy(color = palette.textSecondary),
+                                maxLines = 1
+                            )
+                            Text(
+                                text = formatPreviewTime(duration),
+                                style = typography().xs.copy(color = palette.textSecondary),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    if (content.buttons.isNotEmpty()) {
+                        // FlowRow: custom button labels can be long — wrapping keeps the
+                        // buttons from overflowing/overlapping each other in the card.
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            content.buttons.forEach { button ->
+                                // Tap = open the button link in the external browser (the
+                                // real Discord buttons open the same URL).
+                                Text(
+                                    text = button.label,
+                                    style = typography().s.copy(color = Color.White),
+                                    modifier = Modifier
+                                        .clip(uiRoundnessShape())
+                                        .background(palette.accent.copy(alpha = 0.15f), uiRoundnessShape())
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                        .clickable { cardContext.openDiscordButtonUrl(button.url) },
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
                 }
             }
-            }
         }
+        // The image text tooltip popups (tap targets: the artwork and the app logo).
+        if (showLargeImageTooltip) {
+            DiscordImageTooltipDialog(
+                title = stringResource(R.string.discord_advanced_image_text),
+                text = largeImageTemplate,
+                onDismiss = { showLargeImageTooltip = false },
+            )
+        }
+        if (showSmallImageTooltip) {
+            DiscordImageTooltipDialog(
+                title = stringResource(R.string.discord_advanced_logo_text),
+                text = smallImageTemplate,
+                onDismiss = { showSmallImageTooltip = false },
+            )
+        }
+    }
+}
+
+/**
+ * Discord section only: "m:ss" time label for the preview card's progress bar
+ * (pure time formatting — not user-facing text, nothing to localize).
+ */
+private fun formatPreviewTime(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    return "${totalSeconds / 60}:${(totalSeconds % 60).toString().padStart(2, '0')}"
+}
+
+/**
+ * Discord section only: opens a preview card button URL in the external browser —
+ * the real Discord buttons open the same link, and the preview must let the user
+ * verify where each button points.
+ */
+private fun Context.openDiscordButtonUrl(url: String) {
+    if (url.isBlank()) return
+    runCatching {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 }
 

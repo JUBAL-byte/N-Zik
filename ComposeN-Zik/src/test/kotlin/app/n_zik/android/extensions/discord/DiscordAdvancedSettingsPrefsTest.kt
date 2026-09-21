@@ -60,6 +60,15 @@ class DiscordAdvancedSettingsPrefsTest {
         every { prefs.getBoolean(discordAdvancedButton2EnabledKey, true) } returns true
         every { prefs.getString(discordAdvancedButton2LabelKey, "") } returns null
         every { prefs.getString(discordAdvancedButton2UrlKey, "") } returns ""
+        every { prefs.getBoolean(discordAdvancedShowStateKey, true) } returns false
+        every { prefs.getBoolean(discordAdvancedShowDetailsKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedShowArtworkKey, true) } returns false
+        every { prefs.getBoolean(discordAdvancedShowSmallImageKey, true) } returns false
+        every { prefs.getBoolean(discordAdvancedShowTimestampsKey, true) } returns true
+        every { prefs.getString(discordAdvancedLargeImageTextKey, "") } returns "{album.name} v{app.version}"
+        every { prefs.getString(discordAdvancedSmallImageTextKey, "") } returns null
+        every { prefs.getBoolean(discordAdvancedPauseClearEnabledKey, true) } returns false
+        every { prefs.getBoolean(discordAdvancedIdleCloseEnabledKey, true) } returns false
 
         val settings = DiscordAdvancedSettings.read(prefs)
 
@@ -76,6 +85,15 @@ class DiscordAdvancedSettingsPrefsTest {
         assertTrue(settings.button2Enabled)
         assertEquals("", settings.button2Label, "a null stored string falls back to empty")
         assertEquals("", settings.button2Url)
+        assertTrue(!settings.showState, "the stored state toggle must be read (off)")
+        assertTrue(settings.showDetails, "the stored details toggle must be read (on)")
+        assertTrue(!settings.showArtwork, "the stored artwork toggle must be read (off)")
+        assertTrue(!settings.showSmallImage, "the stored logo toggle must be read (off)")
+        assertTrue(settings.showTimestamps, "the stored timestamps toggle must be read (on)")
+        assertEquals("{album.name} v{app.version}", settings.largeImageTextTemplate)
+        assertEquals("", settings.smallImageTextTemplate, "a null stored string falls back to empty")
+        assertTrue(!settings.pauseClearEnabled, "the stored auto-clear toggle must be read (off)")
+        assertTrue(!settings.idleCloseEnabled, "the stored idle-close toggle must be read (off)")
     }
 
     @Test
@@ -94,13 +112,22 @@ class DiscordAdvancedSettingsPrefsTest {
         every { prefs.getBoolean(discordAdvancedButton2EnabledKey, true) } returns true
         every { prefs.getString(discordAdvancedButton2LabelKey, "") } returns null
         every { prefs.getString(discordAdvancedButton2UrlKey, "") } returns null
+        every { prefs.getBoolean(discordAdvancedShowStateKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedShowDetailsKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedShowArtworkKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedShowSmallImageKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedShowTimestampsKey, true) } returns true
+        every { prefs.getString(discordAdvancedLargeImageTextKey, "") } returns null
+        every { prefs.getString(discordAdvancedSmallImageTextKey, "") } returns null
+        every { prefs.getBoolean(discordAdvancedPauseClearEnabledKey, true) } returns true
+        every { prefs.getBoolean(discordAdvancedIdleCloseEnabledKey, true) } returns true
 
         assertEquals(DiscordAdvancedSettings.DEFAULTS, DiscordAdvancedSettings.read(prefs))
     }
 
     @Test
     fun `the service re-sync key set covers every advanced key`() {
-        assertEquals(13, discordAdvancedSettingKeys.size)
+        assertEquals(22, discordAdvancedSettingKeys.size)
         assertTrue(
             discordAdvancedSettingKeys.containsAll(
                 listOf(
@@ -117,6 +144,15 @@ class DiscordAdvancedSettingsPrefsTest {
                     discordAdvancedButton2EnabledKey,
                     discordAdvancedButton2LabelKey,
                     discordAdvancedButton2UrlKey,
+                    discordAdvancedShowStateKey,
+                    discordAdvancedShowDetailsKey,
+                    discordAdvancedShowArtworkKey,
+                    discordAdvancedShowSmallImageKey,
+                    discordAdvancedShowTimestampsKey,
+                    discordAdvancedLargeImageTextKey,
+                    discordAdvancedSmallImageTextKey,
+                    discordAdvancedPauseClearEnabledKey,
+                    discordAdvancedIdleCloseEnabledKey,
                 )
             )
         )

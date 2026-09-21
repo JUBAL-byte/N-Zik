@@ -45,9 +45,27 @@ class DiscordTemplateRendererTest {
     }
 
     @Test
+    fun `the app version placeholder is replaced`() {
+        val rendered = DiscordTemplateRenderer.render(
+            template = "v{app.version}",
+            title = "Song",
+            artist = "Artist",
+            album = "Album",
+            unknownAlbum = UNKNOWN_ALBUM,
+            version = "2.3.4",
+        )
+        assertEquals("v2.3.4", rendered)
+    }
+
+    @Test
+    fun `the app version defaults to an empty string`() {
+        assertEquals("v", DiscordTemplateRenderer.render("v{app.version}", "Song", "Artist", "Album", unknownAlbum = UNKNOWN_ALBUM))
+    }
+
+    @Test
     fun `the placeholder chips match the supported placeholders`() {
         assertEquals(
-            listOf("{song.name}", "{artist.name}", "{album.name}", "{song.id}"),
+            listOf("{song.name}", "{artist.name}", "{album.name}", "{song.id}", "{app.version}"),
             DiscordTemplateRenderer.PLACEHOLDERS,
         )
     }

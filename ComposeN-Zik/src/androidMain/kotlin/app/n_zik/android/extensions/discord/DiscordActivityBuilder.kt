@@ -43,6 +43,8 @@ data class DiscordStrings(
     val pausedLineDefault: String,
     /** Localized fallback for `{album.name}` when the album is unknown. */
     val unknownAlbum: String,
+    /** The app version name — feeds the `{app.version}` placeholder (resolved by the caller). */
+    val appVersion: String = "",
 )
 
 /**
@@ -73,6 +75,13 @@ object DiscordActivityBuilder {
     const val DEFAULT_BUTTON1_URL = URL_N_ZIK_GITHUB
     const val DEFAULT_BUTTON2_URL = "$URL_YOUTUBE_WATCH{song.id}"
 
+    /**
+     * Default logo (small image) text template — the manager resolves it live to
+     * "v<app version>" (`v${str.appVersion}`); this const is its template form for the
+     * settings UI (entry fallback + preview tooltip).
+     */
+    const val DEFAULT_LOGO_TEXT_TEMPLATE = "v{app.version}"
+
     private fun render(template: String, info: DiscordMediaInfo, str: DiscordStrings): String =
         DiscordTemplateRenderer.render(
             template,
@@ -81,6 +90,7 @@ object DiscordActivityBuilder {
             info.albumName,
             info.songId,
             str.unknownAlbum,
+            str.appVersion,
         )
 
     /** name/state/details/buttons for a playing (or paused) media item. */
@@ -92,11 +102,14 @@ object DiscordActivityBuilder {
         return if (s.advancedMode) {
             DiscordPresenceContent(
                 name = renderedName(s.activityName, info, str),
-                state = render(s.stateTemplate.ifEmpty { DEFAULT_STATE_TEMPLATE }, info, str),
-                details = render(s.detailsTemplate.ifEmpty { DEFAULT_DETAILS_TEMPLATE }, info, str),
+                // Disabled sections render as empty lines — the manager normalizes them
+                // to null before the module call (the JSON field is then omitted).
+                state = if (s.showState) render(s.stateTemplate.ifEmpty { DEFAULT_STATE_TEMPLATE }, info, str) else "",
+                details = if (s.showDetails) render(s.detailsTemplate.ifEmpty { DEFAULT_DETAILS_TEMPLATE }, info, str) else "",
                 buttons = advancedButtons(s, info, str),
             )
         } else {
+            // Normal mode: the frozen NZik identity — the section toggles do not apply.
             DiscordPresenceContent(
                 name = str.nameFallback,
                 state = info.artist,
@@ -106,12 +119,17 @@ object DiscordActivityBuilder {
         }
     }
 
-    /** The details line shown while paused (item 6: dedicated pause template). */
+    /**
+     * The details line shown while paused (item 6: dedicated pause template). The pause
+     * line renders INTO the details line, so the details section toggle hides it too
+     * (advanced mode only; normal mode keeps the fixed representation).
+     */
     fun buildPausedLine(
         info: DiscordMediaInfo,
         s: DiscordAdvancedSettings,
         str: DiscordStrings,
     ): String {
+        if (s.advancedMode && !s.showDetails) return ""
         return render(
             if (s.advancedMode) s.pauseTemplate.ifEmpty { str.pausedLineDefault }
             else str.pausedLineDefault,
@@ -128,8 +146,9 @@ object DiscordActivityBuilder {
     fun buildIdlePreview(s: DiscordAdvancedSettings, str: DiscordStrings): DiscordPresenceContent {
         return DiscordPresenceContent(
             name = s.activityName.ifBlank { str.nameFallback },
-            state = s.stateTemplate.ifBlank { DEFAULT_STATE_TEMPLATE },
-            details = s.detailsTemplate.ifBlank { DEFAULT_DETAILS_TEMPLATE },
+            // The disabled sections stay hidden in the preview too (advanced mode only).
+            state = if (s.advancedMode && !s.showState) "" else s.stateTemplate.ifBlank { DEFAULT_STATE_TEMPLATE },
+            details = if (s.advancedMode && !s.showDetails) "" else s.detailsTemplate.ifBlank { DEFAULT_DETAILS_TEMPLATE },
             buttons = idleButtons(s, str),
         )
     }

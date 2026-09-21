@@ -131,11 +131,12 @@ class DiscordActivityBuilderTest {
     }
 
     @Test
-    fun `all four template placeholders are offered in the dialogs`() {
+    fun `all five template placeholders are offered in the dialogs`() {
         // Regression (2026-09-21): {song.id} was clipped off the single-line chip
-        // row in the template dialogs — the full set must stay offered.
+        // row in the template dialogs — the full set must stay offered (the fork
+        // addition {app.version} joined it for the image tooltips).
         assertEquals(
-            setOf("{song.name}", "{song.id}", "{artist.name}", "{album.name}"),
+            setOf("{song.name}", "{song.id}", "{artist.name}", "{album.name}", "{app.version}"),
             DiscordTemplateRenderer.PLACEHOLDERS.toSet(),
         )
     }
@@ -151,5 +152,58 @@ class DiscordActivityBuilderTest {
 
         val custom = DiscordAdvancedSettings.DEFAULTS.copy(advancedMode = true, pauseTemplate = "{song.name} ⏸")
         assertEquals("Song ⏸", DiscordActivityBuilder.buildPausedLine(info, custom, strings))
+    }
+
+    // ─── Per-section visibility (advanced mode only) ────────────────────────────────
+
+    @Test
+    fun `advanced mode hides the state and details lines when the sections are disabled`() {
+        val settings = DiscordAdvancedSettings.DEFAULTS.copy(
+            advancedMode = true,
+            showState = false,
+            showDetails = false,
+        )
+        val content = DiscordActivityBuilder.buildForPlaying(info, settings, strings)
+        assertEquals("", content.state, "the disabled state section must be empty")
+        assertEquals("", content.details, "the disabled details section must be empty")
+        assertEquals("N-Zik", content.name, "the name line is not affected")
+        assertEquals(normalButtons, content.buttons, "buttons are not affected")
+    }
+
+    @Test
+    fun `normal mode ignores the section toggles (frozen identity)`() {
+        val settings = DiscordAdvancedSettings.DEFAULTS.copy(
+            showState = false,
+            showDetails = false,
+            showArtwork = false,
+            showSmallImage = false,
+            showTimestamps = false,
+        )
+        val content = DiscordActivityBuilder.buildForPlaying(info, settings, strings)
+        assertEquals("Artist", content.state, "normal mode keeps the fixed state line")
+        assertEquals("Song", content.details, "normal mode keeps the fixed details line")
+    }
+
+    @Test
+    fun `the paused line is hidden when the details section is disabled`() {
+        val disabled = DiscordAdvancedSettings.DEFAULTS.copy(advancedMode = true, showDetails = false)
+        assertEquals("", DiscordActivityBuilder.buildPausedLine(info, disabled, strings))
+        // The enabled section keeps the pause line; normal mode is unaffected either way.
+        val enabled = DiscordAdvancedSettings.DEFAULTS.copy(advancedMode = true)
+        assertEquals("⏸︎ Paused: Song", DiscordActivityBuilder.buildPausedLine(info, enabled, strings))
+        assertEquals("⏸︎ Paused: Song", DiscordActivityBuilder.buildPausedLine(info, DiscordAdvancedSettings.DEFAULTS, strings))
+    }
+
+    @Test
+    fun `idle preview hides the disabled sections in advanced mode`() {
+        val settings = DiscordAdvancedSettings.DEFAULTS.copy(
+            advancedMode = true,
+            showState = false,
+            showDetails = false,
+        )
+        val content = DiscordActivityBuilder.buildIdlePreview(settings, strings)
+        assertEquals("", content.state, "the preview must honor the disabled state section")
+        assertEquals("", content.details, "the preview must honor the disabled details section")
+        assertEquals("N-Zik", content.name)
     }
 }
