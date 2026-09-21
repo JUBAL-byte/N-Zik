@@ -37,6 +37,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -1713,12 +1714,22 @@ private fun DiscordTemplateFieldDialog(
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(12.dp))
+        // Palette-explicit colors: the dialog background is colorPalette().background1,
+        // so the default Material3 scheme (dark onSurface text) made the typed text and
+        // the placeholder unreadable on dark themes.
         OutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            placeholder = { Text(placeholderValue, style = typography().s) },
+            placeholder = { Text(placeholderValue, style = typography().s.copy(color = palette.textSecondary)) },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = palette.text,
+                unfocusedTextColor = palette.text,
+                cursorColor = palette.accent,
+                focusedBorderColor = palette.accent,
+                unfocusedBorderColor = palette.textSecondary,
+            )
         )
         Spacer(Modifier.height(8.dp))
         Text(
