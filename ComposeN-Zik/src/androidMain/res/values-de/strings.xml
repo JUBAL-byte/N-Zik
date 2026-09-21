@@ -1570,8 +1570,6 @@
     <string name="cd_reset">Zurücksetzen</string>
     <string name="cd_import_playlist_name">importiere Playlist-Name</string>
     <string name="cd_new_playlist_name">neuer Playlist-Name</string>
-    <string name="txt_listen_to_ytmusic">YTMusic anhören</string>
-    <string name="txt_get_n_zik">Get N-Zik</string>
     <string name="cd_pacman_logo">Pacman Logo</string>
     <string name="cd_snake_logo">Schlangenlogo</string>
     <string name="txt_visualizerbackground">Visualizer-Hintergrund</string>
@@ -1674,7 +1672,6 @@
     <string name="state_discover_off">Entdeckungsmodus AUS (Enthält bekannte Songs und neue Entdeckungen)</string>
     <string name="state_reminder_discover">Erinnerung: Der Entdeckungsmodus ist noch aktiv</string>
     <string name="state_discover_error">Aktivieren Sie „Radio“ oder „Automatisches hinzufügen “, um „Entdecken “ zu nutzen</string>
-    <string name="discord_enable_browsing">Enable Browsing Status</string>
     <string name="songs_shuffled">%d Songs gemischt</string>
     <string name="queue_shuffled">Warteschlange gemischt (%d Songs)</string>
     <string name="playlist_positions_shuffled">%d positions shuffled</string>

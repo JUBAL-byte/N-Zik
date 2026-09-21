@@ -1570,8 +1570,6 @@
     <string name="cd_reset">Reset</string>
     <string name="cd_import_playlist_name">importeer afspeellijstnaam</string>
     <string name="cd_new_playlist_name">nieuwe naam van de afspeellijst</string>
-    <string name="txt_listen_to_ytmusic">Luister naar YTMusic</string>
-    <string name="txt_get_n_zik">Get N-Zik</string>
     <string name="cd_pacman_logo">Pacman Logo</string>
     <string name="cd_snake_logo">Snake Logo</string>
     <string name="txt_visualizerbackground">Weergave Achtergrond</string>
@@ -1674,7 +1672,6 @@
     <string name="state_discover_off">Discover mode OFF (Includes known songs and new discoveries)</string>
     <string name="state_reminder_discover">Reminder: Discover mode is still active</string>
     <string name="state_discover_error">Turn on Radio or Auto-fill to use Discover</string>
-    <string name="discord_enable_browsing">Enable Browsing Status</string>
     <string name="songs_shuffled">%d songs shuffled</string>
     <string name="queue_shuffled">Queue shuffled (%d songs)</string>
     <string name="playlist_positions_shuffled">%d positions shuffled</string>

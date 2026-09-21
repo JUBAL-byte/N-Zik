@@ -1570,8 +1570,6 @@
     <string name="cd_reset">Sıfırla</string>
     <string name="cd_import_playlist_name">çalma listesi adını içe aktar</string>
     <string name="cd_new_playlist_name">yeni çalma listesi adı</string>
-    <string name="txt_listen_to_ytmusic">YT Music\'te dinleyin</string>
-    <string name="txt_get_n_zik">N-Zik\'i edinin</string>
     <string name="cd_pacman_logo">Pacman Logo</string>
     <string name="cd_snake_logo">Snake Logo</string>
     <string name="txt_visualizerbackground">Görselleştirici Arka Planı</string>
@@ -1674,7 +1672,6 @@
     <string name="state_discover_off">Keşif modu KAPALI (Bilinen şarkılar ve yeni keşifler dahil)</string>
     <string name="state_reminder_discover">Hatırlatma: Keşif modu hâlâ etkin</string>
     <string name="state_discover_error">Keşif özelliğini kullanmak için Radyo veya Otomatik Doldurma seçeneğini etkinleştirin</string>
-    <string name="discord_enable_browsing">Gezinme Durumunu Etkinleştir</string>
     <string name="songs_shuffled">%d şarkı rastgele çalındı</string>
     <string name="queue_shuffled">Kuyruk karıştırıldı (%d şarkı)</string>
     <string name="playlist_positions_shuffled">%d sıra karıştırıldı</string>

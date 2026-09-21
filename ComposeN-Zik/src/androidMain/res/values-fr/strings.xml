@@ -1571,8 +1571,6 @@ Volume BAS : titre précédent</string>
     <string name="cd_reset">Réinitialiser</string>
     <string name="cd_import_playlist_name">Importer le nom de la liste de lecture</string>
     <string name="cd_new_playlist_name">nouveau nom de la playlist</string>
-    <string name="txt_listen_to_ytmusic">Écouter YTMusic</string>
-    <string name="txt_get_n_zik">Get N-Zik</string>
     <string name="cd_pacman_logo">Pacman Logo</string>
     <string name="cd_snake_logo">Logo du serpent</string>
     <string name="txt_visualizerbackground">Fond d\'écran</string>
@@ -1675,7 +1673,6 @@ Volume BAS : titre précédent</string>
     <string name="state_discover_off">Mode « Découverte » désactivé (comprend les titres connus et les nouvelles découvertes)</string>
     <string name="state_reminder_discover">Rappel : le mode « Découverte » est toujours actif</string>
     <string name="state_discover_error">Activez la fonction « Radio » ou « Remplissage automatique » pour utiliser « Découverte »</string>
-    <string name="discord_enable_browsing">Activer l\'état de navigation</string>
     <string name="songs_shuffled">%d titres en lecture aléatoire</string>
     <string name="queue_shuffled">File d\'attente aléatoire (%d titres)</string>
     <string name="playlist_positions_shuffled">%d positions ont été mélangées</string>
