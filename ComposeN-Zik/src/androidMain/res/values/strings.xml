@@ -433,6 +433,7 @@
     <string name="include_youtube_credentials">Include YouTube identity credentials</string>
     <string name="include_discord_credentials">Include Discord identity credentials</string>
     <string name="include_lastfm_credentials">Include Last.fm identity credentials</string>
+    <string name="include_proxy_credentials">Include the proxy password</string>
 <string name="import_both">Import both</string>
 <string name="export_database_description">Export database with songs, playlists, and history</string>
 <string name="export_settings_description">Export app settings and preferences</string>
@@ -1595,6 +1596,7 @@
 <string name="rescue_include_youtube_credentials">Include YouTube credentials</string>
 <string name="rescue_include_discord_credentials">Include Discord credentials</string>
 <string name="rescue_include_lastfm_credentials">Include Last.fm credentials</string>
+<string name="rescue_include_proxy_credentials">Include the proxy password</string>
 <string name="app_shortcuts_settings">App shortcuts</string>
 <string name="app_shortcuts_settings_description">Choose and reorder launcher shortcuts</string>
 <string name="app_shortcuts_max_reached">Maximum of %1$d active shortcuts reached</string>

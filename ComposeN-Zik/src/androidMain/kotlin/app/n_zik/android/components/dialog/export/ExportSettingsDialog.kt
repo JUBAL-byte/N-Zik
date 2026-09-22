@@ -16,32 +16,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import app.n_zik.android.BuildConfig
-import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
-import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
-import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
-import app.n_zik.android.extensions.lastfm.lastfmSessionKey
-import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
-import app.it.fast4x.rimusic.utils.discordAvatarKey
-import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
-import app.it.fast4x.rimusic.utils.discordUsernameKey
-import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
-import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
+import app.n_zik.android.core.rescue.RescueFiles
 import app.it.fast4x.rimusic.utils.encryptedPreferences
-import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
-import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import app.it.fast4x.rimusic.utils.preferences
-import app.it.fast4x.rimusic.utils.useYtLoginOnlyForBrowseKey
-import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
-import app.it.fast4x.rimusic.utils.ytAccountEmailKey
-import app.it.fast4x.rimusic.utils.ytAccountNameKey
-import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
-import app.it.fast4x.rimusic.utils.ytCookieKey
-import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
-import app.it.fast4x.rimusic.utils.ytVisitorDataKey
 import androidx.compose.runtime.MutableState
 
 class ExportSettingsDialog private constructor(
@@ -49,7 +26,8 @@ class ExportSettingsDialog private constructor(
     private val context: Context,
     private val includeYtbState: MutableState<Boolean>,
     private val includeDiscordState: MutableState<Boolean>,
-    private val includeLastfmState: MutableState<Boolean>
+    private val includeLastfmState: MutableState<Boolean>,
+    private val includeProxyState: MutableState<Boolean>
 ) {
     companion object {
         private fun onExport(
@@ -57,7 +35,8 @@ class ExportSettingsDialog private constructor(
             context: Context,
             includeYtb: Boolean,
             includeDiscord: Boolean,
-            includeLastfm: Boolean
+            includeLastfm: Boolean,
+            includeProxy: Boolean
         ) = NzikDispatchers.fireAndForget(NzikDispatchers.DATA).launch {
             runCatching {
                 Timber.tag("ExportSettingsDialog").d("Starting settings export...")
@@ -71,9 +50,17 @@ class ExportSettingsDialog private constructor(
                     .filter { it.first != "null" && it.third !== Unit }
                     .toMutableList()
 
-                if (includeYtb || includeDiscord || includeLastfm) {
-                    entries.addAll(buildCredentialEntries(context.encryptedPreferences.all, includeYtb, includeDiscord, includeLastfm))
-                }
+                // Single source of truth (RescueFiles): the selected credential groups plus,
+                // when checked, the proxy key — exactly as the auto backup and the rescue build them.
+                entries.addAll(
+                    RescueFiles.buildCredentialExport(
+                        context.encryptedPreferences.all,
+                        includeYtb,
+                        includeDiscord,
+                        includeLastfm,
+                        includeProxy
+                    )
+                )
 
                 Timber.tag("ExportSettingsDialog").d("Found ${entries.size} settings entries")
 
@@ -95,75 +82,12 @@ class ExportSettingsDialog private constructor(
             }
         }
 
-        internal fun buildCredentialEntries(
-            encryptedPrefs: Map<String, Any?>,
-            includeYtb: Boolean,
-            includeDiscord: Boolean,
-            includeLastfm: Boolean
-        ): List<Triple<String, String, Any>> {
-            val ytbKeys = listOf(
-                ytCookieKey,
-                ytVisitorDataKey,
-                ytDataSyncIdKey,
-                ytAccountNameKey,
-                ytAccountEmailKey,
-                ytAccountChannelHandleKey,
-                ytAccountThumbnailKey,
-                enableYouTubeLoginKey,
-                enableYouTubeSyncKey,
-                useYtLoginOnlyForBrowseKey
-            )
-            val discordKeys = listOf(
-                discordPersonalAccessTokenKey,
-                discordAvatarKey,
-                discordUsernameKey,
-                isDiscordPresenceEnabledKey,
-                isDiscordBrowsingEnabledKey
-            )
-            val lastfmKeys = listOf(
-                lastfmSessionKey,
-                lastfmUsernameKey,
-                lastfmAvatarUrlKey,
-                isLastfmScrobblingEnabledKey,
-                isLastfmNowPlayingEnabledKey,
-                isLastfmScrobbleEnabledKey,
-                lastfmMinTrackDurationSecondsKey,
-                lastfmScrobbleThresholdPercentKey,
-                lastfmMaxScrobbleDelaySecondsKey
-            )
-            val entries = mutableListOf<Triple<String, String, Any>>()
-            if (includeYtb) {
-                ytbKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-            if (includeDiscord) {
-                discordKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-            if (includeLastfm) {
-                lastfmKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-            return entries
-        }
-
         @Composable
         operator fun invoke( context: Context ): ExportSettingsDialog {
             val includeYtbState = remember { mutableStateOf(false) }
             val includeDiscordState = remember { mutableStateOf(false) }
             val includeLastfmState = remember { mutableStateOf(false) }
+            val includeProxyState = remember { mutableStateOf(false) }
             val launcher = rememberLauncherForActivityResult(
                 ActivityResultContracts.CreateDocument( "text/csv" )
             ) { uri ->
@@ -172,18 +96,20 @@ class ExportSettingsDialog private constructor(
                 val ytb = includeYtbState.value
                 val discord = includeDiscordState.value
                 val lastfm = includeLastfmState.value
-                onExport( uri, context, ytb, discord, lastfm )
+                val proxy = includeProxyState.value
+                onExport( uri, context, ytb, discord, lastfm, proxy )
             }
             return remember(launcher, context) {
-                ExportSettingsDialog(launcher, context, includeYtbState, includeDiscordState, includeLastfmState)
+                ExportSettingsDialog(launcher, context, includeYtbState, includeDiscordState, includeLastfmState, includeProxyState)
             }
         }
     }
 
-    fun export(includeYtb: Boolean = false, includeDiscord: Boolean = false, includeLastfm: Boolean = false) {
+    fun export(includeYtb: Boolean = false, includeDiscord: Boolean = false, includeLastfm: Boolean = false, includeProxy: Boolean = false) {
         includeYtbState.value = includeYtb
         includeDiscordState.value = includeDiscord
         includeLastfmState.value = includeLastfm
+        includeProxyState.value = includeProxy
         val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
         val fileName = "${BuildConfig.APP_NAME} $date Settings"
         Timber.tag("ExportSettingsDialog").d("Launching file picker with name: $fileName.csv")

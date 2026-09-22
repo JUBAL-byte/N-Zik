@@ -18,33 +18,10 @@ import java.io.InputStream
 
 import app.n_zik.android.components.ImportFromFile
 import app.n_zik.android.components.dialog.common.RestartAppDialog
-import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
-import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
-import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
-import app.n_zik.android.extensions.lastfm.lastfmSessionKey
-import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
+import app.n_zik.android.core.rescue.RescueFiles
 import app.kreate.android.me.knighthat.utils.Toaster
-import app.it.fast4x.rimusic.utils.discordAvatarKey
-import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
-import app.it.fast4x.rimusic.utils.discordUsernameKey
-import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
-import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
 import app.it.fast4x.rimusic.utils.encryptedPreferences
-import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
-import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
 import app.it.fast4x.rimusic.utils.preferences
-import app.it.fast4x.rimusic.utils.useYtLoginOnlyForBrowseKey
-import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
-import app.it.fast4x.rimusic.utils.ytAccountEmailKey
-import app.it.fast4x.rimusic.utils.ytAccountNameKey
-import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
-import app.it.fast4x.rimusic.utils.ytCookieKey
-import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
-import app.it.fast4x.rimusic.utils.ytVisitorDataKey
 
 class ImportSettings private constructor(
     launcher: ManagedActivityResultLauncher<Array<String>, Uri?>
@@ -55,15 +32,10 @@ class ImportSettings private constructor(
             Timber.tag("ImportSettings").d("Starting settings import...")
             val rows = csvReader().readAllWithHeader( inStream )
             Timber.tag("ImportSettings").d("Read ${rows.size} rows from CSV")
-            val encryptedKeys = listOf(
-                ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey, ytAccountNameKey, ytAccountEmailKey,
-                ytAccountChannelHandleKey, ytAccountThumbnailKey, enableYouTubeLoginKey,
-                enableYouTubeSyncKey, useYtLoginOnlyForBrowseKey, discordPersonalAccessTokenKey,
-                discordAvatarKey, discordUsernameKey, isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey,
-                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
-                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
-                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
-            )
+            // Single source of truth (RescueFiles): every key that lives in the encrypted
+            // prefs — YouTube / Discord (incl. advanced) / Last.fm groups plus the proxy
+            // password — must be routed to the encrypted editor, never to plain prefs.
+            val encryptedKeys = RescueFiles.ALL_ENCRYPTED_KEYS
             
             val editor = context.preferences.edit()
             val encryptedEditor = context.encryptedPreferences.edit()

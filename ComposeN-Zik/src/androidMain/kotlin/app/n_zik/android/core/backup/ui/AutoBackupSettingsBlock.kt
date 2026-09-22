@@ -38,6 +38,7 @@ fun AutoBackupSettingsBlock() {
     var autoBackupIncludeYtb by rememberPreference(BackupManager.PREF_INCLUDE_YTB, false)
     var autoBackupIncludeDiscord by rememberPreference(BackupManager.PREF_INCLUDE_DISCORD, false)
     var autoBackupIncludeLastfm by rememberPreference(BackupManager.PREF_INCLUDE_LASTFM, false)
+    var autoBackupIncludeProxy by rememberPreference(BackupManager.PREF_INCLUDE_PROXY, false)
     var autoBackupPreInstall by rememberPreference(BackupManager.PREF_PRE_INSTALL, false)
 
     var showIntervalDialog by remember { mutableStateOf(false) }
@@ -115,6 +116,14 @@ fun AutoBackupSettingsBlock() {
                 isChecked = autoBackupIncludeLastfm,
                 onCheckedChange = { autoBackupIncludeLastfm = it },
                 icon = R.drawable.logo_lastfm,
+                modifier = Modifier.padding(start = 24.dp)
+            )
+            OtherSwitchSettingEntry(
+                title = stringResource(R.string.include_proxy_credentials),
+                text = "",
+                isChecked = autoBackupIncludeProxy,
+                onCheckedChange = { autoBackupIncludeProxy = it },
+                icon = R.drawable.shield_checkmark,
                 modifier = Modifier.padding(start = 24.dp)
             )
         }

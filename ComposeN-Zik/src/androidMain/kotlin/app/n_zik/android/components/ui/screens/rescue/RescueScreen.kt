@@ -105,6 +105,7 @@ fun RescueScreen() {
     var includeYtb by remember { mutableStateOf(false) }
     var includeDiscord by remember { mutableStateOf(false) }
     var includeLastfm by remember { mutableStateOf(false) }
+    var includeProxy by remember { mutableStateOf(false) }
     var showCredentialToggles by remember { mutableStateOf(false) }
 
     // Set once restored settings are waiting for this process to end: no other write may run.
@@ -194,11 +195,11 @@ fun RescueScreen() {
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val result = withContext(NzikDispatchers.DATA) {
-                val wantsCredentials = includeYtb || includeDiscord || includeLastfm
+                val wantsCredentials = includeYtb || includeDiscord || includeLastfm || includeProxy
                 RescueFiles.exportSettings(
                     context, uri,
                     if (wantsCredentials) encryptedPrefs.await() else null,
-                    includeYtb, includeDiscord, includeLastfm
+                    includeYtb, includeDiscord, includeLastfm, includeProxy
                 )
             }
             showSettingsResult(result)
@@ -295,6 +296,10 @@ fun RescueScreen() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = includeLastfm, onCheckedChange = { includeLastfm = it })
                                 Text(stringResource(R.string.rescue_include_lastfm_credentials), color = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = includeProxy, onCheckedChange = { includeProxy = it })
+                                Text(stringResource(R.string.rescue_include_proxy_credentials), color = MaterialTheme.colorScheme.onSurface)
                             }
                         }
                         Spacer(modifier = Modifier.height(24.dp))

@@ -8,15 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import app.n_zik.android.BuildConfig
 import app.n_zik.android.core.database.Database
-import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
-import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
-import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
-import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
-import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
-import app.n_zik.android.extensions.lastfm.lastfmSessionKey
-import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
+import app.n_zik.android.core.rescue.RescueFiles
 import app.n_zik.android.utils.coroutines.NzikDispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -43,6 +35,7 @@ object BackupManager {
     const val PREF_INCLUDE_YTB = "autoBackupIncludeYtbKey"
     const val PREF_INCLUDE_DISCORD = "autoBackupIncludeDiscordKey"
     const val PREF_INCLUDE_LASTFM = "autoBackupIncludeLastfmKey"
+    const val PREF_INCLUDE_PROXY = "autoBackupIncludeProxyKey"
     const val PREF_PRE_INSTALL = "autoBackupPreInstallKey"
 
     const val TARGET_DATABASE = 0
@@ -186,7 +179,8 @@ object BackupManager {
                 val includeYtb = prefs.getBoolean(PREF_INCLUDE_YTB, false)
                 val includeDiscord = prefs.getBoolean(PREF_INCLUDE_DISCORD, false)
                 val includeLastfm = prefs.getBoolean(PREF_INCLUDE_LASTFM, false)
-                Timber.tag("AutoBackup").d("executeBackup settings: Target=$target, IncludeYtb=$includeYtb, IncludeDiscord=$includeDiscord, IncludeLastfm=$includeLastfm")
+                val includeProxy = prefs.getBoolean(PREF_INCLUDE_PROXY, false)
+                Timber.tag("AutoBackup").d("executeBackup settings: Target=$target, IncludeYtb=$includeYtb, IncludeDiscord=$includeDiscord, IncludeLastfm=$includeLastfm, IncludeProxy=$includeProxy")
                 
                 var success = true
                 val date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss"))
@@ -225,7 +219,7 @@ object BackupManager {
                         context.contentResolver, docUri, "text/csv", fileName
                     )
                     if (newDocUri != null) {
-                        exportSettings(context, newDocUri, includeYtb, includeDiscord, includeLastfm)
+                        exportSettings(context, newDocUri, includeYtb, includeDiscord, includeLastfm, includeProxy)
                         Timber.tag("AutoBackup").i("Settings backup successful to $fileName")
                     } else {
                         Timber.tag("AutoBackup").e("Failed to create document for settings backup")
@@ -305,7 +299,7 @@ object BackupManager {
         }
     }
 
-    private suspend fun exportSettings(context: Context, uri: Uri, includeYtb: Boolean, includeDiscord: Boolean, includeLastfm: Boolean) {
+    private suspend fun exportSettings(context: Context, uri: Uri, includeYtb: Boolean, includeDiscord: Boolean, includeLastfm: Boolean, includeProxy: Boolean) {
         val entries: MutableList<Triple<String, String, Any>> = context.preferences
             .all
             .map {
@@ -318,49 +312,19 @@ object BackupManager {
 
         Timber.tag("AutoBackup").d("exportSettings: Base settings count: ${entries.size}")
 
-        if (includeYtb || includeDiscord || includeLastfm) {
-            val ytbKeys = listOf(
-                ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey, ytAccountNameKey, ytAccountEmailKey,
-                ytAccountChannelHandleKey, ytAccountThumbnailKey, enableYouTubeLoginKey, enableYouTubeSyncKey,
-                useYtLoginOnlyForBrowseKey
+        // Single source of truth (RescueFiles): the selected credential groups plus, when
+        // checked, the proxy key — exactly as the manual export and the rescue build them.
+        entries.addAll(
+            RescueFiles.buildCredentialExport(
+                context.encryptedPreferences.all,
+                includeYtb,
+                includeDiscord,
+                includeLastfm,
+                includeProxy
             )
-            val discordKeys = listOf(
-                discordPersonalAccessTokenKey, discordAvatarKey, discordUsernameKey,
-                isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
-            )
-            val lastfmKeys = listOf(
-                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
-                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
-                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
-            )
-            val encryptedPrefs = context.encryptedPreferences.all
-            if (includeYtb) {
-                ytbKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-            if (includeDiscord) {
-                discordKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-            if (includeLastfm) {
-                lastfmKeys.forEach { key ->
-                    encryptedPrefs[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
-            }
-        }
+        )
 
-        Timber.tag("AutoBackup").d("exportSettings: Final settings count to write: ${entries.size} (Include Ytb: $includeYtb, Include Discord: $includeDiscord, Include Lastfm: $includeLastfm)")
+        Timber.tag("AutoBackup").d("exportSettings: Final settings count to write: ${entries.size} (Include Ytb: $includeYtb, Include Discord: $includeDiscord, Include Lastfm: $includeLastfm, Include Proxy: $includeProxy)")
 
         context.contentResolver.openOutputStream(uri)?.use { outStream ->
             csvWriter().open(outStream) {

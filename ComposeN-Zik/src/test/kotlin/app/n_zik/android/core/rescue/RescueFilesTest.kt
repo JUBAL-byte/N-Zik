@@ -1,8 +1,24 @@
 package app.n_zik.android.core.rescue
 
 import android.content.SharedPreferences
-import app.n_zik.android.components.dialog.export.ExportSettingsDialog
+import app.n_zik.android.extensions.discord.discordAdvancedShowStateKey
+import app.n_zik.android.extensions.discord.discordAdvancedStateTemplateKey
+import app.n_zik.android.extensions.discord.discordAdvancedSettingKeys
+import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
+import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
+import app.n_zik.android.extensions.lastfm.lastfmAvatarUrlKey
+import app.n_zik.android.extensions.lastfm.lastfmMaxScrobbleDelaySecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmMinTrackDurationSecondsKey
+import app.n_zik.android.extensions.lastfm.lastfmScrobbleThresholdPercentKey
 import app.n_zik.android.extensions.lastfm.lastfmSessionKey
+import app.n_zik.android.extensions.lastfm.lastfmUsernameKey
+import app.it.fast4x.rimusic.utils.discordAvatarKey
+import app.it.fast4x.rimusic.utils.discordPersonalAccessTokenKey
+import app.it.fast4x.rimusic.utils.discordUsernameKey
+import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
+import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.it.fast4x.rimusic.utils.proxyPasswordEncryptedKey
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -120,13 +136,155 @@ class RescueFilesTest {
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    // Credential export assembly (shared by the manual export, auto backup, rescue)
+    // ──────────────────────────────────────────────────────────────────────
+
+    private val sparseCredentialPrefs: Map<String, Any> = mapOf(
+        lastfmSessionKey to "session123",
+        lastfmUsernameKey to "NEVARLeVrai",
+        lastfmAvatarUrlKey to "https://s.example/avatar.jpg",
+        isLastfmScrobblingEnabledKey to true,
+        isLastfmNowPlayingEnabledKey to true,
+        isLastfmScrobbleEnabledKey to true,
+        lastfmMinTrackDurationSecondsKey to 30,
+        lastfmScrobbleThresholdPercentKey to 50,
+        lastfmMaxScrobbleDelaySecondsKey to 50,
+        discordPersonalAccessTokenKey to "discord-token"
+    )
+
+    @Test
+    fun `lastfm credentials are exported only when includeLastfm is true`() {
+        val without = RescueFiles.buildCredentialExport(sparseCredentialPrefs, false, false, false)
+        val with = RescueFiles.buildCredentialExport(sparseCredentialPrefs, false, false, true)
+
+        assertTrue(without.isEmpty())
+        assertEquals(
+            setOf(
+                lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey, isLastfmScrobblingEnabledKey,
+                isLastfmNowPlayingEnabledKey, isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
+                lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
+            ),
+            with.map { it.second }.toSet()
+        )
+    }
+
+    @Test
+    fun `each credential group is independent of the others`() {
+        val discordOnly = RescueFiles.buildCredentialExport(sparseCredentialPrefs, false, true, false)
+
+        assertEquals(1, discordOnly.size)
+        assertEquals(discordPersonalAccessTokenKey, discordOnly.single().second)
+    }
+
+    @Test
+    fun `entries carry the value type name and the raw value`() {
+        val with = RescueFiles.buildCredentialExport(sparseCredentialPrefs, false, false, true)
+        val session = with.first { it.second == lastfmSessionKey }
+
+        assertEquals("String", session.first)
+        assertEquals("session123", session.third)
+    }
+
+    @Test
+    fun `missing credentials are skipped without failing the export`() {
+        val with = RescueFiles.buildCredentialExport(
+            mapOf(lastfmSessionKey to "session123"),
+            false,
+            false,
+            true
+        )
+
+        assertEquals(1, with.size)
+        assertEquals(lastfmSessionKey, with.single().second)
+    }
+
+    @Test
+    fun `each selection exports exactly its own group and the proxy only when its box is checked`() {
+        val allKeys: Map<String, Any> = RescueFiles.ALL_ENCRYPTED_KEYS.associateWith { "v" }
+
+        val ytb = RescueFiles.buildCredentialExport(allKeys, true, false, false).map { it.second }.toSet()
+        assertEquals(RescueFiles.YTB_KEYS.toSet(), ytb)
+
+        val discord = RescueFiles.buildCredentialExport(allKeys, false, true, false).map { it.second }.toSet()
+        assertEquals(RescueFiles.DISCORD_KEYS.toSet(), discord)
+
+        val lastfm = RescueFiles.buildCredentialExport(allKeys, false, false, true).map { it.second }.toSet()
+        assertEquals(RescueFiles.LASTFM_KEYS.toSet(), lastfm)
+
+        val ytbWithProxy = RescueFiles.buildCredentialExport(allKeys, true, false, false, true).map { it.second }.toSet()
+        assertEquals(RescueFiles.YTB_KEYS.toSet() + RescueFiles.PROXY_KEYS.toSet(), ytbWithProxy)
+
+        val proxyOnly = RescueFiles.buildCredentialExport(allKeys, false, false, false, true).map { it.second }.toSet()
+        assertEquals(RescueFiles.PROXY_KEYS.toSet(), proxyOnly)
+
+        val all = RescueFiles.buildCredentialExport(allKeys, true, true, true, true).map { it.second }.toSet()
+        assertEquals(RescueFiles.ALL_ENCRYPTED_KEYS.toSet(), all)
+    }
+
+    @Test
+    fun `every on off combination of the credential selection exports exactly those groups`() {
+        val allKeys: Map<String, Any> = RescueFiles.ALL_ENCRYPTED_KEYS.associateWith { "v" }
+
+        for (ytb in listOf(false, true)) {
+            for (discord in listOf(false, true)) {
+                for (lastfm in listOf(false, true)) {
+                    for (proxy in listOf(false, true)) {
+                        val expected = (
+                            (if (ytb) RescueFiles.YTB_KEYS else emptyList()) +
+                            (if (discord) RescueFiles.DISCORD_KEYS else emptyList()) +
+                            (if (lastfm) RescueFiles.LASTFM_KEYS else emptyList()) +
+                            (if (proxy) RescueFiles.PROXY_KEYS else emptyList())
+                            ).toSet()
+                        val got = RescueFiles.buildCredentialExport(allKeys, ytb, discord, lastfm, proxy).map { it.second }.toSet()
+                        assertEquals(expected, got, "selection ytb=$ytb discord=$discord lastfm=$lastfm proxy=$proxy")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `import restores every plain key and every encrypted key to its own store`() {
+        val rows: List<Triple<String, String, Any>> = listOf(
+            Triple<String, String, Any>("String", "languageApp", "en"),
+            Triple<String, String, Any>("Int", "downloadQuality", 2),
+            Triple<String, String, Any>("Long", "lastSyncMillis", 1_729_000_000_000L),
+            Triple<String, String, Any>("Float", "playbackSpeed", 1.5),
+            Triple<String, String, Any>("Boolean", "persistentQueue", true)
+        ) + RescueFiles.ALL_ENCRYPTED_KEYS.map { key -> Triple<String, String, Any>("String", key, "credential") }
+
+        val csvRows = roundTrip(rows)
+        assertEquals(rows.size, csvRows.size)
+
+        val plain = editor()
+        val encrypted = editor()
+        val stats = RescueFiles.applySettingRows(csvRows, plain, encrypted)
+
+        assertEquals(
+            RescueFiles.SettingsImportStats(imported = rows.size, encryptedSkipped = 0),
+            stats
+        )
+        verify { plain.putString("languageApp", "en") }
+        verify { plain.putInt("downloadQuality", 2) }
+        verify { plain.putLong("lastSyncMillis", 1_729_000_000_000L) }
+        verify { plain.putFloat("playbackSpeed", 1.5f) }
+        verify { plain.putBoolean("persistentQueue", true) }
+        verify(exactly = 1) { plain.putString(any(), any()) }
+        verify(exactly = 1) { plain.putInt(any(), any()) }
+        verify(exactly = 1) { plain.putLong(any(), any()) }
+        verify(exactly = 1) { plain.putFloat(any(), any()) }
+        verify(exactly = 1) { plain.putBoolean(any(), any()) }
+        verify(exactly = RescueFiles.ALL_ENCRYPTED_KEYS.size) { encrypted.putString(any(), any()) }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
     // Encrypted key routing
     // ──────────────────────────────────────────────────────────────────────
 
     private val allKeysMap: Map<String, Any?> = RescueFiles.ALL_ENCRYPTED_KEYS.associateWith { "x" }
 
-    private fun credentialKeys(ytb: Boolean, discord: Boolean, lastfm: Boolean): Set<String> =
-        ExportSettingsDialog.buildCredentialEntries(allKeysMap, ytb, discord, lastfm)
+    private fun credentialKeys(ytb: Boolean, discord: Boolean, lastfm: Boolean, includeProxy: Boolean = false): Set<String> =
+        RescueFiles.buildCredentialExport(allKeysMap, ytb, discord, lastfm, includeProxy)
             .map { it.second }
             .toSet()
 
@@ -138,6 +296,26 @@ class RescueFilesTest {
     @Test
     fun `Discord keys match the regular settings export`() {
         assertEquals(RescueFiles.DISCORD_KEYS.toSet(), credentialKeys(ytb = false, discord = true, lastfm = false))
+    }
+
+    @Test
+    fun `Discord keys cover every advanced presence setting`() {
+        assertTrue(
+            discordAdvancedSettingKeys.all { it in RescueFiles.DISCORD_KEYS },
+            "every advanced Discord setting must be exported and import-routed with the credentials"
+        )
+    }
+
+    @Test
+    fun `Discord keys still carry the legacy section keys`() {
+        val legacyKeys = listOf(
+            discordPersonalAccessTokenKey, discordAvatarKey, discordUsernameKey,
+            isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
+        )
+        assertTrue(
+            legacyKeys.all { it in RescueFiles.DISCORD_KEYS },
+            "the legacy Discord section keys must remain exported"
+        )
     }
 
     @Test
@@ -169,9 +347,25 @@ class RescueFilesTest {
     }
 
     @Test
-    fun `ALL_ENCRYPTED_KEYS is the union of all three groups`() {
-        val expected = (RescueFiles.YTB_KEYS + RescueFiles.DISCORD_KEYS + RescueFiles.LASTFM_KEYS).toSet()
+    fun `ALL_ENCRYPTED_KEYS is the union of the credential groups and the app-owned encrypted settings`() {
+        val expected = (
+            RescueFiles.YTB_KEYS + RescueFiles.DISCORD_KEYS + RescueFiles.LASTFM_KEYS + RescueFiles.PROXY_KEYS
+            ).toSet()
         assertEquals(expected, RescueFiles.ALL_ENCRYPTED_KEYS.toSet())
+    }
+
+    @Test
+    fun `the proxy password key is treated as encrypted`() {
+        assertTrue(proxyPasswordEncryptedKey in RescueFiles.ALL_ENCRYPTED_KEYS)
+    }
+
+    @Test
+    fun `buildProxyEntries exports the password when set and is empty otherwise`() {
+        val withPassword = RescueFiles.buildProxyEntries(mapOf(proxyPasswordEncryptedKey to "s3cret"))
+        assertEquals(listOf(Triple("String", proxyPasswordEncryptedKey, "s3cret")), withPassword)
+
+        val empty = RescueFiles.buildProxyEntries(mapOf(proxyPasswordEncryptedKey to null))
+        assertTrue(empty.isEmpty())
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -405,6 +599,58 @@ class RescueFilesTest {
         verify { plain.putLong("big", 9_000_000_000L) }
         verify { plain.putFloat("ratio", 1.5f) }
         assertEquals(RescueFiles.SettingsImportStats(imported = 5, encryptedSkipped = 0), stats)
+    }
+
+    @Test
+    fun `full encrypted round trip exports every encrypted key and restores it to the encrypted store`() {
+        val samples: Map<String, Any> = RescueFiles.ALL_ENCRYPTED_KEYS.associateWith { "sample-value" }
+
+        // The export assembly every export path (settings dialog, rescue, auto-backup) builds:
+        // the credential groups plus the app-owned proxy key.
+        val exported = RescueFiles.buildCredentialExport(samples, true, true, true, true)
+
+        assertEquals(RescueFiles.ALL_ENCRYPTED_KEYS.size, exported.size, "every encrypted key must be exported")
+        assertEquals(RescueFiles.ALL_ENCRYPTED_KEYS.toSet(), exported.map { it.second }.toSet())
+
+        // CSV round trip (values with commas or quotes must survive).
+        val rows = roundTrip(exported)
+        assertEquals(exported.size, rows.size)
+
+        // Import side (rescue + regular import both route on ALL_ENCRYPTED_KEYS): every key
+        // must land in the encrypted editor, none in the plain one.
+        val plain = editor()
+        val encrypted = editor()
+        val stats = RescueFiles.applySettingRows(rows, plain, encrypted)
+
+        assertEquals(
+            RescueFiles.SettingsImportStats(imported = RescueFiles.ALL_ENCRYPTED_KEYS.size, encryptedSkipped = 0),
+            stats
+        )
+        verify(exactly = 0) { plain.putString(any(), any()) }
+        verify { encrypted.putString(discordAdvancedStateTemplateKey, "sample-value") }
+        verify { encrypted.putString(proxyPasswordEncryptedKey, "sample-value") }
+    }
+
+    @Test
+    fun `advanced discord and proxy keys are routed to the encrypted editor`() {
+        val plain = editor()
+        val encrypted = editor()
+        val rows = listOf(
+            Triple("String", discordAdvancedStateTemplateKey, "{song.name}"),
+            Triple("Boolean", discordAdvancedShowStateKey, "true"),
+            Triple("String", proxyPasswordEncryptedKey, "s3cret"),
+            Triple("String", "language", "en")
+        )
+
+        val stats = RescueFiles.applySettingRows(rows, plain, encrypted)
+
+        verify { encrypted.putString(discordAdvancedStateTemplateKey, "{song.name}") }
+        verify { encrypted.putBoolean(discordAdvancedShowStateKey, true) }
+        verify { encrypted.putString(proxyPasswordEncryptedKey, "s3cret") }
+        verify(exactly = 0) { plain.putString(discordAdvancedStateTemplateKey, any()) }
+        verify(exactly = 0) { plain.putString(proxyPasswordEncryptedKey, any()) }
+        verify { plain.putString("language", "en") }
+        assertEquals(RescueFiles.SettingsImportStats(imported = 4, encryptedSkipped = 0), stats)
     }
 
     @Test

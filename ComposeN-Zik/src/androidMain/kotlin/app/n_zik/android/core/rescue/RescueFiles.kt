@@ -15,6 +15,7 @@ import app.it.fast4x.rimusic.utils.enableYouTubeLoginKey
 import app.it.fast4x.rimusic.utils.enableYouTubeSyncKey
 import app.it.fast4x.rimusic.utils.isDiscordBrowsingEnabledKey
 import app.it.fast4x.rimusic.utils.isDiscordPresenceEnabledKey
+import app.it.fast4x.rimusic.utils.proxyPasswordEncryptedKey
 import app.it.fast4x.rimusic.utils.useYtLoginOnlyForBrowseKey
 import app.it.fast4x.rimusic.utils.ytAccountChannelHandleKey
 import app.it.fast4x.rimusic.utils.ytAccountEmailKey
@@ -23,6 +24,7 @@ import app.it.fast4x.rimusic.utils.ytAccountThumbnailKey
 import app.it.fast4x.rimusic.utils.ytCookieKey
 import app.it.fast4x.rimusic.utils.ytDataSyncIdKey
 import app.it.fast4x.rimusic.utils.ytVisitorDataKey
+import app.n_zik.android.extensions.discord.discordAdvancedSettingKeys
 import app.n_zik.android.extensions.lastfm.isLastfmNowPlayingEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobbleEnabledKey
 import app.n_zik.android.extensions.lastfm.isLastfmScrobblingEnabledKey
@@ -81,25 +83,77 @@ object RescueFiles {
      */
     private val keepCorruptDatabase by lazy { DatabaseErrorHandler { } }
 
-    // Encrypted credential keys, built from the real constants so they cannot drift from
-    // ExportSettingsDialog.buildCredentialEntries (const vals are inlined: no app init needed).
+    // Encrypted credential keys, built from the real constants so they cannot drift
+    // (const vals are inlined: no app init needed). These lists are the single source of
+    // truth — BackupManager and ExportSettingsDialog must reference them, never re-declare.
     internal val YTB_KEYS = listOf(
         ytCookieKey, ytVisitorDataKey, ytDataSyncIdKey,
         ytAccountNameKey, ytAccountEmailKey, ytAccountChannelHandleKey,
         ytAccountThumbnailKey, enableYouTubeLoginKey, enableYouTubeSyncKey,
         useYtLoginOnlyForBrowseKey
     )
+    // The legacy section keys plus every advanced-mode key (item 6/7/8): a backup that
+    // carries the token but not the customization is an incomplete backup. The advanced
+    // keys live in the same encrypted prefs, so import routing covers them too.
     internal val DISCORD_KEYS = listOf(
         discordPersonalAccessTokenKey, discordAvatarKey, discordUsernameKey,
         isDiscordPresenceEnabledKey, isDiscordBrowsingEnabledKey
-    )
+    ) + discordAdvancedSettingKeys
     internal val LASTFM_KEYS = listOf(
         lastfmSessionKey, lastfmUsernameKey, lastfmAvatarUrlKey,
         isLastfmScrobblingEnabledKey, isLastfmNowPlayingEnabledKey,
         isLastfmScrobbleEnabledKey, lastfmMinTrackDurationSecondsKey,
         lastfmScrobbleThresholdPercentKey, lastfmMaxScrobbleDelaySecondsKey
     )
-    internal val ALL_ENCRYPTED_KEYS = YTB_KEYS + DISCORD_KEYS + LASTFM_KEYS
+    /**
+     * The app's own encrypted setting (the proxy password): not a service credential group, so it
+     * gets its own checkbox instead of riding along with the credential groups. It lives in the
+     * encrypted prefs, so it cannot appear in the plain `prefs.all` export.
+     */
+    internal val PROXY_KEYS = listOf(proxyPasswordEncryptedKey)
+    // Every key that lives in the encrypted prefs: import routing must send each one to the
+    // encrypted editor, never to the plain preferences.
+    internal val ALL_ENCRYPTED_KEYS = YTB_KEYS + DISCORD_KEYS + LASTFM_KEYS + PROXY_KEYS
+
+    /**
+     * CSV rows for [PROXY_KEYS] present in [encryptedPrefs]; empty when the password was
+     * never set. Same `Type,Key,Value` shape as the credential entries.
+     */
+    internal fun buildProxyEntries(encryptedPrefs: Map<String, Any?>): List<Triple<String, String, Any>> =
+        PROXY_KEYS.mapNotNull { key ->
+            val value = encryptedPrefs[key] ?: return@mapNotNull null
+            val type = value::class.simpleName ?: "null"
+            if (type == "null") return@mapNotNull null
+            Triple(type, key, value)
+        }
+
+    /**
+     * The full credential section of a settings export: the selected groups plus, when its own
+     * flag is on, the app-owned proxy key. Single source of truth for the assembly — the manual
+     * export dialog, the auto backup and the rescue export must all build the same entries, so
+     * the user's credential selection is respected identically on every path. Empty when nothing
+     * is selected.
+     */
+    internal fun buildCredentialExport(
+        encryptedPrefs: Map<String, Any?>,
+        includeYtb: Boolean,
+        includeDiscord: Boolean,
+        includeLastfm: Boolean,
+        includeProxy: Boolean = false
+    ): List<Triple<String, String, Any>> {
+        if (!includeYtb && !includeDiscord && !includeLastfm && !includeProxy) return emptyList()
+        val keys = mutableListOf<String>()
+        if (includeYtb) keys.addAll(YTB_KEYS)
+        if (includeDiscord) keys.addAll(DISCORD_KEYS)
+        if (includeLastfm) keys.addAll(LASTFM_KEYS)
+        if (includeProxy) keys.addAll(PROXY_KEYS)
+        return keys.mapNotNull { key ->
+            val value = encryptedPrefs[key] ?: return@mapNotNull null
+            val type = value::class.simpleName ?: "null"
+            if (type == "null") return@mapNotNull null
+            Triple(type, key, value)
+        }
+    }
 
     // ──────────────────────────────────────────────────────────────────────
     // Process guard
@@ -292,7 +346,8 @@ object RescueFiles {
         encryptedPrefsResult: Result<SharedPreferences>? = null,
         includeYtb: Boolean = false,
         includeDiscord: Boolean = false,
-        includeLastfm: Boolean = false
+        includeLastfm: Boolean = false,
+        includeProxy: Boolean = false
     ): Result<SettingsOutcome> = runCatching {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val entries = mutableListOf<Triple<String, String, Any>>()
@@ -307,21 +362,11 @@ object RescueFiles {
 
         // Encrypted credentials (optional, may fail)
         var encryptedSkipped = false
-        if (includeYtb || includeDiscord || includeLastfm) {
+        if (includeYtb || includeDiscord || includeLastfm || includeProxy) {
             val encPrefs = encryptedPrefsResult?.getOrNull()
             if (encPrefs != null) {
-                val all = encPrefs.all
-                val keysToInclude = mutableListOf<String>()
-                if (includeYtb) keysToInclude.addAll(YTB_KEYS)
-                if (includeDiscord) keysToInclude.addAll(DISCORD_KEYS)
-                if (includeLastfm) keysToInclude.addAll(LASTFM_KEYS)
-
-                keysToInclude.forEach { key ->
-                    all[key]?.let { value ->
-                        val type = value::class.simpleName ?: "null"
-                        if (type != "null") entries.add(Triple(type, key, value))
-                    }
-                }
+                // Single source of truth: the selected groups plus, when checked, the proxy key.
+                entries.addAll(buildCredentialExport(encPrefs.all, includeYtb, includeDiscord, includeLastfm, includeProxy))
             } else {
                 encryptedSkipped = true
                 Timber.tag(TAG).w("Cannot access encrypted preferences; exporting without credentials")
