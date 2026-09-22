@@ -1,0 +1,3 @@
+Added: Discord RPC advanced mode (interactive preview, text templates, activity type, custom buttons, pause presence), dedicated download quality + "Update downloads" batch.
+Improved: RPC presence in ~2-3s (was up to ~40s), threading hardening (#606 parts 1-5).
+Fixed: RPC browsing status coming back, artwork upload failures, endless reconnects, mini player vanishing on rotation, swipes during opening (#818/#816), download quality tracking, Discord customizations & proxy password in backups.

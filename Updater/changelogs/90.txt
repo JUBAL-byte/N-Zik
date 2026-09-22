@@ -1,0 +1,44 @@
+Added:
+- Discord RPC advanced mode: text templates for the name, details, state and pause lines with {song.name}, {song.id}, {artist.name} and {album.name} placeholders, an activity type selector (listening / playing / watching / competing), two custom buttons (label + URL), a "Show pause presence" switch (default on), and a live preview card of the presence fed by the current playback (title, media artwork, position).
+- Discord RPC interactive preview card: tap the artwork for the large-image text tooltip, tap the app logo for the logo text tooltip, tap a button to open its URL in the external browser. The image text is a template with {app.version}; its built-in default mirrors the real presence's "details - state" line, so the paused state shows in it.
+- Two new Discord RPC connection toggles: pause auto-clear (60 s, default on) and idle close (10 min, default on).
+- Discord RPC section regrouped into 6 groups (Identity / Lines / Images / Progress bar / Buttons / Connection), entries ordered by card display order, and displayed defaults recovered from the code (7 static defaults removed, all 65 discord strings audited with 0 orphans).
+- Discord RPC upstream parity lot (19 items): gateway v10, per-session heartbeat jitter, stale-close generation guard, speed-aware timestamps with [1.50x] suffix and re-send on speed change, ~5 s live refresh with network re-arm, 60 s pause clear and 10 min idle close with connection re-creation, persistent dismissible error banner in Settings (invalid token / failed reconnect), 128-entry artwork cache, single application ID and R8 consumer rules.
+- Dedicated download quality selection (Auto / High / Low, independent of the streaming quality) with an "Update downloads" batch that re-downloads every track stored at another quality, with a pending-count badge; the tracked quality is stored per download (database migration 41→42) and shown in Stats for Nerds.
+
+Improved:
+- The Discord RPC presence now lands in ~2-3 s instead of up to ~40 s: a fresh session sends its first heartbeat immediately, since the gateway only completes the identify once the first heartbeat arrives.
+- Discord RPC reconnects are capped at 7 attempts with ±25 % jitter backoff and a 60 s floor for 429 Retry-After; a refused WebSocket upgrade is captured and honored instead of being rethrown.
+- Threading (#606, parts 1-5): every remaining scheduling site routed through the named dispatchers (62 sites), legacy state collection made lifecycle-aware on the DATA dispatcher, the three long-lived module scopes guarded with coroutine exception handlers, residual database contexts added, and the dead legacy KMP Room database removed.
+- The download quality is now enforced in the URL cache: a download never reuses a URL resolved at the streaming quality, and the tracked quality is written even when the format row was just inserted.
+
+Changed:
+- The Discord RPC "Browsing" presence is removed: the music presence has priority, and no browsing fallback is sent anymore.
+- The Discord RPC user status is fixed to "online" on every presence update (the status selector is gone; the activity type selector is kept).
+- With the pause presence ON, the paused presence now persists: the 60 s pause clear is skipped and the 10 min idle close re-arms instead of closing.
+- InnerTubeX bumped v0.6.0 → v0.7.0.
+
+Fixed:
+- Discord RPC: the "browsing" status coming back randomly — the browsing key is re-validated right before the gateway write, and a cleared presence is never re-sent after a reconnect.
+- Discord RPC: reconnection no longer retries forever — after 7 failed attempts it abandons (state flag + in-app warning toast), and the HTTP client is properly released per connection cycle.
+- Discord RPC: an in-flight presence can no longer overwrite a newer one (stale activity guard, checked before and after the session wait).
+- Discord RPC: a failed artwork upload no longer poisons the cache — a failed upload is not cached and is retried on the next 5 s tick, so the presence image comes back without switching song; concurrent uploads of the same artwork now share one fetch (root cause of the 429 rate limits).
+- Discord RPC: intermittent artwork loss — a same-artwork refresh no longer cancels a slow first upload (only an image change cancels).
+- Discord RPC: an invalid token (4004) now shows a persistent dismissible banner in Settings → Discord (previously a toast only), and the gateway state is reset so the next connect does not send a stale resume.
+- Discord RPC: the template input dialogs' typed text and placeholder were unreadable on the dark dialog background; they now use palette-explicit colors.
+- Discord RPC: 367 orphaned strings removed from all 49 locale files, plus 3 lot leftovers.
+- Backup: the Discord advanced settings (name, templates, buttons, section toggles, image/logo text, pause presence, inactivity toggles) and the proxy password were missing from the settings export/import, the auto backup and the rescue center — the encrypted key lists are now a single shared source of truth (47 keys) used by every export and import path, the credential assembly is one function shared by all three export paths, and the proxy password has its own "Include the proxy password" checkbox in the export dialog, the auto backup settings and the rescue center.
+- Mini player: no longer disappears on rotation or after a UI change (the sheet anchor is remembered on snap, and a dismissed mini player is brought back when media is present).
+- Mini player: the "top" position is now honored with an adapted layout (below the header, mirrored gestures, side-rail insets, content reserve, and the top nav bar leaving with the header).
+- Mini player: swipes and sideways slides no longer act during the opening (doubled touch slop, mostly-vertical drag detection, continuous direction re-check) (issue https://github.com/N-Zik-Group/N-Zik/issues/818) (issue https://github.com/N-Zik-Group/N-Zik/issues/816).
+- Mini player: swipe actions run once per gesture and always act on the current song (issue https://github.com/N-Zik-Group/N-Zik/issues/818) (issue https://github.com/N-Zik-Group/N-Zik/issues/816).
+- Mini player: the collapsed card stays clear of the side system bars even without a navigation rail.
+- Downloads: the download quality is enforced in the URL cache and always tracked (Stats for Nerds no longer shows "Unknown"); the "Update downloads" confirm no longer overflows the stack; a fast quality switch is no longer lost by an in-flight download.
+- 19 duplicated imports removed from legacy files (pure hygiene, zero behavior change) (issue https://github.com/N-Zik-Group/N-Zik/issues/606).
+
+Refactor:
+- #606 parts 2-4: legacy package state collection routed through the named dispatchers with lifecycle-aware collection, database-derived flows given an explicit context, test literals moved to the named dispatcher, module scope handlers and hygiene (issue https://github.com/N-Zik-Group/N-Zik/issues/606).
+
+Other:
+- modules/discordrpc is a git submodule: its changes are committed in the submodule first, then the pointer is bumped in the main repo.
+- Verification: unit test suites green (discordrpc module 54/54, app Discord suite 51/51, backup/rescue/export suites 100 tests, downloads and mini player suites).
