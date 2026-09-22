@@ -69,17 +69,7 @@ object PlaylistWidgetManager {
     }
 
     private suspend fun loadBitmap(context: Context, url: String?): Bitmap? {
-        if (url.isNullOrEmpty()) return null
-        return try {
-            val request = ImageRequest.Builder(context)
-                .data(url)
-                .allowHardware(false)
-                .build()
-            val result = getImageLoader(context).execute(request)
-            result.image?.toBitmap()
-        } catch (e: Exception) {
-            null
-        }
+        return null
     }
 
     private fun getLikedBitmap(context: Context, accentColor: Int): Bitmap {

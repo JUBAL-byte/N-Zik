@@ -296,6 +296,26 @@ object ImageCacheFactory {
         return DownloadDecision(false, cachedQuality)
     }
 
+    /**
+     * The flat stand-in drawn wherever a cover would have been.
+     *
+     * This build shows no artwork at all. Every image in the app was requested
+     * through this object -- `MainApplication.newImageLoader` hands Coil this
+     * same LOADER, and no other file loads images except the two home-screen
+     * widgets, which are handled the same way. The fetching code is gone
+     * rather than skipped, so covers cost no data, memory or disk, and there
+     * is no setting that brings them back.
+     */
+    @Composable
+    private fun BlankArtwork(modifier: Modifier, contentScale: ContentScale) {
+        Image(
+            painter = painterResource(R.drawable.blank_artwork),
+            contentDescription = null,
+            modifier = modifier.fillMaxSize(),
+            contentScale = contentScale
+        )
+    }
+
     @Composable
     fun Thumbnail(
         thumbnailUrl: String?,
@@ -303,85 +323,7 @@ object ImageCacheFactory {
         contentScale: ContentScale = ContentScale.Crop,
         modifier: Modifier = Modifier.clip(thumbnailShape()).fillMaxSize()
     ) {
-        val cleanedUrl = thumbnailUrl?.let { cleanPrefix(it) }
-        val validUrl = if (cleanedUrl.isNullOrBlank() || cleanedUrl == "null") null else cleanedUrl
-        val decision = getDownloadDecision(validUrl)
-        val version by storeVersion.collectAsStateWithLifecycle()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                // if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
-        }
-
-        if (currentUrl == null) {
-            var showFallback by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(10000L)
-                showFallback = true
-            }
-            Image(
-                painter = painterResource(if (showFallback) R.drawable.ic_launcher_box else R.drawable.loader),
-                contentDescription = null,
-                modifier = modifier.fillMaxSize(),
-                contentScale = contentScale
-            )
-            return
-        }
-        
-        val request = ImageRequest.Builder(appContext())
-            .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .listener(
-                onSuccess = { _, result ->
-                    val dataSource = result.dataSource
-                    if (dataSource != DataSource.MEMORY_CACHE) {
-                        val id = currentUrl?.getYouTubeId()
-                        if (id != null) {
-                            currentUrl?.let { url -> PlaylistThumbnailStore.save(id, url, url.isYouTubeHighRes()) }
-                        }
-                    }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
-                    }
-                },
-                onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
-                    // Timber.tag("ImageCache").e(result.throwable, "Error: original=%s, modified=%s, error=%s", validUrl, currentUrl, errorMsg)
-                    val id = currentUrl?.getYouTubeId()
-                    
-                    // Un-swap fallback for Playlists/Podcasts (handling expired signatures)
-                    // We are more aggressive: any error on a swapped URL triggers un-swap.
-                    if (currentUrl != validUrl && id != null &&
-                        (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
-                        
-                        clearCacheForKey(currentUrl, decision.quality)
-                        PlaylistThumbnailStore.clear(id)
-                        currentUrl = validUrl
-                        return@listener
-                    }
-                    
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
-                        val fallback = currentUrl.getNextYouTubeFallback()
-                        if (fallback != null) {
-                            currentUrl = fallback
-                            return@listener
-                        }
-                    }
-                }
-            )
-            .build()
-
-        AsyncImage(
-            model = request,
-            imageLoader = LOADER,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = modifier,
-            placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box)
-        )
+        BlankArtwork(modifier, contentScale)
     }
 
     @Composable
@@ -395,79 +337,9 @@ object ImageCacheFactory {
         onSuccess: ((State.Success) -> Unit)? = null,
         onError: ((State.Error) -> Unit)? = null
     ): AsyncImagePainter {
-        val cleanedUrl = thumbnailUrl?.let { cleanPrefix(it) }
-        val validUrl = if (cleanedUrl.isNullOrBlank() || cleanedUrl == "null") null else cleanedUrl
-        val decision = getDownloadDecision(validUrl)
-        val version by storeVersion.collectAsStateWithLifecycle()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                // if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
-        }
-        
-        
-        val request = ImageRequest.Builder(appContext())
-            .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .listener(
-                onSuccess = { _, result ->
-                    val dataSource = result.dataSource
-                    if (dataSource != DataSource.MEMORY_CACHE) {
-                        val id = currentUrl?.getYouTubeId()
-                        if (id != null) {
-                            currentUrl?.let { url -> PlaylistThumbnailStore.save(id, url, url.isYouTubeHighRes()) }
-                        }
-                    }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
-                    }
-                },
-                onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
-                    //Timber.tag("ImageCache").e(result.throwable, "Error: original=%s, modified=%s, error=%s", validUrl, currentUrl, errorMsg)
-                    val id = currentUrl?.getYouTubeId()
-
-                    if (currentUrl != validUrl && id != null &&
-                        (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
-                        
-                        clearCacheForKey(currentUrl, decision.quality)
-                        PlaylistThumbnailStore.clear(id)
-                        currentUrl = validUrl
-                        return@listener
-                    }
-
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
-                        val fallback = currentUrl.getNextYouTubeFallback()
-                        if (fallback != null) {
-                            currentUrl = fallback
-                            return@listener
-                        }
-                    }
-                }
-            )
-            .build()
-
-        var showFallback by remember { mutableStateOf(false) }
-        if (currentUrl == null) {
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(10000L)
-                showFallback = true
-            }
-        }
-
         return rememberAsyncImagePainter(
-            model = request,
-            imageLoader = LOADER,
-            contentScale = contentScale,
-            placeholder = painterResource(placeholder ?: R.drawable.loader),
-            error = painterResource(if (currentUrl == null && !showFallback) R.drawable.loader else error),
-            fallback = painterResource(if (currentUrl == null && !showFallback) R.drawable.loader else fallback),
-            onLoading = onLoading,
-            onSuccess = onSuccess,
-            onError = { state ->
-                onError?.invoke(state)
-            }
+            model = R.drawable.blank_artwork,
+            imageLoader = LOADER
         )
     }
 
@@ -479,82 +351,7 @@ object ImageCacheFactory {
         modifier: Modifier = Modifier,
         @DrawableRes error: Int = R.drawable.ic_launcher_box
     ) {
-        val cleanedUrl = thumbnailUrl?.let { cleanPrefix(it) }
-        val validUrl = if (cleanedUrl.isNullOrBlank() || cleanedUrl == "null") null else cleanedUrl
-        val decision = getDownloadDecision(validUrl)
-        val version by storeVersion.collectAsStateWithLifecycle()
-        var currentUrl by remember(validUrl, version) {
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size))
-        }
-
-        if (currentUrl == null) {
-            var showFallback by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(10000L)
-                showFallback = true
-            }
-            Image(
-                painter = painterResource(if (showFallback) R.drawable.ic_launcher_box else R.drawable.loader),
-                contentDescription = null,
-                modifier = modifier.fillMaxSize(),
-                contentScale = contentScale
-            )
-            return
-        }
-
-        val request = ImageRequest.Builder(appContext())
-            .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .listener(
-                onSuccess = { _, result ->
-                    val dataSource = result.dataSource
-                    if (dataSource != DataSource.MEMORY_CACHE) {
-                        val id = currentUrl?.getYouTubeId()
-                        if (id != null) {
-                            currentUrl?.let { url -> PlaylistThumbnailStore.save(id, url, url.isYouTubeHighRes()) }
-                        }
-                    }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
-                    }
-                },
-                onError = { _, _ ->
-                    val id = currentUrl?.getYouTubeId()
-                    if (currentUrl != validUrl && id != null &&
-                        (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
-                        clearCacheForKey(currentUrl, decision.quality)
-                        PlaylistThumbnailStore.clear(id)
-                        currentUrl = validUrl
-                        return@listener
-                    }
-                }
-            )
-            .build()
-
-        SubcomposeAsyncImage(
-            model = request,
-            imageLoader = LOADER,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = modifier,
-            loading = {
-                Image(
-                    painter = painterResource(R.drawable.loader),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = contentScale
-                )
-            },
-            error = {
-                Image(
-                    painter = painterResource(error),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = contentScale
-                )
-            }
-        )
+        BlankArtwork(modifier, contentScale)
     }
 
     @Composable
@@ -567,204 +364,14 @@ object ImageCacheFactory {
         onSuccess: ((State.Success) -> Unit)? = null,
         onError: ((State.Error) -> Unit)? = null
     ) {
-        val cleanedUrl = thumbnailUrl?.let { cleanPrefix(it) }
-        val validUrl = if (cleanedUrl.isNullOrBlank() || cleanedUrl == "null") null else cleanedUrl
-        val decision = getDownloadDecision(validUrl)
-        val version by storeVersion.collectAsStateWithLifecycle()
-        var currentUrl by remember(validUrl, version) { 
-            mutableStateOf(validUrl?.thumbnail(decision.quality.size).also { modUrl ->
-                //if (validUrl != null) Timber.tag("ImageCache").d("URL: original=%s, modified=%s", validUrl, modUrl)
-            }) 
-        }
-
-        if (currentUrl == null) {
-            var showFallback by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(10000L)
-                showFallback = true
-            }
-            Image(
-                painter = painterResource(if (showFallback) R.drawable.ic_launcher_box else R.drawable.loader),
-                contentDescription = null,
-                modifier = modifier.fillMaxSize(),
-                contentScale = contentScale
-            )
-            return
-        }
-        
-        val request = ImageRequest.Builder(appContext())
-            .data(currentUrl)
-            .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-            .listener(
-                onSuccess = { _, result ->
-                    val dataSource = result.dataSource
-                    if (dataSource != DataSource.MEMORY_CACHE) {
-                        val id = currentUrl?.getYouTubeId()
-                        if (id != null) {
-                            currentUrl?.let { url -> PlaylistThumbnailStore.save(id, url, url.isYouTubeHighRes()) }
-                        }
-                    }
-                    if (validUrl != null && decision.useNetwork) {
-                        CacheMetadataStore.save(validUrl, decision.quality)
-                    }
-                },
-                onError = { _, result ->
-                    val errorMsg = result.throwable.message ?: ""
-                    //Timber.tag("ImageCache").e(result.throwable, "Error: original=%s, modified=%s, error=%s", validUrl, currentUrl, errorMsg)
-                    val id = currentUrl?.getYouTubeId()
-
-                    if (currentUrl != validUrl && id != null &&
-                        (currentUrl?.contains("i.ytimg.com/pl_c/") == true || currentUrl?.contains("podcasts") == true)) {
-                        
-                        clearCacheForKey(currentUrl, decision.quality)
-                        PlaylistThumbnailStore.clear(id)
-                        currentUrl = validUrl
-                        return@listener
-                    }
-
-                    if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
-                        val fallback = currentUrl.getNextYouTubeFallback()
-                        if (fallback != null) {
-                            currentUrl = fallback
-                            return@listener
-                        }
-                    }
-                }
-            )
-            .build()
-
-        AsyncImage(
-            model = request,
-            imageLoader = LOADER,
-            contentDescription = contentDescription,
-            contentScale = contentScale,
-            modifier = modifier,
-            placeholder = painterResource(R.drawable.loader),
-            error = painterResource(R.drawable.ic_launcher_box),
-            fallback = painterResource(R.drawable.ic_launcher_box),
-            onLoading = onLoading,
-            onSuccess = onSuccess,
-            onError = { state ->
-                val errorMsg = state.result.throwable.message ?: ""
-                if (errorMsg.contains("404") && currentUrl?.contains("i.ytimg.com/vi/") == true) {
-                    val fallback = currentUrl.getNextYouTubeFallback()
-                    if (fallback != null) {
-                        // Re-trigger via currentUrl in listener above
-                        return@AsyncImage
-                    }
-                }
-                onError?.invoke(state)
-            }
-        )
+        BlankArtwork(modifier, contentScale)
     }
 
     suspend fun loadBitmap(url: String?, allowHardware: Boolean = false): Bitmap? {
-        if (url.isNullOrBlank() || url == "null") {
-            return null
-        }
-        
-        val decision = getDownloadDecision(url)
-        var currentUrl = url.thumbnail(decision.quality.size)
-        // Timber.tag("ImageCache").d("URL (loadBitmap): original=%s, modified=%s", url, currentUrl)
-        var lastError: String? = null
-        
-        while (currentUrl != null) {
-            val isLocalFile = currentUrl.startsWith("file://") || currentUrl.startsWith("/")
-            val maxSize = if (isLocalFile) 1000 else Int.MAX_VALUE
-            
-            val requestBuilder = ImageRequest.Builder(appContext())
-                .data(currentUrl)
-                .diskCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(currentUrl, decision.quality))
-                .allowHardware(allowHardware)
-            
-            if (isLocalFile) {
-                requestBuilder.size(maxSize, maxSize)
-            }
-            
-            val request = requestBuilder.build()
-                
-            val result = LOADER.execute(request)
-            if (result.image != null) {
-                val dataSource = (result as? SuccessResult)?.dataSource
-                
-                if (dataSource != null && dataSource != DataSource.MEMORY_CACHE) {
-                    val id = currentUrl.getYouTubeId()
-                    if (id != null) {
-                        PlaylistThumbnailStore.save(id, currentUrl, currentUrl.isYouTubeHighRes())
-                    }
-                }
-                if (decision.useNetwork) {
-                    CacheMetadataStore.save(url, decision.quality)
-                }
-                return result.image?.toBitmap() ?: run {
-                    Timber.w("Null bitmap for image result")
-                    return null
-                }
-            }
-            
-            lastError = (result as? ErrorResult)?.throwable?.message ?: appContext().resources.getString(R.string.unknown_error)
-            //Timber.tag("ImageCache").e("Error (loadBitmap): original=%s, modified=%s, error=%s", url, currentUrl, lastError)
-            
-            // Un-swap fallback for loadBitmap
-            val id = currentUrl.getYouTubeId()
-            if (currentUrl != url && id != null && (currentUrl.contains("pl_c") || currentUrl.contains("podcasts"))) {
-                
-                clearCacheForKey(currentUrl, decision.quality)
-                PlaylistThumbnailStore.clear(id)
-                currentUrl = url
-                continue
-            }
-
-            if (lastError.contains("404") && currentUrl.contains("i.ytimg.com/vi/")) {
-                val fallback = currentUrl.getNextYouTubeFallback()
-                if (fallback != null) {
-
-                    currentUrl = fallback
-                    continue
-                }
-            }
-            break
-        }
-        
         return null
     }
 
     suspend fun preloadImage(thumbnailUrl: String?) {
-        if (thumbnailUrl.isNullOrBlank() || thumbnailUrl == "null") {
-            return
-        }
-        
-        val decision = getDownloadDecision(thumbnailUrl)
-        val finalUrl = thumbnailUrl.thumbnail(decision.quality.size)
-        // Timber.tag("ImageCache").d("URL (preload): original=%s, modified=%s", thumbnailUrl, finalUrl)
-        
-        suspend fun executeWithFallback(url: String) {
-            val request = ImageRequest.Builder(appContext())
-                .data(url)
-                .diskCacheKey(generateCacheKeySync(url, decision.quality))
-                .memoryCacheKey(generateCacheKeySync(url, decision.quality))
-                .build()
-
-            val result = LOADER.execute(request)
-            if (result is SuccessResult) {
-                if (decision.useNetwork) {
-                    CacheMetadataStore.save(thumbnailUrl, decision.quality)
-                }
-            } else if (result is ErrorResult) {
-                val errorMsg = result.throwable.message ?: ""
-                // Timber.tag("ImageCache").e(result.throwable, "Error (preload): original=%s, modified=%s, error=%s", thumbnailUrl, url, errorMsg)
-                if (errorMsg.contains("404") && url.contains("i.ytimg.com/vi/")) {
-                    val fallback = url.getNextYouTubeFallback()
-                    if (fallback != null) {
-                        executeWithFallback(fallback)
-                    }
-                }
-            }
-        }
-        
-        if (finalUrl != null) executeWithFallback(finalUrl)
     }
 
     fun isImageCached(thumbnailUrl: String?): Boolean = CacheMetadataStore.get(thumbnailUrl ?: "") != null

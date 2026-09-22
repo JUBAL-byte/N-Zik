@@ -294,20 +294,7 @@ object NZikWidgetManager {
     }
 
     private suspend fun loadAlbumArt(context: Context, artworkUri: String, size: Int = 200): Bitmap? {
-        return withContext(NzikDispatchers.DATA) {
-            try {
-                val request = ImageRequest.Builder(context)
-                    .data(artworkUri)
-                    .size(size, size)
-                    .allowHardware(false)
-                    .crossfade(300)
-                    .build()
-                val result = getImageLoader(context).execute(request)
-                result.image?.toBitmap()
-            } catch (e: Exception) {
-                null
-            }
-        }
+        return null
     }
 
     private fun getRoundedCornerBitmap(bitmap: Bitmap, cornerRadius: Float): Bitmap {

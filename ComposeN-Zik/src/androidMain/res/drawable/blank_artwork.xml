@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawn wherever a cover would have been. A neutral grey at low
+     opacity, so it reads correctly on a light or a dark theme. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1F808080" />
+</shape>
