@@ -51,7 +51,15 @@ class CoilBitmapLoader(
                 }
             }
             
-            bitmap ?: error("Could not load image")
+            // This build carries no artwork, so there is nothing to load here.
+            // Media3 wants a bitmap rather than a failed future - a failure
+            // shows up as a broken media notification - so hand back a blank
+            // one of the requested size.
+            bitmap ?: Bitmap.createBitmap(
+                bitmapSize.coerceAtLeast(1),
+                bitmapSize.coerceAtLeast(1),
+                Bitmap.Config.ARGB_8888
+            )
         }
 
 }
