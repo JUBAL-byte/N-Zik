@@ -1,0 +1,89 @@
+name: Jubal build
+
+# Upstream's own build workflows only run on a schedule or when started by
+# hand, and neither happens on a fork without help. This one runs on every
+# push, so a change lands and an installable APK comes back without anyone
+# opening the Actions tab.
+#
+# It builds the debug type on purpose: `full` and `minified` come out
+# unsigned and Android refuses to install those, while debug is signed by
+# Gradle's own key. It installs alongside the original app rather than over
+# it, because the debug type carries its own application id suffix.
+
+on:
+  push:
+    branches: [main, jubal-no-artwork]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jubal-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Read the version code
+        id: version
+        run: |
+          code=$(grep -E '^\s*nzikVersionCode\s*=' gradle/libs.versions.toml | awk -F '"' '{print $2}')
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "version code: $code"
+
+      # The build expects release notes to exist as a raw resource.
+      - name: Put the changelog where the build looks for it
+        run: |
+          mkdir -p ComposeN-Zik/src/androidMain/res/raw
+          notes="Updater/changelogs/${{ steps.version.outputs.code }}.txt"
+          if [ -f "$notes" ]; then
+            cp "$notes" ComposeN-Zik/src/androidMain/res/raw/release_notes.txt
+          else
+            echo "No changelog for this version." > ComposeN-Zik/src/androidMain/res/raw/release_notes.txt
+          fi
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "corretto"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        id: gradle
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Show what came out
+        if: always()
+        run: ls -lR ComposeN-Zik/build/outputs/apk 2>&1 || echo "(no apk directory)"
+
+      - name: Publish the APK
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jubal-${{ github.run_number }}
+          name: Jubal ${{ github.run_number }}
+          body: |
+            N-Zik with artwork removed. Install the .apk below.
+
+            Built from ${{ github.sha }}. This is a debug-signed build, so it
+            installs beside the original app instead of replacing it.
+          files: ComposeN-Zik/build/outputs/apk/debug/*.apk
+
+      - name: Keep the APK and the logs either way
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jubal-apk
+          path: ComposeN-Zik/build/outputs/apk/**/*.apk
+          if-no-files-found: warn
+          retention-days: 30
