@@ -1,14 +1,17 @@
 name: Jubal build
 
-# Upstream's own build workflows only run on a schedule or when started by
-# hand, and neither happens on a fork without help. This one runs on every
-# push, so a change lands and an installable APK comes back without anyone
-# opening the Actions tab.
+# Builds the release type and signs it, so the app runs at full speed and
+# every new build installs over the previous one instead of asking to be
+# uninstalled first.
 #
-# It builds the debug type on purpose: `full` and `minified` come out
-# unsigned and Android refuses to install those, while debug is signed by
-# Gradle's own key. It installs alongside the original app rather than over
-# it, because the debug type carries its own application id suffix.
+# The debug type this used to build is deliberately gone: Android limits JIT
+# compilation for a debuggable app, and Compose adds its own instrumentation
+# on top, which is what made the interface lag.
+#
+# The signing key lives in jubal/jubal-key.jks in this repository, with its
+# password below. That is a deliberate trade for a personal build: it means
+# nothing has to be configured anywhere for a build to work. See
+# jubal/README.md before distributing this app to anyone else.
 
 on:
   push:
@@ -21,6 +24,11 @@ permissions:
 concurrency:
   group: jubal-build-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  KEYSTORE: jubal/jubal-key.jks
+  KEY_ALIAS: jubal
+  KEY_PASSWORD: jubal-2026-key
 
 jobs:
   build:
@@ -37,9 +45,7 @@ jobs:
         run: |
           code=$(grep -E '^\s*nzikVersionCode\s*=' gradle/libs.versions.toml | awk -F '"' '{print $2}')
           echo "code=$code" >> "$GITHUB_OUTPUT"
-          echo "version code: $code"
 
-      # The build expects release notes to exist as a raw resource.
       - name: Put the changelog where the build looks for it
         run: |
           mkdir -p ComposeN-Zik/src/androidMain/res/raw
@@ -59,12 +65,42 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        id: gradle
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleFull --no-daemon --stacktrace
 
       - name: Show what came out
         if: always()
         run: ls -lR ComposeN-Zik/build/outputs/apk 2>&1 || echo "(no apk directory)"
+
+      # Signed with the Android SDK's own tools rather than a third-party
+      # action, so there is one less moving part to break.
+      - name: Sign
+        run: |
+          set -euo pipefail
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          echo "using $tools"
+          mkdir -p signed
+          shopt -s nullglob
+          found=0
+          for apk in ComposeN-Zik/build/outputs/apk/full/*.apk; do
+            found=1
+            name="$(basename "$apk" .apk)"
+            name="${name%-unsigned}"
+            "$tools/zipalign" -p -f 4 "$apk" "signed/$name.aligned"
+            "$tools/apksigner" sign \
+              --ks "$KEYSTORE" \
+              --ks-pass "pass:$KEY_PASSWORD" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --out "signed/$name.apk" \
+              "signed/$name.aligned"
+            rm -f "signed/$name.aligned"
+            "$tools/apksigner" verify --print-certs "signed/$name.apk" | head -n 4
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "Gradle produced no APK to sign."
+            exit 1
+          fi
+          ls -l signed/
 
       - name: Publish the APK
         if: success()
@@ -75,15 +111,18 @@ jobs:
           body: |
             N-Zik with artwork removed. Install the .apk below.
 
-            Built from ${{ github.sha }}. This is a debug-signed build, so it
-            installs beside the original app instead of replacing it.
-          files: ComposeN-Zik/build/outputs/apk/debug/*.apk
+            Built from ${{ github.sha }}. A signed release build: noticeably
+            faster than the earlier debug ones, and it installs over the
+            previous Jubal without uninstalling first.
+          files: signed/*.apk
 
-      - name: Keep the APK and the logs either way
+      - name: Keep the APK either way
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jubal-apk
-          path: ComposeN-Zik/build/outputs/apk/**/*.apk
+          path: |
+            signed/*.apk
+            ComposeN-Zik/build/outputs/apk/**/*.apk
           if-no-files-found: warn
           retention-days: 30
